@@ -16,17 +16,25 @@ class ContactController extends Controller
      */
     public function store(ContactRequest $request): JsonResponse
     {
-        $validated = $request->validated();
+        try {
+            $validated = $request->validated();
 
-        // Store the inquiry
-        $contact = ContactUs::create($validated);
+            // Store the inquiry
+            $contact = ContactUs::create($validated);
 
-        // Notify admins via queue (non-blocking)
-        SendContactNotification::dispatch($contact);
+            // Notify admins via queue (non-blocking)
+            SendContactNotification::dispatch($contact);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Thank you for your message. We will get back to you soon.',
-        ], 200);
+            return response()->json([
+                'success' => true,
+                'message' => 'Thank you for your message. We will get back to you soon.',
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to submit contact form',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 }

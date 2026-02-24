@@ -134,123 +134,123 @@ class BookingController extends Controller
         try {
             $checkIn  = Carbon::createFromFormat('M d, Y', $validated['check_in'])->startOfDay();
             $checkOut = Carbon::createFromFormat('M d, Y', $validated['check_out'])->endOfDay();
+
+            // Logical date validation
+            if ($checkOut->lt($checkIn)) {
+                return response()->json([
+                    'message' => 'Invalid date range',
+                    'error'   => 'Check-out cannot be before check-in',
+                ], 422);
+            }
+
+            // Store Guest first
+            $guest = Guest::store($request);
+
+            $roomIds = $hasRooms
+                ? collect($validated['rooms'])
+                    ->map(function ($room) {
+                        if (is_array($room)) {
+                            return $room['id'] ?? ($room[0] ?? null);
+                        }
+                        return $room;
+                    })
+                    ->filter()
+                    ->map(fn ($id) => (int) $id)
+                    ->values()
+                    ->all()
+                : [];
+
+            $venueIds = $hasVenues
+                ? collect($validated['venues'])
+                    ->map(fn ($id) => (int) $id)
+                    ->filter()
+                    ->values()
+                    ->all()
+                : [];
+
+            // Fail early if any provided room does not actually exist
+            if ($hasRooms) {
+                $existingRoomIds = Room::whereIn('id', $roomIds)->pluck('id')->all();
+                if (count($existingRoomIds) !== count($roomIds)) {
+                    return response()->json([
+                        'message' => 'One or more selected rooms do not exist',
+                    ], 422);
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | Prevent booking conflict: no double-booking within date range
+                |--------------------------------------------------------------------------
+                */
+                $availableRoomIds = Room::whereIn('id', $roomIds)
+                    ->availableBetween($checkIn, $checkOut)
+                    ->pluck('id')
+                    ->all();
+                $conflictingRoomIds = array_values(array_diff($roomIds, $availableRoomIds));
+
+                if (!empty($conflictingRoomIds)) {
+                    $conflictingRooms = Room::whereIn('id', $conflictingRoomIds)->get(['id', 'name']);
+                    return response()->json([
+                        'message' => 'Booking conflict: one or more rooms are already booked for the selected dates.',
+                        'error'   => 'date_range_conflict',
+                        'conflicts' => [
+                            'rooms' => $conflictingRooms->map(fn ($r) => ['id' => $r->id, 'name' => $r->name])->values()->all(),
+                        ],
+                    ], 422);
+                }
+            }
+
+            if ($hasVenues) {
+                $availableVenueIds = Venue::whereIn('id', $venueIds)
+                    ->availableBetween($checkIn, $checkOut)
+                    ->pluck('id')
+                    ->all();
+                $conflictingVenueIds = array_values(array_diff($venueIds, $availableVenueIds));
+
+                if (!empty($conflictingVenueIds)) {
+                    $conflictingVenues = Venue::whereIn('id', $conflictingVenueIds)->get(['id', 'name']);
+                    return response()->json([
+                        'message' => 'Booking conflict: one or more venues are already booked for the selected dates.',
+                        'error'   => 'date_range_conflict',
+                        'conflicts' => [
+                            'venues' => $conflictingVenues->map(fn ($v) => ['id' => $v->id, 'name' => $v->name])->values()->all(),
+                        ],
+                    ], 422);
+                }
+            }
+
+            // Single booking row; attach multiple rooms and venues
+            $booking = Booking::create([
+                'guest_id'          => $guest->id,
+                'reference_number'  => $validated['reference_number'] ?? null, // model auto-generates if null
+                'check_in'          => $checkIn,
+                'check_out'         => $checkOut,
+                'no_of_days'        => $validated['days'],
+                'total_price'       => $validated['total_price'],
+                'status'            => 'unpaid',
+            ]);
+
+            if (!empty($roomIds)) {
+                $booking->rooms()->attach($roomIds);
+            }
+            if (!empty($venueIds)) {
+                $booking->venues()->attach($venueIds);
+            }
+
+            $booking->load(['guest', 'rooms', 'venues']);
+
+            return response()->json([
+                'message' => 'Booking created successfully',
+                'guest'   => $guest,
+                'booking' => $booking,
+                'total_price' => $validated['total_price'],
+            ], 201);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Invalid date format',
-                'error'   => 'Expected format: Jan 20, 2026'
-            ], 422);
+                'message' => 'Failed to create booking',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        // Logical date validation
-        if ($checkOut->lt($checkIn)) {
-            return response()->json([
-                'message' => 'Invalid date range',
-                'error'   => 'Check-out cannot be before check-in',
-            ], 422);
-        }
-
-        // Store Guest first
-        $guest = Guest::store($request);
-
-        $roomIds = $hasRooms
-            ? collect($validated['rooms'])
-                ->map(function ($room) {
-                    if (is_array($room)) {
-                        return $room['id'] ?? ($room[0] ?? null);
-                    }
-                    return $room;
-                })
-                ->filter()
-                ->map(fn ($id) => (int) $id)
-                ->values()
-                ->all()
-            : [];
-
-        $venueIds = $hasVenues
-            ? collect($validated['venues'])
-                ->map(fn ($id) => (int) $id)
-                ->filter()
-                ->values()
-                ->all()
-            : [];
-
-        // Fail early if any provided room does not actually exist
-        if ($hasRooms) {
-            $existingRoomIds = Room::whereIn('id', $roomIds)->pluck('id')->all();
-            if (count($existingRoomIds) !== count($roomIds)) {
-                return response()->json([
-                    'message' => 'One or more selected rooms do not exist',
-                ], 422);
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | Prevent booking conflict: no double-booking within date range
-            |--------------------------------------------------------------------------
-            */
-            $availableRoomIds = Room::whereIn('id', $roomIds)
-                ->availableBetween($checkIn, $checkOut)
-                ->pluck('id')
-                ->all();
-            $conflictingRoomIds = array_values(array_diff($roomIds, $availableRoomIds));
-
-            if (!empty($conflictingRoomIds)) {
-                $conflictingRooms = Room::whereIn('id', $conflictingRoomIds)->get(['id', 'name']);
-                return response()->json([
-                    'message' => 'Booking conflict: one or more rooms are already booked for the selected dates.',
-                    'error'   => 'date_range_conflict',
-                    'conflicts' => [
-                        'rooms' => $conflictingRooms->map(fn ($r) => ['id' => $r->id, 'name' => $r->name])->values()->all(),
-                    ],
-                ], 422);
-            }
-        }
-
-        if ($hasVenues) {
-            $availableVenueIds = Venue::whereIn('id', $venueIds)
-                ->availableBetween($checkIn, $checkOut)
-                ->pluck('id')
-                ->all();
-            $conflictingVenueIds = array_values(array_diff($venueIds, $availableVenueIds));
-
-            if (!empty($conflictingVenueIds)) {
-                $conflictingVenues = Venue::whereIn('id', $conflictingVenueIds)->get(['id', 'name']);
-                return response()->json([
-                    'message' => 'Booking conflict: one or more venues are already booked for the selected dates.',
-                    'error'   => 'date_range_conflict',
-                    'conflicts' => [
-                        'venues' => $conflictingVenues->map(fn ($v) => ['id' => $v->id, 'name' => $v->name])->values()->all(),
-                    ],
-                ], 422);
-            }
-        }
-
-        // Single booking row; attach multiple rooms and venues
-        $booking = Booking::create([
-            'guest_id'          => $guest->id,
-            'reference_number'  => $validated['reference_number'] ?? null, // model auto-generates if null
-            'check_in'          => $checkIn,
-            'check_out'         => $checkOut,
-            'no_of_days'        => $validated['days'],
-            'total_price'       => $validated['total_price'],
-            'status'            => 'unpaid',
-        ]);
-
-        if (!empty($roomIds)) {
-            $booking->rooms()->attach($roomIds);
-        }
-        if (!empty($venueIds)) {
-            $booking->venues()->attach($venueIds);
-        }
-
-        $booking->load(['guest', 'rooms', 'venues']);
-
-        return response()->json([
-            'message' => 'Booking created successfully',
-            'guest'   => $guest,
-            'booking' => $booking,
-            'total_price' => $validated['total_price'],
-        ], 201);
     }
 
     /**
