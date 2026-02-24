@@ -15,6 +15,9 @@ return new class extends Migration
             $table->id();
             $table->date('date')->unique(); 
             $table->string('reason')->nullable();
+            $table->enum('type', ['all', 'venue', 'room'])->default('all');
+            $table->unsignedBigInteger('venue_id')->onDelete('cascade')->nullable();
+            $table->unsignedBigInteger('room_id')->onDelete('cascade')->nullable();
             $table->timestamps();
         });
 

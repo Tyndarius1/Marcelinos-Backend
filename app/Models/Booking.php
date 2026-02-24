@@ -71,17 +71,17 @@ class Booking extends Model
         /**
          * Send testimonial feedback email immediately when status changes to completed
          */
-        static::updated(function (Booking $booking) {
-            if (
-                $booking->status === Booking::STATUS_COMPLETED &&
-                $booking->guest && $booking->guest->email &&
-                !$booking->testimonial_feedback_sent_at
-            ) {
-                \Illuminate\Support\Facades\Mail::to($booking->guest->email)
-                    ->send(new \App\Mail\TestimonialFeedbackEmail($booking));
-                $booking->updateQuietly(['testimonial_feedback_sent_at' => now()]);
-            }
-        });
+        // static::updated(function (Booking $booking) {
+        //     if (
+        //         $booking->status === Booking::STATUS_COMPLETED &&
+        //         $booking->guest && $booking->guest->email &&
+        //         !$booking->testimonial_feedback_sent_at
+        //     ) {
+        //         \Illuminate\Support\Facades\Mail::to($booking->guest->email)
+        //             ->send(new \App\Mail\TestimonialFeedbackEmail($booking));
+        //         $booking->updateQuietly(['testimonial_feedback_sent_at' => now()]);
+        //     }
+        // });
         // ...existing code...
     }
 
