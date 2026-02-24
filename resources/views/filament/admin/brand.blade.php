@@ -5,7 +5,7 @@
      "
      class="flex items-center">
 
-    <img src="https://marcelinos-backend.test/brand-logo.png" 
+    <img src="https://marcelinos-backend.test/brand-logo.webp" 
          alt="Marcelino's Logo" 
          class="h-12 w-auto object-contain">
 
