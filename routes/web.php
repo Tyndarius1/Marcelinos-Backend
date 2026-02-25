@@ -2,6 +2,24 @@
 
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Response;
+
+Route::get('/qr-image/{filename}', function ($filename) {
+    $path = "qr/bookings/{$filename}";
+
+    if (!Storage::disk('public')->exists($path)) {
+        abort(404);
+    }
+
+    $file = Storage::disk('public')->get($path);
+    $type = Storage::disk('public')->mimeType($path);
+
+    return Response::make($file, 200, [
+        'Content-Type' => $type,
+        'Access-Control-Allow-Origin' => '*',
+    ]);
+});
 
 Route::redirect('/', '/login');
 
