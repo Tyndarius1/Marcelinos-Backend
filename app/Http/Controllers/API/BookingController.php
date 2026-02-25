@@ -99,13 +99,17 @@ class BookingController extends Controller
 
             $hasTestimonial = $booking->reviews()->exists();
 
-            return response()->json([
-                'booking' => $booking,
-                'qr_code_url' => $booking->qr_code
-                    ? Storage::disk('public')->url($booking->qr_code)
-                    : null,
-                'has_testimonial' => $hasTestimonial,
-            ], 200);
+          $filename = $booking->qr_code
+            ? basename($booking->qr_code)
+            : null;
+
+        return response()->json([
+            'booking' => $booking,
+            'qr_code_url' => $filename
+                ? url("/qr-image/{$filename}")
+                : null,
+            'has_testimonial' => $hasTestimonial,
+        ], 200);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Error retrieving booking',
