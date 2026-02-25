@@ -60,6 +60,15 @@ class BookingController extends Controller
                 'issued_on' => $issued_on->format('M d, Y'),
                 'nights' => $booking->no_of_days,
                 'guest_name' => $booking->guest->last_name . ' ' . $booking->guest->first_name,
+                'guest_email' => $booking->guest->email,
+                'guest_contact' => $booking->guest->contact_num,
+                'guest_address' => implode(', ', array_filter([
+                    $booking->guest->barangay,
+                    $booking->guest->municipality,
+                    $booking->guest->province,
+                    $booking->guest->region,
+                    $booking->guest->country,
+                ])),
                 'rooms' => $booking->rooms->map(fn ($room) => [
                     'name' => $room->name,
                     'type' => $room->type,
