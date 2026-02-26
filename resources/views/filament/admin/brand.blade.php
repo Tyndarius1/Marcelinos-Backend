@@ -5,9 +5,12 @@
      "
      class="flex items-center justify-center align-center">
 
-    <img src="{{ asset('brand-logo.webp') }}"
-         alt="Marcelino's Logo" 
-         class="h-11 mb-2 w-auto object-contain">
+    <img
+        src="{{ asset('brand-logo.webp') }}"
+        alt="Marcelino's Logo"
+        style="height: 48px; width: auto;"
+        loading="lazy"
+    >
 
     <div class="ml-2 leading-tight">
         <div 
