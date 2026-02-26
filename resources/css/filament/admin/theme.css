@@ -3,28 +3,20 @@
 @source '../../../../app/Filament/**/*';
 @source '../../../../resources/views/filament/**/*';
 
-@tailwind base;
 @tailwind components;
-@tailwind utilities;
 
 
-
-
-@layer components {
-    /* make the sidebar a little narrower than the Filament default */
-    .fi-sidebar {
-        /* default is around 16rem; we trim it down to 14rem to make it "gamyang" smaller */
-        width: 15rem !important;
-    }
-
-
-    /* Hide scrollbar for the sidebar navigation specifically */
+/* Hide scrollbar for the sidebar navigation specifically */
 .fi-sidebar-nav {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;     /* Firefox */
+    -ms-overflow-style: none;  
+    scrollbar-width: none;     
 }
 
 .fi-sidebar-nav::-webkit-scrollbar {
-    display: none;             /* Chrome, Safari, and Opera */
+    display: none;            
 }
+
+ /* make the sidebar a little narrower than the Filament default */
+.fi-sidebar {
+    width: 120%;
 }
