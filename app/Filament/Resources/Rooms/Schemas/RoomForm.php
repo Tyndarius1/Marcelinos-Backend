@@ -58,6 +58,23 @@ class RoomForm
                 Select::make('type')
                     ->options(Room::typeOptions())
                     ->required(),
+                TextInput::make('bed_count') 
+                ->label('Number of Beds') 
+                ->numeric() 
+                ->minValue(1) 
+                ->default(1) 
+                ->required(), 
+
+            Select::make('bed_type') 
+                ->label('Bed Type') 
+                ->options([ 
+                    'single' => 'Single', 
+                    'double' => 'Double', 
+                    'queen' => 'Queen', 
+                    'king' => 'King', 
+                ]) 
+                ->searchable()
+                ->required(),
                 TextInput::make('price')->required()->numeric()->prefix('₱'),
                 Select::make('status')
                     ->options(Room::statusOptions())
