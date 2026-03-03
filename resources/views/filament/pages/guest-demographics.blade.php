@@ -1,7 +1,12 @@
 <x-filament-panels::page>
     <style>
-        /* Only hide Filament UI chrome when printing */
+        /* Fix backgrounds when printing */
         @media print {
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important;
+            }
 
             .fi-topbar,
             .fi-sidebar,
@@ -20,21 +25,44 @@
                 max-width: none !important;
             }
 
+            /* Force light scheme layout to override inherited dark mode */
+            :root {
+                color-scheme: light !important;
+            }
+
+            /* Forcibly strip backend framework dark backgrounds inside DOM wrappers */
+            body, html, main, section, 
+            .fi-app, .fi-layout, .fi-main, .fi-main-ctn, .fi-page, .filament-page, 
+            .dark, [class*="bg-gray-"], [class*="bg-slate-"], [class*="dark:bg-"] {
+                background: transparent !important;
+                background-color: white !important;
+                color: black !important;
+            }
+
             body,
             html {
-                background: white !important;
                 margin: 0 !important;
                 padding: 0 !important;
+            }
+
+            /* Prevent grid layouts or positioning from hiding or scrolling text */
+            .fi-main-ctn {
+                max-width: none !important;
+                overflow: visible !important;
             }
         }
     </style>
 
     {{-- Main interactive dashboard --}}
     <div id="mainDashboard">
-        <div class="flex justify-end no-print mb-6">
+        <div class="flex justify-end gap-2 no-print mb-6">
             <x-filament::button icon="heroicon-o-printer" onclick="triggerPrint('monthly_overview', 'null')"
+                color="primary" outlined>
+                Print Monthly Report
+            </x-filament::button>
+            <x-filament::button icon="heroicon-o-printer" onclick="triggerPrint('yearly_overview', 'null')"
                 color="primary">
-                Print Full Monthly Report
+                Print Yearly Report
             </x-filament::button>
         </div>
 
@@ -198,6 +226,15 @@
             'subtitle' => 'Month: ' . $reportMonth . '  ·  Generated: ' . now()->format('F j, Y, g:i a'),
             'localData' => $localDemographics->values(),
             'foreignData' => $foreignDemographics->values(),
+        ])
+    </div>
+
+    <div id="tpl-yearly_overview-null" style="display:none;">
+        @include('filament.pages.partials.print-report-template', [
+            'title' => 'Comprehensive Demographics Report',
+            'subtitle' => 'Year: ' . $reportYear . '  ·  Generated: ' . now()->format('F j, Y, g:i a'),
+            'localData' => $yearlyLocalDemographics->values(),
+            'foreignData' => $yearlyForeignDemographics->values(),
         ])
     </div>
 

@@ -34,6 +34,13 @@ class GuestDemographics extends Page
         $localDemographics = $monthlyDemographics->where('is_international', false);
         $foreignDemographics = $monthlyDemographics->where('is_international', true);
 
+        // Fetch a full yearly breakdown
+        $startOfYear = Carbon::now()->startOfYear();
+        $endOfYear = Carbon::now()->endOfYear();
+        $yearlyDemographics = $this->getHierarchicalData($successStatuses, $startOfYear, $endOfYear);
+        $yearlyLocalDemographics = $yearlyDemographics->where('is_international', false);
+        $yearlyForeignDemographics = $yearlyDemographics->where('is_international', true);
+
         return [
             'unpaid' => [
                 'today' => $this->getTopLocation($unpaidStatuses, Carbon::today(), Carbon::today()),
@@ -68,7 +75,10 @@ class GuestDemographics extends Page
 
             'localDemographics' => $localDemographics,
             'foreignDemographics' => $foreignDemographics,
-            'reportMonth' => Carbon::now()->format('F Y')
+            'yearlyLocalDemographics' => $yearlyLocalDemographics,
+            'yearlyForeignDemographics' => $yearlyForeignDemographics,
+            'reportMonth' => Carbon::now()->format('F Y'),
+            'reportYear' => Carbon::now()->format('Y')
         ];
     }
 
@@ -92,21 +102,36 @@ class GuestDemographics extends Page
 
     private function getTopLocation(array $statusGroup, Carbon $startDate, Carbon $endDate): ?array
     {
-        $result = Booking::select('guests.region', 'guests.province', DB::raw('count(*) as total'))
+        $topRegion = Booking::select('guests.region', DB::raw('count(*) as total'))
             ->join('guests', 'bookings.guest_id', '=', 'guests.id')
             ->whereIn('bookings.status', $statusGroup)
             ->whereBetween('bookings.check_in', [$startDate->startOfDay(), $endDate->endOfDay()])
             ->whereNotNull('guests.region')
             ->where('guests.region', '!=', '')
-            ->groupBy('guests.region', 'guests.province')
+            ->groupBy('guests.region')
             ->orderBy('total', 'desc')
             ->first();
 
-        return $result ? [
-            'name' => $result->region,
-            'sub' => $result->province,
-            'count' => $result->total
-        ] : null;
+        if (!$topRegion) {
+            return null;
+        }
+
+        $topProvince = Booking::select('guests.province', DB::raw('count(*) as total'))
+            ->join('guests', 'bookings.guest_id', '=', 'guests.id')
+            ->whereIn('bookings.status', $statusGroup)
+            ->whereBetween('bookings.check_in', [$startDate->startOfDay(), $endDate->endOfDay()])
+            ->where('guests.region', $topRegion->region)
+            ->whereNotNull('guests.province')
+            ->where('guests.province', '!=', '')
+            ->groupBy('guests.province')
+            ->orderBy('total', 'desc')
+            ->first();
+
+        return [
+            'name' => $topRegion->region,
+            'sub' => $topProvince ? $topProvince->province : null,
+            'count' => $topRegion->total
+        ];
     }
 
     public function viewBookingsAction(): \Filament\Actions\Action
