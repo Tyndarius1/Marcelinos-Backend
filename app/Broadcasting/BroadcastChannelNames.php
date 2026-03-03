@@ -50,4 +50,9 @@ final class BroadcastChannelNames
     {
         return 'reviews';
     }
+
+    public static function bookingCancelled(string $reference): string 
+    { 
+        return "booking.{$reference}.cancelled"; 
+    }
 }
