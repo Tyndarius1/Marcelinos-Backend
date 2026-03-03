@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Events\BookingCancelled;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\API\StoreBookingRequest;
 use App\Models\Booking;
@@ -319,6 +320,8 @@ class BookingController extends Controller
             $booking->update([
                 'status' => 'cancelled'
             ]);
+
+            broadcast(new BookingCancelled($booking))->toOthers();
 
             return response()->json([
                 'message' => 'Booking cancelled successfully.',

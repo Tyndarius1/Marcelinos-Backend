@@ -38,3 +38,8 @@ Broadcast::channel(
         return in_array($user->role ?? null, ['admin', 'staff'], true);
     }
 );
+
+Broadcast::channel('booking.{reference}.cancelled', function ($user, string $reference) { 
+    return in_array($user->role ?? null, ['admin', 'staff'], true) 
+        || true; // allow guest if needed 
+});
