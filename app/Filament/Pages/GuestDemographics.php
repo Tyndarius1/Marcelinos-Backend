@@ -59,4 +59,47 @@ class GuestDemographics extends Page
             'count' => $result->total
         ] : null;
     }
+
+    public function viewBookingsAction(): \Filament\Actions\Action
+    {
+        return \Filament\Actions\Action::make('viewBookings')
+            ->modalHeading(function (array $arguments) {
+                $period = str_replace('_', ' ', $arguments['period'] ?? '');
+                $type = $arguments['type'] ?? '';
+                return 'Booking Details (' . ucwords($type) . ' - ' . ucwords($period) . ')';
+            })
+            ->modalContent(function (array $arguments) {
+                $period = $arguments['period'] ?? 'today';
+                $type = $arguments['type'] ?? 'unpaid';
+
+                $statuses = $type === 'unpaid'
+                    ? [Booking::STATUS_UNPAID]
+                    : [Booking::STATUS_PAID, Booking::STATUS_CONFIRMED, Booking::STATUS_COMPLETED, Booking::STATUS_OCCUPIED];
+
+                $dates = $this->getDateRangeForPeriod($period);
+
+                $bookings = Booking::with('guest')
+                    ->whereIn('status', $statuses)
+                    ->whereBetween('check_in', [$dates[0]->startOfDay(), $dates[1]->endOfDay()])
+                    ->orderBy('check_in', 'asc')
+                    ->get();
+
+                return view('filament.pages.demographics-details-modal', [
+                    'bookings' => $bookings,
+                ]);
+            })
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Close');
+    }
+
+    private function getDateRangeForPeriod($period)
+    {
+        return match ($period) {
+            'today' => [Carbon::today(), Carbon::today()],
+            'next_7_days' => [Carbon::tomorrow(), Carbon::today()->addDays(7)],
+            'this_month' => [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()],
+            'next_month' => [Carbon::now()->addMonth()->startOfMonth(), Carbon::now()->addMonth()->endOfMonth()],
+            default => [Carbon::today(), Carbon::today()]
+        };
+    }
 }
