@@ -188,7 +188,7 @@
                     'localData' => $repLocal,
                     'foreignData' => $repForeign,
                 ])
-                    </div>
+                            </div>
         @endforeach
     @endforeach
 
