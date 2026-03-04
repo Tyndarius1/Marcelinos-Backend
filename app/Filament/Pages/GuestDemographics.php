@@ -154,16 +154,17 @@ class GuestDemographics extends Page
 
                 $bookings = Booking::with('guest')
                     ->join('guests', 'bookings.guest_id', '=', 'guests.id')
-                    ->select('bookings.*') // make sure we get booking model attributes correctly
+                    ->select('bookings.*')
                     ->whereIn('bookings.status', $statuses)
                     ->whereBetween('bookings.check_in', [$dates[0]->startOfDay(), $dates[1]->endOfDay()])
-                    // Order by region, then province, then municipality
                     ->orderByRaw("guests.region DESC, guests.province DESC, guests.municipality DESC, bookings.check_in ASC")
                     ->get();
 
-                return view('filament.pages.demographics-details-modal', [
-                    'bookings' => $bookings,
-                ]);
+                return new \Illuminate\Support\HtmlString(
+                    view('filament.pages.demographics-details-modal', [
+                        'bookings' => $bookings,
+                    ])->render()
+                );
             })
             ->modalSubmitAction(false)
             ->modalCancelActionLabel('Close');
