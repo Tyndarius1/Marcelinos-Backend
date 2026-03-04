@@ -5,8 +5,11 @@ namespace App\Filament\Resources\Bookings\Tables;
 use App\Filament\Exports\BookingExporter;
 use App\Models\Booking;
 use Carbon\Carbon;
+use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
+use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Actions\ExportAction;
@@ -31,7 +34,9 @@ class BookingsTable
             ->columns([
                 TextColumn::make('reference_number')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->copyable()
+                    ->copyMessage('Reference copied.'),
 
                 TextColumn::make('guest.first_name')
                     ->label('Guest')
@@ -47,21 +52,75 @@ class BookingsTable
                     })
                     ->sortable(),
 
+                TextColumn::make('guest.email')
+                    ->label('Email')
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        return $query->whereHas('guest', function (Builder $guestQuery) use ($search): void {
+                            $guestQuery->where('email', 'like', "%{$search}%");
+                        });
+                    })
+                    ->copyable()
+                    ->copyMessage('Email copied.'),
+
                 TextColumn::make('check_in')
-                    ->date()
+                    ->label('Check-in')
+                    ->dateTime('M d, Y g:i A')
                     ->sortable(),
 
                 TextColumn::make('check_out')
-                    ->date()
+                    ->label('Check-out')
+                    ->dateTime('M d, Y g:i A')
+                    ->sortable(),
+
+                TextColumn::make('no_of_days')
+                    ->label('Nights')
+                    ->numeric()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('rooms.name')
+                    ->label('Rooms')
+                    ->formatStateUsing(fn ($record) => $record->rooms?->pluck('name')->filter()->implode(', ') ?: '—')
+                    ->wrap()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('venues.name')
+                    ->label('Venues')
+                    ->formatStateUsing(fn ($record) => $record->venues?->pluck('name')->filter()->implode(', ') ?: '—')
+                    ->wrap()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('total_price')
+                    ->label('Total')
+                    ->money('PHP', true)
                     ->sortable(),
 
                 BadgeColumn::make('status')
                     ->colors(Booking::statusColors())
                     ->sortable(),
+
+                TextColumn::make('created_at')
+                    ->label('Created')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('status')
                     ->options(Booking::statusOptions()),
+                SelectFilter::make('room')
+                    ->label('Room')
+                    ->relationship('rooms', 'name')
+                    ->multiple()
+                    ->preload()
+                    ->searchable(),
+                SelectFilter::make('venue')
+                    ->label('Venue')
+                    ->relationship('venues', 'name')
+                    ->multiple()
+                    ->preload()
+                    ->searchable(),
                 Filter::make('booking_dates')
                     ->label('Filter by Dates')
                     ->form([
@@ -138,7 +197,47 @@ class BookingsTable
                 ActionGroup::make([
                     ViewAction::make(),
                     EditAction::make(),
+                    Action::make('markPaid')
+                        ->label('Mark as paid')
+                        ->icon('heroicon-o-banknotes')
+                        ->color('info')
+                        ->requiresConfirmation()
+                        ->visible(fn (Booking $record) => in_array($record->status, [Booking::STATUS_UNPAID, Booking::STATUS_CONFIRMED], true))
+                        ->action(fn (Booking $record) => $record->update(['status' => Booking::STATUS_PAID])),
+                    Action::make('confirm')
+                        ->label('Confirm')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->visible(fn (Booking $record) => $record->status === Booking::STATUS_UNPAID)
+                        ->action(fn (Booking $record) => $record->update(['status' => Booking::STATUS_CONFIRMED])),
+                    Action::make('checkIn')
+                        ->label('Check-in')
+                        ->icon('heroicon-o-arrow-right-circle')
+                        ->color('warning')
+                        ->requiresConfirmation()
+                        ->visible(fn (Booking $record) => in_array($record->status, [Booking::STATUS_CONFIRMED, Booking::STATUS_PAID], true))
+                        ->action(fn (Booking $record) => $record->update(['status' => Booking::STATUS_OCCUPIED])),
+                    Action::make('complete')
+                        ->label('Complete')
+                        ->icon('heroicon-o-flag')
+                        ->color('secondary')
+                        ->requiresConfirmation()
+                        ->visible(fn (Booking $record) => $record->status === Booking::STATUS_OCCUPIED)
+                        ->action(fn (Booking $record) => $record->update(['status' => Booking::STATUS_COMPLETED])),
+                    Action::make('cancel')
+                        ->label('Cancel')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->visible(fn (Booking $record) => ! in_array($record->status, [Booking::STATUS_CANCELLED, Booking::STATUS_COMPLETED], true))
+                        ->action(fn (Booking $record) => $record->update(['status' => Booking::STATUS_CANCELLED])),
                     DeleteAction::make(),
+                ]),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }

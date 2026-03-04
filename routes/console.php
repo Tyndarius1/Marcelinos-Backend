@@ -21,7 +21,7 @@ Artisan::command('inspire', function () {
 
 // Free rooms: mark occupied bookings that checked out today as complete.
 Schedule::command('bookings:complete-checkouts')
-    ->dailyAt('10:00')
+    ->everyMinute()
     ->timezone('Asia/Manila');
 
 // Send Testimonial Feedback: send testimonial feedback email to guests 1 day after their booking is completed.

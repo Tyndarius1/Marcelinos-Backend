@@ -97,15 +97,95 @@
 
     {{-- Main interactive dashboard --}}
     <div id="mainDashboard">
-        <div class="flex justify-end gap-2 no-print mb-6">
-            <x-filament::button icon="heroicon-o-printer" onclick="triggerPrint('monthly_overview', 'null')"
-                color="primary" outlined>
-                Print Monthly Report
-            </x-filament::button>
-            <x-filament::button icon="heroicon-o-printer" onclick="triggerPrint('yearly_overview', 'null')"
-                color="primary">
-                Print Yearly Report
-            </x-filament::button>
+        <div class="no-print mb-6" x-data="{ preset: @entangle('overviewPreset') }">
+            <x-filament::section icon="heroicon-m-printer" icon-color="success">
+                <x-slot name="heading">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-2">
+                        <div>
+                            <div class="text-sm font-semibold text-gray-900 dark:text-gray-50">
+                                Print Tourism Demographics Report
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                Choose a month, year, or custom dates to generate a printable tourism report.
+                            </p>
+                        </div>
+                        <button
+                            class="px-3 py-1.5 rounded-lg text-xs font-bold bg-success-500 text-white hover:bg-success-600 transition-colors flex items-center gap-1.5">
+                            <x-filament::icon icon="heroicon-m-printer" class="w-4 h-4" />
+                            <span class="uppercase tracking-wide text-[11px]"
+                                onclick="triggerPrint('overview_selected', 'null')">Print Selected</span>
+                        </button>
+                    </div>
+                </x-slot>
+
+                <div class="grid grid-cols-1 gap-3 lg:grid-cols-12 lg:items-end">
+                    <div class="lg:col-span-5">
+                        <label class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Preset
+                        </label>
+                        <div
+                            class="mt-1 inline-flex w-full flex-wrap gap-2 rounded-xl bg-gray-50 px-2 py-2 text-xs dark:bg-gray-800/60">
+                            @php
+                                $presets = [
+                                    'this_month' => 'This month',
+                                    'last_month' => 'Last month',
+                                    'this_year' => 'This year',
+                                    'last_year' => 'Last year',
+                                    'custom' => 'Custom',
+                                ];
+                            @endphp
+                            @foreach ($presets as $value => $label)
+                                <button type="button"
+                                    @click="preset = '{{ $value }}'"
+                                    :class="preset === '{{ $value }}'
+                                        ? 'bg-emerald-500 text-white shadow-sm'
+                                        : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700'"
+                                    class="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide transition">
+                                    {{ $label }}
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-2" x-show="preset === 'custom'" x-cloak>
+                        <label class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            From
+                        </label>
+                        <div
+                            class="mt-1 flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus-within:ring-1 focus-within:ring-primary-500 dark:border-gray-700 dark:bg-gray-950">
+                            <x-filament::icon icon="heroicon-m-calendar-days" class="h-4 w-4 text-gray-400" />
+                            <input type="date" wire:model.live="overviewStart"
+                                class="w-full border-0 bg-transparent p-0 text-sm text-gray-900 outline-none focus:ring-0 dark:text-gray-100">
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-2" x-show="preset === 'custom'" x-cloak>
+                        <label class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            To
+                        </label>
+                        <div
+                            class="mt-1 flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus-within:ring-1 focus-within:ring-primary-500 dark:border-gray-700 dark:bg-gray-950">
+                            <x-filament::icon icon="heroicon-m-calendar-days" class="h-4 w-4 text-gray-400" />
+                            <input type="date" wire:model.live="overviewEnd"
+                                class="w-full border-0 bg-transparent p-0 text-sm text-gray-900 outline-none focus:ring-0 dark:text-gray-100">
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-3">
+                        <label class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Summary
+                        </label>
+                        <div
+                            class="mt-1 inline-flex w-full items-center justify-between gap-2 rounded-xl bg-gray-50 px-3 py-2 text-xs font-medium text-gray-700 dark:bg-gray-800/60 dark:text-gray-100">
+                            <span class="truncate">{{ $overviewLabel }}</span>
+                            <span
+                                class="inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success-700 dark:bg-success-500/15 dark:text-success-300">
+                                Selected
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </x-filament::section>
         </div>
 
         <div class="grid grid-cols-1 gap-8">
@@ -295,21 +375,12 @@
         @endforeach
     @endforeach
 
-    <div id="tpl-monthly_overview-null" style="display:none;">
+    <div id="tpl-overview_selected-null" style="display:none;">
         @include('filament.pages.partials.print-report-template', [
             'title' => 'Comprehensive Demographics Report',
-            'subtitle' => 'Month: ' . $reportMonth . '  ·  Generated: ' . now()->format('F j, Y, g:i a'),
-            'localData' => $localDemographics->values(),
-            'foreignData' => $foreignDemographics->values(),
-        ])
-    </div>
-
-    <div id="tpl-yearly_overview-null" style="display:none;">
-        @include('filament.pages.partials.print-report-template', [
-            'title' => 'Comprehensive Demographics Report',
-            'subtitle' => 'Year: ' . $reportYear . '  ·  Generated: ' . now()->format('F j, Y, g:i a'),
-            'localData' => $yearlyLocalDemographics->values(),
-            'foreignData' => $yearlyForeignDemographics->values(),
+            'subtitle' => $overviewLabel . '  ·  Generated: ' . now()->format('F j, Y, g:i a'),
+            'localData' => $overviewLocalDemographics->values(),
+            'foreignData' => $overviewForeignDemographics->values(),
         ])
     </div>
 

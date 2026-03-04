@@ -9,6 +9,7 @@ use App\Filament\Resources\Bookings\Pages\ListBookings;
 use App\Filament\Resources\Bookings\Pages\ViewBooking;
 use App\Filament\Resources\Bookings\Schemas\BookingForm;
 use App\Filament\Resources\Bookings\Tables\BookingsTable;
+use App\Filament\Widgets\BookingStatsOverview;
 use App\Models\Booking;
 use BackedEnum;
 use Illuminate\Database\Eloquent\Builder;
@@ -51,6 +52,13 @@ class BookingResource extends Resource
     {
         return [
             ReviewsRelationManager::class,
+        ];
+    }
+
+    public static function getWidgets(): array
+    {
+        return [
+            BookingStatsOverview::class,
         ];
     }
 

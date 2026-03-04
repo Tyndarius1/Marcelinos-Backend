@@ -16,6 +16,20 @@ class GuestDemographics extends Page
 
     protected string $view = 'filament.pages.guest-demographics';
 
+    public string $overviewPreset = 'this_month';
+    public ?string $overviewStart = null; // Y-m-d
+    public ?string $overviewEnd = null;   // Y-m-d
+
+    public function mount(): void
+    {
+        $this->setOverviewPresetDefaults($this->overviewPreset);
+    }
+
+    public function updatedOverviewPreset(string $value): void
+    {
+        $this->setOverviewPresetDefaults($value);
+    }
+
     protected function getViewData(): array
     {
         $unpaidStatuses = [Booking::STATUS_UNPAID];
@@ -26,17 +40,25 @@ class GuestDemographics extends Page
             Booking::STATUS_OCCUPIED
         ];
 
-        // Fetch a full monthly breakdown for the printable tourism report
+        // Overview report (calendar/presets)
+        [$overviewStart, $overviewEnd] = $this->resolveOverviewRange();
+        $overviewDemographics = $this->getHierarchicalData($successStatuses, $overviewStart, $overviewEnd);
+        $overviewLocalDemographics = $overviewDemographics->where('is_international', false);
+        $overviewForeignDemographics = $overviewDemographics->where('is_international', true);
+
+        $overviewLabel = $this->overviewLabel($overviewStart, $overviewEnd);
+
         $startOfMonth = Carbon::now()->startOfMonth();
         $endOfMonth = Carbon::now()->endOfMonth();
+        $startOfYear = Carbon::now()->startOfYear();
+        $endOfYear = Carbon::now()->endOfYear();
 
+        // Existing monthly breakdown (current month)
         $monthlyDemographics = $this->getHierarchicalData($successStatuses, $startOfMonth, $endOfMonth);
         $localDemographics = $monthlyDemographics->where('is_international', false);
         $foreignDemographics = $monthlyDemographics->where('is_international', true);
 
-        // Fetch a full yearly breakdown
-        $startOfYear = Carbon::now()->startOfYear();
-        $endOfYear = Carbon::now()->endOfYear();
+        // Existing yearly breakdown (current year)
         $yearlyDemographics = $this->getHierarchicalData($successStatuses, $startOfYear, $endOfYear);
         $yearlyLocalDemographics = $yearlyDemographics->where('is_international', false);
         $yearlyForeignDemographics = $yearlyDemographics->where('is_international', true);
@@ -78,7 +100,12 @@ class GuestDemographics extends Page
             'yearlyLocalDemographics' => $yearlyLocalDemographics,
             'yearlyForeignDemographics' => $yearlyForeignDemographics,
             'reportMonth' => Carbon::now()->format('F Y'),
-            'reportYear' => Carbon::now()->format('Y')
+            'reportYear' => Carbon::now()->format('Y'),
+
+            // New: calendar-driven overview (use this for "Print report" buttons)
+            'overviewLocalDemographics' => $overviewLocalDemographics,
+            'overviewForeignDemographics' => $overviewForeignDemographics,
+            'overviewLabel' => $overviewLabel,
         ];
     }
 
@@ -179,5 +206,66 @@ class GuestDemographics extends Page
             'next_month' => [Carbon::now()->addMonth()->startOfMonth(), Carbon::now()->addMonth()->endOfMonth()],
             default => [Carbon::today(), Carbon::today()]
         };
+    }
+
+    private function setOverviewPresetDefaults(string $preset): void
+    {
+        $now = Carbon::now();
+
+        if ($preset === 'custom') {
+            if (! $this->overviewStart) {
+                $this->overviewStart = $now->copy()->startOfMonth()->toDateString();
+            }
+            if (! $this->overviewEnd) {
+                $this->overviewEnd = $now->copy()->endOfMonth()->toDateString();
+            }
+            return;
+        }
+
+        [$start, $end] = match ($preset) {
+            'this_month' => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
+            'last_month' => [$now->copy()->subMonthNoOverflow()->startOfMonth(), $now->copy()->subMonthNoOverflow()->endOfMonth()],
+            'this_year' => [$now->copy()->startOfYear(), $now->copy()->endOfYear()],
+            'last_year' => [$now->copy()->subYear()->startOfYear(), $now->copy()->subYear()->endOfYear()],
+            default => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
+        };
+
+        $this->overviewStart = $start->toDateString();
+        $this->overviewEnd = $end->toDateString();
+    }
+
+    private function resolveOverviewRange(): array
+    {
+        $start = null;
+        $end = null;
+
+        if ($this->overviewStart) {
+            $start = Carbon::parse($this->overviewStart);
+        }
+        if ($this->overviewEnd) {
+            $end = Carbon::parse($this->overviewEnd);
+        }
+
+        $start ??= Carbon::now()->startOfMonth();
+        $end ??= Carbon::now()->endOfMonth();
+
+        if ($end->lessThan($start)) {
+            [$start, $end] = [$end, $start];
+        }
+
+        return [$start, $end];
+    }
+
+    private function overviewLabel(Carbon $start, Carbon $end): string
+    {
+        if ($start->isSameDay($start->copy()->startOfMonth()) && $end->isSameDay($start->copy()->endOfMonth())) {
+            return 'Month: ' . $start->format('F Y');
+        }
+
+        if ($start->isSameDay($start->copy()->startOfYear()) && $end->isSameDay($start->copy()->endOfYear())) {
+            return 'Year: ' . $start->format('Y');
+        }
+
+        return 'Dates: ' . $start->toDateString() . ' → ' . $end->toDateString();
     }
 }

@@ -14,14 +14,15 @@ class CompleteCheckoutBookings extends Command
      * @var string
      */
     protected $signature = 'bookings:complete-checkouts
-                            {--date= : The date (Y-m-d) to process; defaults to today}';
+                            {--date= : Legacy. The date (Y-m-d) to process; defaults to today}
+                            {--before= : Process bookings whose check_out is <= this datetime (defaults to now)}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Mark bookings with check-out date today and status occupied as complete';
+    protected $description = 'Mark occupied bookings as complete when their check-out time has passed';
 
     /**
      * Execute the console command.
@@ -29,12 +30,17 @@ class CompleteCheckoutBookings extends Command
      */
     public function handle(): int
     {
-        $date = $this->option('date')
-            ? Carbon::parse($this->option('date'))->toDateString()
-            : Carbon::today()->toDateString();
+        $before = $this->option('before')
+            ? Carbon::parse($this->option('before'))
+            : now();
+
+        // Backward compatible: if --date is provided, interpret it as "end of that day".
+        if ($this->option('date')) {
+            $before = Carbon::parse($this->option('date'))->endOfDay();
+        }
 
         $bookings = Booking::query()
-            ->whereDate('check_out', $date)
+            ->where('check_out', '<=', $before)
             ->where('status', Booking::STATUS_OCCUPIED)
             ->get();
 
@@ -45,9 +51,9 @@ class CompleteCheckoutBookings extends Command
         }
 
         if ($count > 0) {
-            $this->info("Marked {$count} booking(s) as complete for check-out date {$date}.");
+            $this->info('Marked ' . $count . ' booking(s) as complete (check_out <= ' . $before->toDateTimeString() . ').');
         } else {
-            $this->comment("No occupied bookings with check-out on {$date}.");
+            $this->comment('No occupied bookings eligible for completion (check_out <= ' . $before->toDateTimeString() . ').');
         }
 
         return self::SUCCESS;
