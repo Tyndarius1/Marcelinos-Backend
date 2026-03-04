@@ -19,11 +19,11 @@ class GuestsTable
     {
         return $table
             ->recordAction('view')
-            ->recordUrl(fn ($record) => \App\Filament\Resources\Guests\GuestResource::getUrl('view', ['record' => $record]))
+            ->recordUrl(fn($record) => \App\Filament\Resources\Guests\GuestResource::getUrl('view', ['record' => $record]))
             ->columns([
                 TextColumn::make('full_name')
                     ->label('Name')
-                    ->formatStateUsing(fn ($record) => $record->full_name)
+                    ->formatStateUsing(fn($record) => $record->full_name)
                     ->searchable(['first_name', 'middle_name', 'last_name'])
                     ->sortable(),
                 TextColumn::make('contact_num')->searchable(),
@@ -39,7 +39,7 @@ class GuestsTable
                         'warning' => Guest::GENDER_FEMALE,
                         'secondary' => Guest::GENDER_OTHER,
                     ])
-                    ->formatStateUsing(fn (string $state): string => Guest::genderOptions()[$state] ?? ucfirst($state)),
+                    ->formatStateUsing(fn(string $state): string => Guest::genderOptions()[$state] ?? ucfirst($state)),
 
                 // ✅ International Guest Icon
                 IconColumn::make('is_international')
@@ -49,7 +49,7 @@ class GuestsTable
                 TextColumn::make('country')
                     ->searchable()
                     ->toggleable(),
-                TextColumn::make('re')
+                TextColumn::make('region')
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('province')

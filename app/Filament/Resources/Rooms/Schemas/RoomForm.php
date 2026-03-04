@@ -7,7 +7,6 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Schemas\Schema;
-use Illuminate\Support\Str;
 
 use Filament\Forms\Components\Textarea;
 
@@ -46,7 +45,8 @@ class RoomForm
                     })
                     ->rules([
                         function ($attribute, $value, $fail) {
-                            if (blank($value)) return;
+                            if (blank($value))
+                                return;
 
                             $words = array_filter(explode(' ', trim($value)));
                             if (count($words) > 50) {
@@ -58,23 +58,23 @@ class RoomForm
                 Select::make('type')
                     ->options(Room::typeOptions())
                     ->required(),
-                TextInput::make('bed_count') 
-                ->label('Number of Beds') 
-                ->numeric() 
-                ->minValue(1) 
-                ->default(1) 
-                ->required(), 
+                TextInput::make('bed_count')
+                    ->label('Number of Beds')
+                    ->numeric()
+                    ->minValue(1)
+                    ->default(1)
+                    ->required(),
 
-            Select::make('bed_type') 
-                ->label('Bed Type') 
-                ->options([ 
-                    'single' => 'Single', 
-                    'double' => 'Double', 
-                    'queen' => 'Queen', 
-                    'king' => 'King', 
-                ]) 
-                ->searchable()
-                ->required(),
+                Select::make('bed_type')
+                    ->label('Bed Type')
+                    ->options([
+                        'single' => 'Single',
+                        'double' => 'Double',
+                        'queen' => 'Queen',
+                        'king' => 'King',
+                    ])
+                    ->searchable()
+                    ->required(),
                 TextInput::make('price')->required()->numeric()->prefix('₱'),
                 Select::make('status')
                     ->options(Room::statusOptions())
@@ -83,13 +83,17 @@ class RoomForm
                 SpatieMediaLibraryFileUpload::make('featured_image')
                     ->collection('featured')
                     ->label('Featured Image')
+                    ->disk('public')
                     ->image()
-                    ->required(),
+                    ->imagePreviewHeight('200')
+                    ->required(fn($record) => $record === null),
                 SpatieMediaLibraryFileUpload::make('gallery_images')
                     ->collection('gallery')
                     ->multiple()
                     ->label('Gallery Images')
-                    ->image(),
+                    ->disk('public')
+                    ->image()
+                    ->imagePreviewHeight('150'),
                 Select::make('amenities')
                     ->relationship('amenities', 'name')
                     ->multiple()

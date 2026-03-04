@@ -21,10 +21,15 @@ class ListBookings extends ListRecords
             Action::make('scanQr')
                 ->label('Scan QR')
                 ->icon('heroicon-o-qr-code')
+                ->color('primary')
+                ->modalHeading('Scan Booking QR Code')
+                ->modalDescription('Open your camera and hold the guest\'s booking QR code within the frame to look up their reservation instantly.')
+                ->modalWidth('md')
                 ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Close')
                 ->form([
                     QrCodeInput::make('qr_payload')
-                        ->label('Scan booking QR')
+                        ->label('')
                         ->required()
                         ->live()
                         ->afterStateUpdated(function (?string $state, $livewire): void {
@@ -49,6 +54,7 @@ class ListBookings extends ListRecords
                             if (!$booking) {
                                 Notification::make()
                                     ->title('Booking not found.')
+                                    ->body('The scanned QR code did not match any booking. Please try again.')
                                     ->danger()
                                     ->send();
                                 return;
@@ -57,7 +63,7 @@ class ListBookings extends ListRecords
                             $livewire->redirect(BookingResource::getUrl('view', ['record' => $booking]));
                         }),
                 ])
-                ->action(fn () => null),
+                ->action(fn() => null),
         ];
     }
 }
