@@ -4,9 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use App\Jobs\SendBookingConfirmation;
 
 class Booking extends Model
@@ -26,10 +23,10 @@ class Booking extends Model
     ];
 
     protected $casts = [
-        'check_in'    => 'datetime',
-        'check_out'   => 'datetime',
+        'check_in' => 'datetime',
+        'check_out' => 'datetime',
         'total_price' => 'decimal:2',
-        'no_of_days'  => 'integer',
+        'no_of_days' => 'integer',
         'testimonial_feedback_sent_at' => 'datetime',
     ];
 
@@ -44,27 +41,9 @@ class Booking extends Model
         });
 
         /**
-         * Generate QR code AFTER booking is created
+         * Handle actions AFTER booking is created
          */
         static::created(function (Booking $booking) {
-            $qrData = json_encode([
-                'booking_id' => $booking->id,
-                'reference'  => $booking->reference_number,
-                'guest_id'   => $booking->guest_id,
-            ]);
-
-            $path = 'qr/bookings/' . Str::uuid() . '.svg';
-
-            Storage::disk('public')->put(
-                $path,
-                QrCode::size(300)->generate($qrData)
-            );
-
-            // Prevent infinite event loop
-            $booking->updateQuietly([
-                'qr_code' => $path,
-            ]);
-
             SendBookingConfirmation::dispatch($booking);
         });
 
@@ -109,12 +88,12 @@ class Booking extends Model
 
     /* ================= STATUSES ================= */
 
-    const STATUS_UNPAID    = 'unpaid';
-    const STATUS_CONFIRMED  = 'confirmed';
-    const STATUS_OCCUPIED   = 'occupied';
-    const STATUS_COMPLETED  = 'completed';
-    const STATUS_PAID       = 'paid';
-    const STATUS_CANCELLED  = 'cancelled';
+    const STATUS_UNPAID = 'unpaid';
+    const STATUS_CONFIRMED = 'confirmed';
+    const STATUS_OCCUPIED = 'occupied';
+    const STATUS_COMPLETED = 'completed';
+    const STATUS_PAID = 'paid';
+    const STATUS_CANCELLED = 'cancelled';
     const STATUS_RESCHEDULE = 'reschedule';
 
     public static function statusOptions(): array

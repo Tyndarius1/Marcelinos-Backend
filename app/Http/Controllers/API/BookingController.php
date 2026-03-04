@@ -11,7 +11,6 @@ use App\Models\Venue;
 use App\Models\Guest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Storage;
 
 class BookingController extends Controller
 {
@@ -70,13 +69,13 @@ class BookingController extends Controller
                     $booking->guest->region,
                     $booking->guest->country,
                 ])),
-                'rooms' => $booking->rooms->map(fn ($room) => [
+                'rooms' => $booking->rooms->map(fn($room) => [
                     'name' => $room->name,
                     'type' => $room->type,
                     'capacity' => $room->capacity,
                     'price' => $room->price,
                 ])->all(),
-                'venues' => $booking->venues->map(fn ($venue) => [
+                'venues' => $booking->venues->map(fn($venue) => [
                     'name' => $venue->name,
                     'capacity' => $venue->capacity,
                     'price' => $venue->price,
@@ -109,17 +108,17 @@ class BookingController extends Controller
 
             $hasTestimonial = $booking->reviews()->exists();
 
-          $filename = $booking->qr_code
-            ? basename($booking->qr_code)
-            : null;
+            $filename = $booking->qr_code
+                ? basename($booking->qr_code)
+                : null;
 
-        return response()->json([
-            'booking' => $booking,
-            'qr_code_url' => $filename
-                ? url("/qr-image/{$filename}")
-                : null,
-            'has_testimonial' => $hasTestimonial,
-        ], 200);
+            return response()->json([
+                'booking' => $booking,
+                'qr_code_url' => $filename
+                    ? url("/qr-image/{$filename}")
+                    : null,
+                'has_testimonial' => $hasTestimonial,
+            ], 200);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Error retrieving booking',
@@ -141,19 +140,19 @@ class BookingController extends Controller
         if (!$hasRooms && !$hasVenues) {
             return response()->json([
                 'message' => 'Must select at least one room or one venue.',
-                'error'   => 'accommodation_required',
+                'error' => 'accommodation_required',
             ], 422);
         }
 
         try {
-            $checkIn  = Carbon::createFromFormat('M d, Y', $validated['check_in'])->startOfDay();
+            $checkIn = Carbon::createFromFormat('M d, Y', $validated['check_in'])->startOfDay();
             $checkOut = Carbon::createFromFormat('M d, Y', $validated['check_out'])->endOfDay();
 
             // Logical date validation
             if ($checkOut->lt($checkIn)) {
                 return response()->json([
                     'message' => 'Invalid date range',
-                    'error'   => 'Check-out cannot be before check-in',
+                    'error' => 'Check-out cannot be before check-in',
                 ], 422);
             }
 
@@ -169,14 +168,14 @@ class BookingController extends Controller
                         return $room;
                     })
                     ->filter()
-                    ->map(fn ($id) => (int) $id)
+                    ->map(fn($id) => (int) $id)
                     ->values()
                     ->all()
                 : [];
 
             $venueIds = $hasVenues
                 ? collect($validated['venues'])
-                    ->map(fn ($id) => (int) $id)
+                    ->map(fn($id) => (int) $id)
                     ->filter()
                     ->values()
                     ->all()
@@ -206,9 +205,9 @@ class BookingController extends Controller
                     $conflictingRooms = Room::whereIn('id', $conflictingRoomIds)->get(['id', 'name']);
                     return response()->json([
                         'message' => 'Booking conflict: one or more rooms are already booked for the selected dates.',
-                        'error'   => 'date_range_conflict',
+                        'error' => 'date_range_conflict',
                         'conflicts' => [
-                            'rooms' => $conflictingRooms->map(fn ($r) => ['id' => $r->id, 'name' => $r->name])->values()->all(),
+                            'rooms' => $conflictingRooms->map(fn($r) => ['id' => $r->id, 'name' => $r->name])->values()->all(),
                         ],
                     ], 422);
                 }
@@ -225,9 +224,9 @@ class BookingController extends Controller
                     $conflictingVenues = Venue::whereIn('id', $conflictingVenueIds)->get(['id', 'name']);
                     return response()->json([
                         'message' => 'Booking conflict: one or more venues are already booked for the selected dates.',
-                        'error'   => 'date_range_conflict',
+                        'error' => 'date_range_conflict',
                         'conflicts' => [
-                            'venues' => $conflictingVenues->map(fn ($v) => ['id' => $v->id, 'name' => $v->name])->values()->all(),
+                            'venues' => $conflictingVenues->map(fn($v) => ['id' => $v->id, 'name' => $v->name])->values()->all(),
                         ],
                     ], 422);
                 }
@@ -235,13 +234,13 @@ class BookingController extends Controller
 
             // Single booking row; attach multiple rooms and venues
             $booking = Booking::create([
-                'guest_id'          => $guest->id,
-                'reference_number'  => $validated['reference_number'] ?? null, // model auto-generates if null
-                'check_in'          => $checkIn,
-                'check_out'         => $checkOut,
-                'no_of_days'        => $validated['days'],
-                'total_price'       => $validated['total_price'],
-                'status'            => 'unpaid',
+                'guest_id' => $guest->id,
+                'reference_number' => $validated['reference_number'] ?? null, // model auto-generates if null
+                'check_in' => $checkIn,
+                'check_out' => $checkOut,
+                'no_of_days' => $validated['days'],
+                'total_price' => $validated['total_price'],
+                'status' => Booking::STATUS_UNPAID,
             ]);
 
             if (!empty($roomIds)) {
@@ -255,7 +254,7 @@ class BookingController extends Controller
 
             return response()->json([
                 'message' => 'Booking created successfully',
-                'guest'   => $guest,
+                'guest' => $guest,
                 'booking' => $booking,
                 'total_price' => $validated['total_price'],
             ], 201);
@@ -308,17 +307,17 @@ class BookingController extends Controller
         }
     }
 
-        public function cancel(Request $request, Booking $booking)
+    public function cancel(Request $request, Booking $booking)
     {
         try {
-            if (!in_array($booking->status, ['unpaid', 'confirmed'])) {
+            if (!in_array($booking->status, [Booking::STATUS_UNPAID, Booking::STATUS_CONFIRMED])) {
                 return response()->json([
                     'message' => 'Booking cannot be cancelled in its current state.'
                 ], 422);
             }
 
             $booking->update([
-                'status' => 'cancelled'
+                'status' => Booking::STATUS_CANCELLED
             ]);
 
             broadcast(new BookingCancelled($booking))->toOthers();
