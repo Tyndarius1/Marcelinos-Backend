@@ -10,10 +10,14 @@ class ListAmenities extends ListRecords
 {
     protected static string $resource = AmenityResource::class;
 
+    protected static ?string $title = 'Amenities';
+
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make(),
+            CreateAction::make()
+                ->label('Add amenity')
+                ->icon('heroicon-o-plus'),
         ];
     }
 }

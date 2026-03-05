@@ -8,4 +8,9 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateRoom extends CreateRecord
 {
     protected static string $resource = RoomResource::class;
+
+    protected function afterCreate(): void
+    {
+        $this->record->amenities()->sync($this->form->getState()['amenities'] ?? []);
+    }
 }

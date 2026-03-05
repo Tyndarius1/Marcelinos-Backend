@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources\Venues\Schemas;
 
+use App\Models\Amenity;
 use App\Models\Venue;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Schemas\Schema;
 
@@ -75,11 +77,13 @@ class VenuesForm
                     ->multiple()
                     ->label('Gallery Images')
                     ->image(),
-                Select::make('amenities')
-                    ->relationship('amenities', 'name')
+                ToggleButtons::make('amenities')
+                    ->label('Amenities')
+                    ->options(fn () => Amenity::orderBy('name')->pluck('name', 'id')->all())
                     ->multiple()
-                    ->preload()
-                    ->searchable(),
+                    ->inline()
+                    ->default([])
+                    ->helperText('Use the buttons to select amenities (no dropdown). If none appear, add amenities in Properties → Amenities first.'),
             ]);
     }
 }

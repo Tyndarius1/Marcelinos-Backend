@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Amenities\Tables;
 
+use App\Filament\Resources\Amenities\AmenityResource;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -15,28 +16,36 @@ class AmenitiesTable
     {
         return $table
             ->recordAction('view')
-            ->recordUrl(fn ($record) => \App\Filament\Resources\Amenities\AmenityResource::getUrl('view', ['record' => $record]))
+            ->recordUrl(fn ($record) => AmenityResource::getUrl('view', ['record' => $record]))
             ->columns([
                 TextColumn::make('name')
+                    ->label('Amenity')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->icon('heroicon-o-sparkles')
+                    ->iconColor('primary')
+                    ->weight('medium'),
 
                 TextColumn::make('rooms_count')
                     ->label('Rooms')
-                    ->numeric()
+                    ->badge()
+                    ->color(fn (int $state): string => $state > 0 ? 'info' : 'gray')
                     ->sortable(),
 
                 TextColumn::make('venues_count')
                     ->label('Venues')
-                    ->numeric()
+                    ->badge()
+                    ->color(fn (int $state): string => $state > 0 ? 'success' : 'gray')
                     ->sortable(),
 
                 TextColumn::make('created_at')
+                    ->label('Created')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('updated_at')
+                    ->label('Updated')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),

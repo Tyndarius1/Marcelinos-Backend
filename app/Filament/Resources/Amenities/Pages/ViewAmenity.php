@@ -10,10 +10,16 @@ class ViewAmenity extends ViewRecord
 {
     protected static string $resource = AmenityResource::class;
 
+    public function getTitle(): string
+    {
+        return (string) $this->record?->name ?? 'View amenity';
+    }
+
     protected function getHeaderActions(): array
     {
         return [
-            EditAction::make(),
+            EditAction::make()
+                ->icon('heroicon-o-pencil-square'),
         ];
     }
 }

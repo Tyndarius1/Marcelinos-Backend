@@ -23,7 +23,7 @@ class EnsureApiKeyIsValid
         }
 
         if ($apiKey !== $configuredKey) {
-            return response()->json(['message' => 'Unauthorized. Invalid or missing x-api-key header.'], 401);
+            return response()->json(['message' => 'Unauthorized. Invalid.'], 401);
         }
 
         return $next($request);
