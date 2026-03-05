@@ -19,7 +19,7 @@ class Room extends Model implements HasMedia
         'gallery_urls',
     ];
 
-    protected $fillable = ['name', 'description',  'capacity', 'type', 'price', 'status', 'bed_count', 'bed_type'];
+    protected $fillable = ['name', 'description',  'capacity', 'type', 'price', 'status'];
 
     /* ================= TYPES ================= */
     const TYPE_STANDARD = 'standard';
