@@ -6,6 +6,8 @@ use Filament\Pages\Page;
 use App\Models\Booking;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Filament\Forms\Components\DatePicker;
+use Filament\Schemas\Schema;
 
 class GuestDemographics extends Page
 {
@@ -23,11 +25,43 @@ class GuestDemographics extends Page
     public function mount(): void
     {
         $this->setOverviewPresetDefaults($this->overviewPreset);
+        $this->form->fill([
+            'overviewStart' => $this->overviewStart,
+            'overviewEnd' => $this->overviewEnd,
+        ]);
     }
 
     public function updatedOverviewPreset(string $value): void
     {
         $this->setOverviewPresetDefaults($value);
+    }
+
+    public function defaultForm(Schema $schema): Schema
+    {
+        return $schema->statePath('');
+    }
+
+    public function form(Schema $schema): Schema
+    {
+        return $schema
+            ->columns([
+                'default' => 1,
+                'sm' => 2,
+            ])
+            ->components([
+                DatePicker::make('overviewStart')
+                    ->label('From')
+                    ->required()
+                    ->native(false)
+                    ->closeOnDateSelection(true)
+                    ->live(),
+                DatePicker::make('overviewEnd')
+                    ->label('To')
+                    ->required()
+                    ->native(false)
+                    ->closeOnDateSelection(true)
+                    ->live(),
+            ]);
     }
 
     protected function getViewData(): array

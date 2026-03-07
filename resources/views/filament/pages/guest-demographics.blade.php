@@ -148,29 +148,8 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2" x-show="preset === 'custom'" x-cloak>
-                        <div>
-                            <label class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                From
-                            </label>
-                            <div
-                                class="mt-1 flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus-within:ring-1 focus-within:ring-primary-500 dark:border-gray-700 dark:bg-gray-950">
-                                <x-filament::icon icon="heroicon-m-calendar-days" class="h-4 w-4 text-gray-400" />
-                                <input type="date" wire:model.live="overviewStart"
-                                    class="w-full border-0 bg-transparent p-0 text-sm text-gray-900 outline-none focus:ring-0 dark:text-gray-100">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                To
-                            </label>
-                            <div
-                                class="mt-1 flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus-within:ring-1 focus-within:ring-primary-500 dark:border-gray-700 dark:bg-gray-950">
-                                <x-filament::icon icon="heroicon-m-calendar-days" class="h-4 w-4 text-gray-400" />
-                                <input type="date" wire:model.live="overviewEnd"
-                                    class="w-full border-0 bg-transparent p-0 text-sm text-gray-900 outline-none focus:ring-0 dark:text-gray-100">
-                            </div>
-                        </div>
+                    <div x-show="preset === 'custom'" x-cloak>
+                        {{ $this->form }}
                     </div>
 
                     <div>

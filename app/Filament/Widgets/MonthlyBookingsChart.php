@@ -10,7 +10,14 @@ class MonthlyBookingsChart extends ChartWidget
 {
     protected ?string $heading = 'Booking Trends - Last 12 Months';
 
-    protected int | string | array $columnSpan = 2;
+    protected int | string | array $columnSpan = [
+        'default' => 1,
+        'lg' => 2,
+    ];
+
+    protected int | string | array $columnStart = [
+        'lg' => 1,
+    ];
     protected int | string | array $rowSpan = 2;
     protected static ?string $minHeight = '200px';
 
@@ -61,7 +68,7 @@ class MonthlyBookingsChart extends ChartWidget
     {
         $dataset = $this->getData()['datasets'][0]['data'];
         $maxValue = max($dataset) ?: 10;
-        $yMax = ceil($maxValue / 5) * 5;
+        $yMax = ceil($maxValue / 5) * 25;
 
         return [
             'responsive' => true,
@@ -84,6 +91,7 @@ class MonthlyBookingsChart extends ChartWidget
                     'beginAtZero' => true,
                     'max' => $yMax,
                     'ticks' => [
+                        'display' => true,
                         'stepSize' => 5,
                         'precision' => 0,
                         'color' => '#4b5563', // Tailwind gray-700
