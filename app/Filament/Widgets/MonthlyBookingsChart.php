@@ -68,7 +68,7 @@ class MonthlyBookingsChart extends ChartWidget
     {
         $dataset = $this->getData()['datasets'][0]['data'];
         $maxValue = max($dataset) ?: 10;
-        $yMax = ceil($maxValue / 5) * 25;
+        $yMax = ceil($maxValue / 5) * 5;
 
         return [
             'responsive' => true,
