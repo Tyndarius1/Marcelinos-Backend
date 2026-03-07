@@ -17,7 +17,6 @@ class ListBookings extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make(),
             Action::make('scanQr')
                 ->label('Scan QR')
                 ->icon('heroicon-o-qr-code')

@@ -21,10 +21,13 @@ class BlockedDateController extends Controller
     public function index(): JsonResponse
     {
         try {
+            $today = Carbon::today()->toDateString();
             $blockedDates = collect();
 
             // 1. Get manually blocked dates
-            $manualBlockedDates = BlockedDate::select('date', 'reason')->get()
+            $manualBlockedDates = BlockedDate::select('date', 'reason')
+                ->whereDate('date', '>=', $today)
+                ->get()
                 ->map(fn($d) => [
                     'date' => $d->date,
                     'reason' => $d->reason,
@@ -37,6 +40,7 @@ class BlockedDateController extends Controller
 
             // Unique and sort by date
             $blockedDates = $blockedDates
+                ->filter(fn($d) => isset($d['date']) && $d['date'] >= $today)
                 ->unique(fn($d) => $d['date'])
                 ->sortBy('date')
                 ->values();
