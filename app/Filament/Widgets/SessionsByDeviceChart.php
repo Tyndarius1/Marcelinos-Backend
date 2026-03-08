@@ -8,6 +8,13 @@ use Illuminate\Support\HtmlString;
 
 class SessionsByDeviceChart extends ChartWidget
 {
+    private const DEVICE_COLORS = [
+        'Desktop' => '#22C55E',
+        'Mobile' => '#FAED33',
+        'Tablet' => '#3B82F6',
+        'Unknown' => '#A3A3A3',
+    ];
+
     protected int | string | array $columnSpan = 1;
 
     protected int | string | array $columnStart = [
@@ -16,12 +23,33 @@ class SessionsByDeviceChart extends ChartWidget
 
     protected ?string $maxHeight = '140px';
 
+    protected function activeSinceTimestamp(): int
+    {
+        $lifetimeMinutes = (int) config('session.lifetime', 120);
+
+        return now()->subMinutes($lifetimeMinutes)->getTimestamp();
+    }
+
+    protected function deviceCaseSql(): string
+    {
+        return "CASE
+            WHEN sessions.user_agent IS NULL OR TRIM(sessions.user_agent) = '' THEN 'Unknown'
+            WHEN (sessions.user_agent LIKE '%iPad%' OR sessions.user_agent LIKE '%Tablet%' OR (sessions.user_agent LIKE '%Android%' AND sessions.user_agent NOT LIKE '%Mobile%')) THEN 'Tablet'
+            WHEN (sessions.user_agent LIKE '%iPhone%' OR sessions.user_agent LIKE '%Mobile%' OR sessions.user_agent LIKE '%Android%') THEN 'Mobile'
+            ELSE 'Desktop'
+        END";
+    }
+
     public function getHeading(): string | HtmlString | null
     {
-        $totalSessions = DB::table('sessions')->count();
-        $total = number_format($totalSessions);
+        $activeLogins = DB::table('sessions')
+            ->where('last_activity', '>=', $this->activeSinceTimestamp())
+            ->count();
+
+        $total = number_format($activeLogins);
+
         return new HtmlString(
-            '<div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">' .
+            '<div style="display: flex; font-size: .9rem; justify-content: space-between; align-items: center; width: 100%;">' .
             '<span>Sessions By Device</span>' .
             '<span style="font-weight: 600; color: #374151;">' . $total . '</span>' .
             '</div>'
@@ -31,23 +59,29 @@ class SessionsByDeviceChart extends ChartWidget
     protected function getData(): array
     {
         $deviceRows = DB::table('sessions')
-            ->selectRaw("CASE
-                WHEN user_agent IS NULL OR TRIM(user_agent) = '' THEN 'Unknown'
-                WHEN (user_agent LIKE '%iPad%' OR user_agent LIKE '%Tablet%' OR (user_agent LIKE '%Android%' AND user_agent NOT LIKE '%Mobile%')) THEN 'Tablet'
-                WHEN (user_agent LIKE '%iPhone%' OR user_agent LIKE '%Mobile%' OR user_agent LIKE '%Android%') THEN 'Mobile'
-                ELSE 'Desktop'
-            END AS device")
+            ->where('last_activity', '>=', $this->activeSinceTimestamp())
+            ->selectRaw($this->deviceCaseSql() . ' AS device')
             ->selectRaw('COUNT(*) AS total')
             ->groupBy('device')
-            ->orderByDesc('total')
-            ->get();
+            ->pluck('total', 'device');
+
+        $labels = array_keys(self::DEVICE_COLORS);
+        $data = array_map(
+            fn (string $device): int => (int) ($deviceRows[$device] ?? 0),
+            $labels,
+        );
+
+        $colors = array_map(
+            fn (string $device): string => self::DEVICE_COLORS[$device],
+            $labels,
+        );
 
         return [
-            'labels' => $deviceRows->pluck('device')->all(),
+            'labels' => $labels,
             'datasets' => [
                 [
-                    'data' => $deviceRows->pluck('total')->map(fn ($value) => (int) $value)->all(),
-                    'backgroundColor' => ['#22C55E', '#FAED33', '#3B82F6', '#A3A3A3'],
+                    'data' => $data,
+                    'backgroundColor' => $colors,
                     'borderColor' => '#FFFFFF',
                     'borderWidth' => 3,
                     'hoverOffset' => 6,
