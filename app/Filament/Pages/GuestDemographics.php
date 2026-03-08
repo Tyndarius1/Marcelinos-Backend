@@ -3,7 +3,9 @@
 namespace App\Filament\Pages;
 
 use Filament\Pages\Page;
+use App\Models\ActivityLog;
 use App\Models\Booking;
+use App\Support\ActivityLogger;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Filament\Forms\Components\DatePicker;
@@ -140,7 +142,34 @@ class GuestDemographics extends Page
             'overviewLocalDemographics' => $overviewLocalDemographics,
             'overviewForeignDemographics' => $overviewForeignDemographics,
             'overviewLabel' => $overviewLabel,
+
+            // Recent activity stream shown below reports.
+            'activityLogs' => ActivityLog::query()
+                ->with('user:id,name')
+                ->whereIn('category', ['auth', 'booking', 'review', 'resource', 'report'])
+                ->latest('created_at')
+                ->limit(30)
+                ->get(),
         ];
+    }
+
+    public function logReportDownload(string $type, ?string $period = null): void
+    {
+        $normalizedPeriod = $period === 'null' ? null : $period;
+
+        ActivityLogger::log(
+            category: 'report',
+            event: 'report.downloaded',
+            description: sprintf(
+                'downloaded %s report%s.',
+                str_replace('_', ' ', $type),
+                $normalizedPeriod ? ' (' . str_replace('_', ' ', $normalizedPeriod) . ')' : '',
+            ),
+            meta: [
+                'type' => $type,
+                'period' => $normalizedPeriod,
+            ],
+        );
     }
 
     private function getHierarchicalData(array $statusGroup, Carbon $startDate, Carbon $endDate)
