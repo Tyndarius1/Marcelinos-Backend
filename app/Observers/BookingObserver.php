@@ -6,6 +6,7 @@ use App\Events\AdminDashboardNotification;
 use App\Events\BookingStatusUpdated;
 use App\Models\Booking;
 use App\Models\User;
+use App\Support\ActivityLogger;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
 
@@ -43,6 +44,25 @@ class BookingObserver
 
     public function updated(Booking $booking): void
     {
+        if ($booking->wasChanged('status')) {
+            ActivityLogger::log(
+                category: 'booking',
+                event: 'booking.status_changed',
+                description: sprintf(
+                    'Booking %s status changed from %s to %s.',
+                    $booking->reference_number,
+                    (string) $booking->getOriginal('status'),
+                    (string) $booking->status,
+                ),
+                subject: $booking,
+                meta: [
+                    'reference_number' => $booking->reference_number,
+                    'old_status' => (string) $booking->getOriginal('status'),
+                    'new_status' => (string) $booking->status,
+                ],
+            );
+        }
+
         BookingStatusUpdated::dispatch($booking);
     }
 
