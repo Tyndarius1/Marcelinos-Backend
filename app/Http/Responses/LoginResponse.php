@@ -3,6 +3,7 @@
 namespace App\Http\Responses;
 
 use Filament\Auth\Http\Responses\Contracts\LoginResponse as LoginResponseContract;
+use App\Filament\Pages\AdminDashboard;
 use Filament\Pages\Dashboard;
 use Illuminate\Http\RedirectResponse;
 use Livewire\Features\SupportRedirects\Redirector;
@@ -16,7 +17,7 @@ class LoginResponse implements LoginResponseContract
         $role = strtolower(trim((string) ($user?->role ?? '')));
 
         if ($role === 'admin') {
-            return redirect()->to(Dashboard::getUrl(panel: 'admin'));
+            return redirect()->to(AdminDashboard::getUrl(panel: 'admin'));
         }
 
         return redirect()->to(Dashboard::getUrl(panel: 'staff'));
