@@ -4,12 +4,19 @@ namespace App\Filament\Pages;
 
 use App\Models\ActivityLog;
 use Filament\Pages\Page;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class ActivityHistory extends Page
 {
     public int $logsLimit = 5;
+
+    public string $search = '';
+
+    public string $dateMode = 'all_time';
+
+    public ?string $selectedDate = null;
 
     protected int $logsStep = 10;
 
@@ -36,8 +43,7 @@ class ActivityHistory extends Page
 
     public function getTimelineGroupsProperty(): Collection
     {
-        $logs = ActivityLog::query()
-            ->with('user:id,name')
+        $logs = $this->getLogsQuery()
             ->latest('created_at')
             ->limit($this->logsLimit)
             ->get();
@@ -59,12 +65,59 @@ class ActivityHistory extends Page
 
     public function getHasMoreLogsProperty(): bool
     {
-        return ActivityLog::query()->count() > $this->logsLimit;
+        return $this->getLogsQuery()->count() > $this->logsLimit;
     }
 
     public function seeMore(): void
     {
         $this->logsLimit += $this->logsStep;
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->logsLimit = 5;
+    }
+
+    public function updatedSelectedDate(): void
+    {
+        $this->logsLimit = 5;
+    }
+
+    public function updatedDateMode(): void
+    {
+        if ($this->dateMode !== 'custom_date') {
+            $this->selectedDate = null;
+        }
+
+        $this->logsLimit = 5;
+    }
+
+    protected function getLogsQuery(): Builder
+    {
+        $search = trim($this->search);
+        $selectedDate = trim((string) $this->selectedDate);
+
+        return ActivityLog::query()
+            ->with('user:id,name')
+            ->when(
+                $this->dateMode === 'custom_date' && $selectedDate !== '',
+                fn (Builder $query): Builder => $query->whereDate('created_at', $selectedDate)
+            )
+            ->when($search !== '', function (Builder $query) use ($search): void {
+                $like = '%' . $search . '%';
+
+                $query->where(function (Builder $subQuery) use ($like): void {
+                    $subQuery
+                        ->where('description', 'like', $like)
+                        ->orWhere('event', 'like', $like)
+                        ->orWhere('category', 'like', $like)
+                        ->orWhere('ip_address', 'like', $like)
+                        ->orWhere('user_agent', 'like', $like)
+                        ->orWhereHas('user', function (Builder $userQuery) use ($like): void {
+                            $userQuery->where('name', 'like', $like);
+                        });
+                });
+            });
     }
 
     public function getLogIcon(string $category, string $event): string
@@ -139,8 +192,102 @@ class ActivityHistory extends Page
             $log->category === 'auth' && $log->event === 'user.login' => 'logged in.',
             $log->category === 'auth' && $log->event === 'user.logout' => 'logged out.',
             $log->category === 'report' && $log->event === 'report.downloaded' => $this->reportMessage($log),
+            str_starts_with((string) $log->event, 'resource.') => $this->resourceMessage($log),
             default => $this->stripActorPrefix($log),
         };
+    }
+
+    public function getCategoryLabel(ActivityLog $log): string
+    {
+        if ($log->category !== 'resource') {
+            return ucfirst((string) $log->category);
+        }
+
+        $model = (string) data_get($log->meta, 'model', 'resource');
+        $baseModel = class_basename($model);
+        $humanModel = trim((string) preg_replace('/(?<!^)[A-Z]/', ' $0', $baseModel));
+
+        return $humanModel !== '' ? $humanModel : 'Resource';
+    }
+
+    private function resourceMessage(ActivityLog $log): string
+    {
+        $clean = $this->stripActorPrefix($log);
+
+        if (preg_match('/^([A-Za-z0-9_\\\\]+)\s(created|updated|deleted):\s(.+)\.$/i', $clean, $matches) !== 1) {
+            return $clean;
+        }
+
+        $modelName = (string) $matches[1];
+        $verb = strtolower((string) $matches[2]);
+        $subject = trim((string) $matches[3]);
+
+        $baseModelName = class_basename($modelName);
+        $humanModelName = strtolower(trim((string) preg_replace('/(?<!^)[A-Z]/', ' $0', $baseModelName)));
+
+        if (strtolower($baseModelName) === 'blockeddate') {
+            try {
+                $subject = Carbon::parse($subject)->format('F d, Y');
+            } catch (\Throwable) {
+                // Keep original subject when it's not a parseable date (e.g. legacy #id logs).
+            }
+        }
+
+        return sprintf('%s %s: %s.', $verb, $humanModelName, $subject);
+    }
+
+    public function getDeviceName(ActivityLog $log): string
+    {
+        $agent = strtolower(trim((string) $log->user_agent));
+
+        if ($agent === '') {
+            return 'Unknown device';
+        }
+
+        if (str_contains($agent, 'ipad') || str_contains($agent, 'tablet') || (str_contains($agent, 'android') && ! str_contains($agent, 'mobile'))) {
+            return 'Tablet';
+        }
+
+        if (str_contains($agent, 'iphone') || str_contains($agent, 'mobile') || str_contains($agent, 'android')) {
+            return 'Mobile';
+        }
+
+        return 'Desktop';
+    }
+
+    public function getBrowserName(ActivityLog $log): string
+    {
+        $agent = strtolower(trim((string) $log->user_agent));
+
+        if ($agent === '') {
+            return 'Unknown browser';
+        }
+
+        if (str_contains($agent, 'edg/')) {
+            return 'Edge';
+        }
+
+        if (str_contains($agent, 'opr/') || str_contains($agent, 'opera')) {
+            return 'Opera';
+        }
+
+        if (str_contains($agent, 'chrome/')) {
+            return 'Chrome';
+        }
+
+        if (str_contains($agent, 'firefox/')) {
+            return 'Firefox';
+        }
+
+        if (str_contains($agent, 'safari/') && ! str_contains($agent, 'chrome/')) {
+            return 'Safari';
+        }
+
+        if (str_contains($agent, 'trident/') || str_contains($agent, 'msie ')) {
+            return 'Internet Explorer';
+        }
+
+        return 'Other browser';
     }
 
     private function reportMessage(ActivityLog $log): string

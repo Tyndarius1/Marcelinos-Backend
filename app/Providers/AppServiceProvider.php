@@ -228,7 +228,7 @@ class AppServiceProvider extends ServiceProvider
 
     protected function resolveSubjectLabel(Model $model): string
     {
-        $candidates = ['name', 'title', 'reference_number', 'email', 'full_name'];
+        $candidates = ['name', 'title', 'reference_number', 'email', 'full_name', 'date'];
 
         foreach ($candidates as $attribute) {
             $value = $model->getAttribute($attribute);
