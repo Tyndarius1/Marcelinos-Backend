@@ -26,9 +26,15 @@ jobs:
           node-version: "20"
 
       - name: 📦 Install PHP Dependencies
+        env:
+          APP_KEY: base64:dGVzdGtleWZvcmNpZGVwbG95b25seTMyYnl0ZXM=
+          BROADCAST_CONNECTION: log
         run: composer install --no-dev --optimize-autoloader
 
       - name: ⚙️ Optimize Laravel
+        env:
+          APP_KEY: base64:dGVzdGtleWZvcmNpZGVwbG95b25seTMyYnl0ZXM=
+          BROADCAST_CONNECTION: log
         run: |
           php artisan optimize
           mkdir -p storage/framework/{sessions,views,cache}
