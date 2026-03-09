@@ -68,7 +68,10 @@ jobs:
             ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.SSH_REMOTE_PATH }}
 
       - name: 🧹 Run post-deploy commands (optional)
+        continue-on-error: true
+        env:
+          SSH_REMOTE_PATH: ${{ secrets.SSH_REMOTE_PATH }}
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -p 22 \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "cd ${{ secrets.SSH_REMOTE_PATH }} && php artisan migrate --force && php artisan config:cache && php artisan route:cache && php artisan view:cache"
+            "cd \"$SSH_REMOTE_PATH\" && php artisan migrate --force && php artisan config:cache && php artisan route:cache && php artisan view:cache"
