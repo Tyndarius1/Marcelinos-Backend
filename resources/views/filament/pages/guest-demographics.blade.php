@@ -114,7 +114,7 @@
                             class="px-3 py-1.5 rounded-lg text-xs font-bold bg-success-500 text-white hover:bg-success-600 transition-colors flex items-center gap-1.5">
                             <x-filament::icon icon="heroicon-m-printer" class="w-4 h-4" />
                             <span class="uppercase tracking-wide text-[11px]"
-                                onclick="triggerPrint('overview_selected', 'null')">PRINT SELECTED</span>
+                                onclick="logAndPrint('overview_selected', 'null')">PRINT SELECTED</span>
                         </button>
                     </div>
                 </x-slot>
@@ -175,7 +175,7 @@
                 <x-slot name="heading">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-2">
                         <span>Highest Unpaid Bookings (Pending)</span>
-                        <button onclick="triggerPrint('unpaid', 'all')"
+                        <button onclick="logAndPrint('unpaid', 'all')"
                             class="no-print px-3 py-1.5 rounded-lg text-sm font-bold bg-primary-50 text-primary-700 hover:bg-primary-100 transition-colors flex items-center gap-1.5 w-fit">
                             <x-filament::icon icon="heroicon-m-printer" class="w-4 h-4" />
                             Print All Pending
@@ -244,7 +244,7 @@
                                 <button
                                     class="no-print p-1.5 rounded-md text-gray-400 hover:text-primary-700 hover:bg-primary-100 dark:hover:bg-white/10 transition"
                                     title="Print {{ $label }}"
-                                    onclick="event.stopPropagation(); triggerPrint('unpaid','{{ $key }}')">
+                                    onclick="event.stopPropagation(); logAndPrint('unpaid','{{ $key }}')">
                                     <x-filament::icon icon="heroicon-m-printer" class="w-4 h-4" />
                                 </button>
                             </div>
@@ -258,7 +258,7 @@
                 <x-slot name="heading">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-2">
                         <span>Highest Successful Bookings (Paid/Confirmed)</span>
-                        <button onclick="triggerPrint('successful', 'all')"
+                        <button onclick="logAndPrint('successful', 'all')"
                             class="no-print px-3 py-1.5 rounded-lg text-sm font-bold bg-success-50 text-success-700 hover:bg-success-100 transition-colors flex items-center gap-1.5 w-fit">
                             <x-filament::icon icon="heroicon-m-printer" class="w-4 h-4" />
                             Print All Confirmed
@@ -326,7 +326,7 @@
                                 <button
                                     class="no-print p-1.5 rounded-md text-gray-400 hover:text-success-700 hover:bg-success-100 dark:hover:bg-white/10 transition"
                                     title="Print {{ $label }}"
-                                    onclick="event.stopPropagation(); triggerPrint('successful','{{ $key }}')">
+                                    onclick="event.stopPropagation(); logAndPrint('successful','{{ $key }}')">
                                     <x-filament::icon icon="heroicon-m-printer" class="w-4 h-4" />
                                 </button>
                             </div>
@@ -334,7 +334,89 @@
                     @endforeach
                 </div>
             </x-filament::section>
+
+            {{-- Activity History Section --}}
+            <x-filament::section icon="heroicon-m-clock" icon-color="gray">
+                <x-slot name="heading">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-2">
+                        <span>Recent Activity History</span>
+                        <span
+                            class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-700 dark:bg-gray-700/40 dark:text-gray-200">
+                            Login/Logout, Booking Status, CRUD, Report Downloads
+                        </span>
+                    </div>
+                </x-slot>
+
+                <div class="space-y-3" wire:poll.8s>
+                    @forelse($activityLogs as $log)
+                        @php
+                            $badgeColors = [
+                                'auth' => 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-300',
+                                'booking' => 'bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-300',
+                                'resource' => 'bg-primary-50 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300',
+                                'report' => 'bg-info-50 text-info-700 dark:bg-info-500/15 dark:text-info-300',
+                            ];
+
+                            $badgeClass = $badgeColors[$log->category] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700/40 dark:text-gray-200';
+
+                            $actorName = trim((string) ($log->user?->name ?? ''));
+                            $message = trim((string) $log->description);
+
+                            if ($actorName !== '' && str_starts_with($message, $actorName . ' ')) {
+                                $message = ltrim(substr($message, strlen($actorName)));
+                            }
+
+                            if ($log->category === 'auth' && $log->event === 'user.login') {
+                                $message = 'logged in.';
+                            }
+
+                            if ($log->category === 'auth' && $log->event === 'user.logout') {
+                                $message = 'logged out.';
+                            }
+                        @endphp
+
+                        <div
+                            class="rounded-xl border border-gray-200/70 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
+                            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                <div class="space-y-1">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $badgeClass }}">
+                                            {{ strtoupper($log->category) }}
+                                        </span>
+                                        <span class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                            {{ str_replace('_', ' ', $log->event) }}
+                                        </span>
+                                    </div>
+
+                                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                        {{ $message }}
+                                    </p>
+
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                                        By:
+                                        <span class="font-semibold text-gray-700 dark:text-gray-200">{{ $log->user?->name ?? 'System' }}</span>
+                                        @if ($log->ip_address)
+                                            <span class="mx-1">•</span>
+                                            <span>IP {{ $log->ip_address }}</span>
+                                        @endif
+                                    </p>
+                                </div>
+
+                                <span class="text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0">
+                                    {{ $log->created_at?->format('M d, Y h:i:s A') }}
+                                </span>
+                            </div>
+                        </div>
+                    @empty
+                        <div
+                            class="rounded-xl border border-dashed border-gray-300/80 bg-gray-50 p-5 text-sm text-gray-600 dark:border-white/20 dark:bg-white/5 dark:text-gray-300">
+                            No activity logs yet.
+                        </div>
+                    @endforelse
+                </div>
+            </x-filament::section>
         </div>
+
     </div>
 
     {{-- PRINT TEMPLATE BLOCKS --}}
@@ -367,6 +449,7 @@
 
     <script>
         var _printTarget = null;
+        const guestDemographicsComponentId = @js($this->getId());
 
         window.addEventListener('beforeprint', function () {
             if (_printTarget) {
@@ -390,6 +473,15 @@
                 return;
             }
             window.print();
+        }
+
+        function logAndPrint(type, period) {
+            const component = window.Livewire?.find(guestDemographicsComponentId);
+            if (component) {
+                component.call('logReportDownload', type, period);
+            }
+
+            triggerPrint(type, period);
         }
     </script>
 </x-filament-panels::page>
