@@ -1,0 +1,63 @@
+name: 🚀 Deploy via SSH
+
+on:
+  push:
+    branches:
+      - master  # Change to main/master for production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📦 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐘 Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, bcmath, intl, pdo_mysql, zip, gd
+          coverage: none
+
+      - name: 📥 Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 📦 Install PHP Dependencies
+        run: composer install --no-dev --optimize-autoloader
+
+      - name: ⚙️ Optimize Laravel
+        run: |
+          php artisan optimize
+          mkdir -p storage/framework/{sessions,views,cache}
+
+      - name: 🔑 Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H -p 2083 ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: 📤 Deploy via rsync over SSH
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -p 2083" \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='node_modules' \
+            --exclude='tests' \
+            --exclude='uploads' \
+            --exclude='.env' \
+            --exclude='phpunit.xml' \
+            --exclude='README.md' \
+            --exclude='package-lock.json' \
+            --exclude='vite.config.js' \
+            ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.SSH_REMOTE_PATH }}
+
+      - name: 🧹 Run post-deploy commands (optional)
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -p 2083 \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd ${{ secrets.SSH_REMOTE_PATH }} && php artisan migrate --force && php artisan config:cache && php artisan route:cache && php artisan view:cache"
