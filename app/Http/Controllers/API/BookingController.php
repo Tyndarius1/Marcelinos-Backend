@@ -230,6 +230,49 @@ class BookingController extends Controller
         }
     }
 
+    public function update(Request $request, $id)
+    {
+        try {
+            $booking = Booking::with(['guest', 'rooms', 'venues'])->find($id);
+
+            if (!$booking) {
+                return response()->json(['message' => 'Booking not found'], 404);
+            }
+
+            $validated = $request->validate([
+                'status' => 'sometimes|string|in:' . implode(',', [
+                    Booking::STATUS_UNPAID,
+                    Booking::STATUS_PAID,
+                    Booking::STATUS_CONFIRMED,
+                    Booking::STATUS_COMPLETED,
+                    Booking::STATUS_OCCUPIED,
+                    Booking::STATUS_CANCELLED,
+                ]),
+            ]);
+
+            if (!empty($validated['status'])) {
+                $booking->update(['status' => $validated['status']]);
+            }
+
+            $booking->refresh()->load(['guest', 'rooms', 'venues']);
+
+            return response()->json([
+                'message' => 'Booking updated successfully',
+                'booking' => $booking,
+            ], 200);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error updating booking',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function destroy($id)
     {
         try {

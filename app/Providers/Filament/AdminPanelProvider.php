@@ -43,7 +43,6 @@ class AdminPanelProvider extends PanelProvider
             ->brandLogoHeight('3.5rem')
             ->brandName(fn () => view('filament.admin.brand'))            
             ->sidebarCollapsibleOnDesktop()
-            ->databaseNotifications()
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([

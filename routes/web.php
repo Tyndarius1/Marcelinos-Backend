@@ -5,7 +5,11 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Response;
 
-Route::get('/qr-image/{filename}', function ($filename) {
+Route::get('/qr-image/{filename}', function (string $filename) {
+    $filename = basename($filename);
+    if ($filename === '' || str_contains($filename, '/') || str_contains($filename, '\\')) {
+        abort(404);
+    }
     $path = "qr/bookings/{$filename}";
 
     if (!Storage::disk('public')->exists($path)) {
@@ -21,7 +25,7 @@ Route::get('/qr-image/{filename}', function ($filename) {
     ]);
 });
 
-Route::redirect('/', '/admin/login');
+Route::redirect('/', '/login');
 
 // Signed link from testimonial email: redirects to client app testimonial form.
 Route::get('/testimonial/feedback/{reference}', function (string $reference) {
@@ -34,6 +38,6 @@ if ($adminPanel = Filament::getPanel('admin')) {
 
     Route::middleware($loginMiddleware)->group(function () use ($adminPanel): void {
         Route::get('/login', $adminPanel->getLoginRouteAction())
-            ->name('filament.admin.auth.login');
+            ->name('login');
     });
 }

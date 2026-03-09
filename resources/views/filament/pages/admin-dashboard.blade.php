@@ -108,6 +108,7 @@
         const rightCharts = document.querySelector('.admin-dashboard-right-charts');
 
         function syncHeight() {
+            if (!leftChart || !rightCharts) return;
             // Only apply on desktop
             if (window.matchMedia("(min-width: 1024px)").matches) {
                 const leftHeight = leftChart.offsetHeight;
