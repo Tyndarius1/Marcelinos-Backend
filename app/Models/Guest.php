@@ -4,12 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Spatie\MediaLibrary\HasMedia;
-use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Guest extends Model implements HasMedia
+class Guest extends Model
 {
-    use HasFactory, InteractsWithMedia;
+    use HasFactory;
 
     /* ================= GENDER ================= */
     const GENDER_MALE = 'male';
