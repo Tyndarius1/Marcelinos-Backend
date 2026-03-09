@@ -27,6 +27,13 @@ class ActivityHistory extends Page
 
     protected string $view = 'filament.pages.activity-history';
 
+    public static function canAccess(): bool
+    {
+        $role = strtolower(trim((string) (auth()->user()?->role ?? '')));
+
+        return $role === 'admin';
+    }
+
     public function getTimelineGroupsProperty(): Collection
     {
         $logs = ActivityLog::query()
