@@ -2,8 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Filament\Pages\AdminDashboard;
 use Closure;
-use Filament\Pages\Dashboard;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -14,7 +14,7 @@ class EnsureAdminUser
         $role = strtolower(trim((string) (auth()->user()?->role ?? '')));
 
         if ($role !== 'admin') {
-            return redirect()->to(Dashboard::getUrl(panel: 'staff'));
+            return redirect()->to(AdminDashboard::getUrl(panel: 'staff'));
         }
 
         return $next($request);

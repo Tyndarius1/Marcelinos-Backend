@@ -45,7 +45,33 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->registerMediaLibraryCompatibilityAliases();
+    }
+
+    /**
+     * Support both old and new Spatie Media Library namespaces.
+     */
+    protected function registerMediaLibraryCompatibilityAliases(): void
+    {
+        if (
+            ! interface_exists('Spatie\\MediaLibrary\\HasMedia')
+            && interface_exists('Spatie\\MediaLibrary\\HasMedia\\HasMedia')
+        ) {
+            class_alias(
+                'Spatie\\MediaLibrary\\HasMedia\\HasMedia',
+                'Spatie\\MediaLibrary\\HasMedia'
+            );
+        }
+
+        if (
+            ! trait_exists('Spatie\\MediaLibrary\\InteractsWithMedia')
+            && trait_exists('Spatie\\MediaLibrary\\HasMedia\\InteractsWithMedia')
+        ) {
+            class_alias(
+                'Spatie\\MediaLibrary\\HasMedia\\InteractsWithMedia',
+                'Spatie\\MediaLibrary\\InteractsWithMedia'
+            );
+        }
     }
 
     /**
