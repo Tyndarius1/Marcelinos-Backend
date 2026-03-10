@@ -20,6 +20,6 @@ class LoginResponse implements LoginResponseContract
             return redirect()->to(AdminDashboard::getUrl(panel: 'admin'));
         }
 
-        return redirect()->to(Dashboard::getUrl(panel: 'staff'));
+        return redirect()->to(AdminDashboard::getUrl(panel: 'staff'));
     }
 }
