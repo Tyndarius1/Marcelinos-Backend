@@ -3,7 +3,7 @@
 namespace App\Events;
 
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
@@ -11,7 +11,7 @@ use Illuminate\Queue\SerializesModels;
  * Base class for broadcast events.
  * Ensures consistent structure and makes it easy to add new events.
  */
-abstract class BaseBroadcastEvent implements ShouldBroadcast
+abstract class BaseBroadcastEvent implements ShouldBroadcastNow
 {
     use Dispatchable;
     use InteractsWithSockets;
