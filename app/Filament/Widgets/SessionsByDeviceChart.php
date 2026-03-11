@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
@@ -50,7 +51,7 @@ class SessionsByDeviceChart extends ChartWidget
 
         return new HtmlString(
             '<div style="display: flex; font-size: .9rem; justify-content: space-between; align-items: center; width: 100%;">' .
-            '<span>Sessions By Device</span>' .
+            '<span>Active Devices</span>' .
             '<span style="font-weight: 600; color: #374151;">' . $total . '</span>' .
             '</div>'
         );
@@ -82,7 +83,6 @@ class SessionsByDeviceChart extends ChartWidget
                 [
                     'data' => $data,
                     'backgroundColor' => $colors,
-                    'borderColor' => '#FFFFFF',
                     'borderWidth' => 3,
                     'hoverOffset' => 6,
                 ],
@@ -95,25 +95,44 @@ class SessionsByDeviceChart extends ChartWidget
         return 'doughnut';
     }
 
-    protected function getOptions(): array
+    protected function getOptions(): array | RawJs | null
     {
-        return [
-            'responsive' => true,
-            'maintainAspectRatio' => false,
-            'cutout' => '55%',
-            'layout' => [
-                'padding' => 4,
-            ],
-            'plugins' => [
-                'legend' => [
-                    'position' => 'left',
-                    'labels' => [
-                        'usePointStyle' => true,
-                        'pointStyle' => 'circle',
-                        'padding' => 10,
-                    ],
-                ],
-            ],
-        ];
+        return RawJs::make(<<<'JS'
+{
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '55%',
+    layout: {
+        padding: 4,
+    },
+    elements: {
+        arc: {
+            borderColor: () => {
+                const isDark = document.documentElement.classList.contains('dark')
+                    || document.body.classList.contains('dark')
+                    || window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+                return isDark ? '#0F172B' : '#FFFFFF';
+            },
+        },
+    },
+    datasets: {
+        doughnut: {
+            borderColor: (context) => {
+                const isDark = document.documentElement.classList.contains('dark')
+                    || document.body.classList.contains('dark')
+                    || window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+                return isDark ? '#0F172B' : '#FFFFFF';
+            },
+        },
+    },
+    plugins: {
+        legend: {
+            position: 'left',
+        },
+    },
+}
+JS);
     }
 }

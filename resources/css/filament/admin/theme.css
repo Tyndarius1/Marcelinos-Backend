@@ -23,8 +23,3 @@
         transition: 0.5s ease;
     }
 }
-
-/* Reduce padding on chart widgets so doughnuts fit without overlapping */
-.fi-wi-chart .fi-section-content {
-    padding: 5px !important;
-}
