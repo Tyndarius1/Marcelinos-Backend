@@ -17,7 +17,7 @@ class BlockedDateForm
                     ->required()
                     ->minDate(now())
                     ->native(false)
-                    ->closeondateSelection(true)
+                    ->closeOnDateSelection(true)
                     ->disabledDates(fn () =>
                         BlockedDate::pluck('date')->toArray()
                     ),

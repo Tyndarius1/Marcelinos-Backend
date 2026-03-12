@@ -4,12 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Spatie\MediaLibrary\HasMedia;
-use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Guest extends Model implements HasMedia
+class Guest extends Model
 {
-    use HasFactory, InteractsWithMedia;
+    use HasFactory;
 
     /* ================= GENDER ================= */
     const GENDER_MALE = 'male';
@@ -102,7 +100,7 @@ class Guest extends Model implements HasMedia
             'last_name'        => 'required|string|max:100',
             'email'            => 'required|email',
             'contact_num'      => 'required|string|max:20',
-            'gender'           => 'nullable|in:Male,Female,Other',
+            'gender'           => 'nullable|in:' . implode(',', [Guest::GENDER_MALE, Guest::GENDER_FEMALE, Guest::GENDER_OTHER]),
             'is_international' => 'required|boolean',
             'country'          => 'nullable|string|max:100',
             'region'           => 'nullable|string|max:100',

@@ -114,7 +114,7 @@
                             class="px-3 py-1.5 rounded-lg text-xs font-bold bg-success-500 text-white hover:bg-success-600 transition-colors flex items-center gap-1.5">
                             <x-filament::icon icon="heroicon-m-printer" class="w-4 h-4" />
                             <span class="uppercase tracking-wide text-[11px]"
-                                onclick="triggerPrint('overview_selected', 'null')">PRINT SELECTED</span>
+                                onclick="logAndPrint('overview_selected', 'null')">PRINT SELECTED</span>
                         </button>
                     </div>
                 </x-slot>
@@ -148,29 +148,8 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2" x-show="preset === 'custom'" x-cloak>
-                        <div>
-                            <label class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                From
-                            </label>
-                            <div
-                                class="mt-1 flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus-within:ring-1 focus-within:ring-primary-500 dark:border-gray-700 dark:bg-gray-950">
-                                <x-filament::icon icon="heroicon-m-calendar-days" class="h-4 w-4 text-gray-400" />
-                                <input type="date" wire:model.live="overviewStart"
-                                    class="w-full border-0 bg-transparent p-0 text-sm text-gray-900 outline-none focus:ring-0 dark:text-gray-100">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                To
-                            </label>
-                            <div
-                                class="mt-1 flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus-within:ring-1 focus-within:ring-primary-500 dark:border-gray-700 dark:bg-gray-950">
-                                <x-filament::icon icon="heroicon-m-calendar-days" class="h-4 w-4 text-gray-400" />
-                                <input type="date" wire:model.live="overviewEnd"
-                                    class="w-full border-0 bg-transparent p-0 text-sm text-gray-900 outline-none focus:ring-0 dark:text-gray-100">
-                            </div>
-                        </div>
+                    <div x-show="preset === 'custom'" x-cloak>
+                        {{ $this->form }}
                     </div>
 
                     <div>
@@ -196,7 +175,7 @@
                 <x-slot name="heading">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-2">
                         <span>Highest Unpaid Bookings (Pending)</span>
-                        <button onclick="triggerPrint('unpaid', 'all')"
+                        <button onclick="logAndPrint('unpaid', 'all')"
                             class="no-print px-3 py-1.5 rounded-lg text-sm font-bold bg-primary-50 text-primary-700 hover:bg-primary-100 transition-colors flex items-center gap-1.5 w-fit">
                             <x-filament::icon icon="heroicon-m-printer" class="w-4 h-4" />
                             Print All Pending
@@ -265,7 +244,7 @@
                                 <button
                                     class="no-print p-1.5 rounded-md text-gray-400 hover:text-primary-700 hover:bg-primary-100 dark:hover:bg-white/10 transition"
                                     title="Print {{ $label }}"
-                                    onclick="event.stopPropagation(); triggerPrint('unpaid','{{ $key }}')">
+                                    onclick="event.stopPropagation(); logAndPrint('unpaid','{{ $key }}')">
                                     <x-filament::icon icon="heroicon-m-printer" class="w-4 h-4" />
                                 </button>
                             </div>
@@ -279,7 +258,7 @@
                 <x-slot name="heading">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-2">
                         <span>Highest Successful Bookings (Paid/Confirmed)</span>
-                        <button onclick="triggerPrint('successful', 'all')"
+                        <button onclick="logAndPrint('successful', 'all')"
                             class="no-print px-3 py-1.5 rounded-lg text-sm font-bold bg-success-50 text-success-700 hover:bg-success-100 transition-colors flex items-center gap-1.5 w-fit">
                             <x-filament::icon icon="heroicon-m-printer" class="w-4 h-4" />
                             Print All Confirmed
@@ -347,7 +326,7 @@
                                 <button
                                     class="no-print p-1.5 rounded-md text-gray-400 hover:text-success-700 hover:bg-success-100 dark:hover:bg-white/10 transition"
                                     title="Print {{ $label }}"
-                                    onclick="event.stopPropagation(); triggerPrint('successful','{{ $key }}')">
+                                    onclick="event.stopPropagation(); logAndPrint('successful','{{ $key }}')">
                                     <x-filament::icon icon="heroicon-m-printer" class="w-4 h-4" />
                                 </button>
                             </div>
@@ -355,7 +334,9 @@
                     @endforeach
                 </div>
             </x-filament::section>
+
         </div>
+
     </div>
 
     {{-- PRINT TEMPLATE BLOCKS --}}
@@ -388,6 +369,7 @@
 
     <script>
         var _printTarget = null;
+        const guestDemographicsComponentId = @js($this->getId());
 
         window.addEventListener('beforeprint', function () {
             if (_printTarget) {
@@ -411,6 +393,15 @@
                 return;
             }
             window.print();
+        }
+
+        function logAndPrint(type, period) {
+            const component = window.Livewire?.find(guestDemographicsComponentId);
+            if (component) {
+                component.call('logReportDownload', type, period);
+            }
+
+            triggerPrint(type, period);
         }
     </script>
 </x-filament-panels::page>

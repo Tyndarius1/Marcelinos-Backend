@@ -7,6 +7,7 @@ use App\Models\BlockedDate;
 use App\Models\Booking;
 use App\Models\Room;
 use App\Models\Venue;
+use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Carbon;
 
@@ -20,34 +21,31 @@ class BlockedDateController extends Controller
      */
     public function index(): JsonResponse
     {
-        try {
-            $blockedDates = collect();
+        $today = Carbon::today()->toDateString();
+        $blockedDates = collect();
 
-            // 1. Get manually blocked dates
-            $manualBlockedDates = BlockedDate::select('date', 'reason')->get()
-                ->map(fn($d) => [
-                    'date' => $d->date,
-                    'reason' => $d->reason,
-                ]);
-            $blockedDates = $blockedDates->merge($manualBlockedDates);
+        // 1. Get manually blocked dates
+        $manualBlockedDates = BlockedDate::select('date', 'reason')
+            ->whereDate('date', '>=', $today)
+            ->get()
+            ->map(fn($d) => [
+                'date' => $d->date,
+                'reason' => $d->reason,
+            ]);
+        $blockedDates = $blockedDates->merge($manualBlockedDates);
 
-            // 2. Get dates blocked by fully booked rooms/venues
-            $bookingBlockedDates = $this->getBookingBlockedDates();
-            $blockedDates = $blockedDates->merge($bookingBlockedDates);
+        // 2. Get dates blocked by fully booked rooms/venues
+        $bookingBlockedDates = $this->getBookingBlockedDates();
+        $blockedDates = $blockedDates->merge($bookingBlockedDates);
 
-            // Unique and sort by date
-            $blockedDates = $blockedDates
-                ->unique(fn($d) => $d['date'])
-                ->sortBy('date')
-                ->values();
+        // Unique and sort by date
+        $blockedDates = $blockedDates
+            ->filter(fn($d) => isset($d['date']) && $d['date'] >= $today)
+            ->unique(fn($d) => $d['date'])
+            ->sortBy('date')
+            ->values();
 
-            return response()->json(['blocked_dates' => $blockedDates]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Error retrieving blocked dates',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
+        return ApiResponse::success($blockedDates->all());
     }
 
     /**

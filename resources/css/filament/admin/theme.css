@@ -6,7 +6,6 @@
 @tailwind components;
 
 
-/* Hide scrollbar for the sidebar navigation specifically */
 .fi-sidebar-nav {
     -ms-overflow-style: none;  
     scrollbar-width: none;     
@@ -16,7 +15,16 @@
     display: none;            
 }
 
- /* make the sidebar a little narrower than the Filament default */
-.fi-sidebar {
-    width: 120%;
+@media (max-width: 1023px) {
+    .fi-sidebar {
+        width: fit-content !important;
+        min-width: 16rem;
+        max-width: calc(100vw - 1rem);
+        transition: 0.5s ease;
+    }
+}
+
+/* Reduce padding on chart widgets so doughnuts fit without overlapping */
+.fi-wi-chart .fi-section-content {
+    padding: 5px !important;
 }

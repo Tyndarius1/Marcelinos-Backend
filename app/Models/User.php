@@ -52,15 +52,16 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-                return $this->is_active && in_array($this->role, ['admin', 'staff']);
-
+        if (!$this->is_active) {
+            return false;
+        }
 
         $role = strtolower(trim((string) ($this->role ?? '')));
 
         return match ($panel->getId()) {
             'admin' => in_array($role, ['admin', 'staff'], true),
-            'staff' => $role === 'staff',
-            default => true,
+            'staff' => in_array($role, ['admin', 'staff'], true), // admins can access staff panel too
+            default => false,
         };
     }
 }

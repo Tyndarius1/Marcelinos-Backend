@@ -12,6 +12,19 @@ class StoreBookingRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('rooms') && is_array($this->rooms)) {
+            $this->merge([
+                'rooms' => collect($this->rooms)
+                    ->map(fn ($room) => is_array($room) ? ($room['id'] ?? $room[0] ?? null) : $room)
+                    ->filter()
+                    ->values()
+                    ->all(),
+            ]);
+        }
+    }
+
     public function rules(): array
     {
         return [
