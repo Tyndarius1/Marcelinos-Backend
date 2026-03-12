@@ -51,3 +51,4 @@ jobs:
             **/tests/**
             **/uploads/**
             README.md
+            .env
