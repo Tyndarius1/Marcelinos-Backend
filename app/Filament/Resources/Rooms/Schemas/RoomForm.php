@@ -57,25 +57,23 @@ class RoomForm
                         }
                     ]),
                 TextInput::make('capacity')->required()->numeric(),
+                Select::make('bedSpecifications') // matches the relationship name 
+                    ->label('Bed Specifications') 
+                    ->relationship('bedSpecifications', 'specification') 
+                    ->multiple() // allows multiple selection 
+                    ->searchable() 
+                    ->preload() 
+                    ->required() 
+                    ->helperText('Select all bed specifications for this room.'),
+                Select::make('bedModifiers') 
+                    ->label('Bed Modifiers') 
+                    ->relationship('bedModifiers', 'name') 
+                    ->multiple() // allow multiple modifiers 
+                    ->searchable() 
+                    ->preload() 
+                    ->helperText('Optional: select modifiers like w/Living Room or w/Balcony'),
                 Select::make('type')
                     ->options(Room::typeOptions())
-                    ->required(),
-                TextInput::make('bed_count')
-                    ->label('Number of Beds')
-                    ->numeric()
-                    ->minValue(1)
-                    ->default(1)
-                    ->required(),
-
-                Select::make('bed_type')
-                    ->label('Bed Type')
-                    ->options([
-                        'single' => 'Single',
-                        'double' => 'Double',
-                        'queen' => 'Queen',
-                        'king' => 'King',
-                    ])
-                    ->searchable()
                     ->required(),
                 TextInput::make('price')->required()->numeric()->prefix('₱'),
                 Select::make('status')

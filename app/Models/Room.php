@@ -19,7 +19,7 @@ class Room extends Model implements HasMedia
         'gallery_urls',
     ];
 
-    protected $fillable = ['name', 'description',  'capacity', 'type', 'price', 'status', 'bed_count', 'bed_type'];
+    protected $fillable = ['name', 'description',  'capacity', 'type', 'price', 'status',];
 
     /* ================= TYPES ================= */
     const TYPE_STANDARD = 'standard';
@@ -141,4 +141,13 @@ class Room extends Model implements HasMedia
         return new RoomReviewsRelation(Review::query(), $this);
     }
 
+    public function bedSpecifications()
+    {
+        return $this->belongsToMany(\App\Models\BedSpecification::class, 'bed_specification_room');
+    }
+
+    public function bedModifiers()
+    {
+        return $this->belongsToMany(\App\Models\BedModifier::class, 'bed_modifier_room');
+    }
 }
