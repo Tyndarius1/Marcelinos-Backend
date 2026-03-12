@@ -32,6 +32,7 @@ class DatabaseSeeder extends Seeder
             'role' => 'staff',
         ]);
         $this->call(RoomSeeder::class);
-
+        $this->call(BedSpecificationSeeder::class);
+        $this->call(BedModifierSeeder::class); 
     }
 }
