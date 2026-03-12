@@ -28,11 +28,6 @@ jobs:
       - name: 📦 Install PHP Dependencies
         run: composer install --no-dev --optimize-autoloader
 
-      - name: ⚙️ Optimize Laravel
-        run: |
-          php artisan optimize
-          mkdir -p storage/framework/{sessions,views,cache}
-
       - name: 📤 FTP Deploy to cPanel
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
