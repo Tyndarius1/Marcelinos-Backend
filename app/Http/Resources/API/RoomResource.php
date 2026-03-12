@@ -17,8 +17,12 @@ class RoomResource extends JsonResource
             'type' => $this->type,
             'price' => $this->price,
             'status' => $this->status,
-            'bed_count' => $this->bed_count,
-            'bed_type'  => $this->bed_type,
+            'bed_specifications' => $this->whenLoaded('bedSpecifications', function () { 
+                return $this->bedSpecifications->pluck('specification'); // returns array 
+            }), 
+            'bed_modifiers' => $this->whenLoaded('bedModifiers', function () { 
+                return $this->bedModifiers->pluck('modifier'); // returns array 
+            }),
             'amenities' => $this->whenLoaded('amenities', $this->amenities),
             'featured_image' => $this->featured_image_url,
             'gallery' => $this->gallery_urls,

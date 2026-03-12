@@ -25,7 +25,11 @@ Route::get('/qr-image/{filename}', function (string $filename) {
     ]);
 });
 
+<<<<<<< HEAD
 Route::redirect('/', '/login');
+=======
+
+>>>>>>> e01ff02e3d53f4018ef4f27dfde233c5969b5222
 
 // Signed link from testimonial email: redirects to client app testimonial form.
 Route::get('/testimonial/feedback/{reference}', function (string $reference) {
