@@ -32,7 +32,7 @@ class GuestController extends Controller
                 'email'            => 'required|email|unique:guests,email',
                 'contact_num'      => 'required|string|max:20',
 
-                'gender'           => 'nullable|in:Male,Female,Other',
+                'gender'           => 'nullable|in:male,female,other',
 
                 'is_international' => 'required|boolean',
                 'country'          => 'nullable|string|max:100',

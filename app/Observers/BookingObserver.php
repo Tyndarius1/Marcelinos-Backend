@@ -34,12 +34,19 @@ class BookingObserver
             }
         }
 
-        // Real-time: notify booking channel and admin dashboard
-        BookingStatusUpdated::dispatch($booking);
-        AdminDashboardNotification::dispatch('booking.created', 'New Booking', [
-            'reference' => $booking->reference_number,
-            'booking_id' => $booking->id,
-        ]);
+        // Real-time: notify booking channel and admin dashboard (non-blocking; don't fail request if Reverb/Pusher is down)
+        try {
+            BookingStatusUpdated::dispatch($booking);
+            AdminDashboardNotification::dispatch('booking.created', 'New Booking', [
+                'reference' => $booking->reference_number,
+                'booking_id' => $booking->id,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Broadcast failed (Reverb may not be running). Booking created successfully.', [
+                'error' => $e->getMessage(),
+                'booking_id' => $booking->id,
+            ]);
+        }
     }
 
     public function updated(Booking $booking): void
@@ -63,7 +70,11 @@ class BookingObserver
             );
         }
 
-        BookingStatusUpdated::dispatch($booking);
+        try {
+            BookingStatusUpdated::dispatch($booking);
+        } catch (\Throwable $e) {
+            Log::warning('Broadcast failed on booking update.', ['error' => $e->getMessage(), 'booking_id' => $booking->id]);
+        }
     }
 
     public function deleted(Booking $booking): void
