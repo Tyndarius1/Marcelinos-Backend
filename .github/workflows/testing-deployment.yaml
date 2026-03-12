@@ -1,9 +1,9 @@
-name: 🚀 STAGING - Marcelino's APIs via FTP
+name: STAGING - Marcelino's APIs via FTP
 
 on:
   push:
     branches:
-      - testing
+      - staging
 
 jobs:
   ftp-deploy:
@@ -41,7 +41,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftp
           port: 21
-          server-dir: /test-marcelinos/
+          server-dir: /Staging-Marcelinos/
           local-dir: ./
           # IMPORTANT: vendor and public/build are NOT excluded anymore
           exclude: |
@@ -50,8 +50,4 @@ jobs:
             **/node_modules/**
             **/tests/**
             **/uploads/**
-            .env
-            phpunit.xml
             README.md
-            package-lock.json
-            vite.config.js
