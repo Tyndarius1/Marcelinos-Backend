@@ -140,6 +140,7 @@ class AppServiceProvider extends ServiceProvider
         if ($lifecycle === 'updated') {
             $changes = collect($model->getChanges())
                 ->except(['updated_at', 'created_at'])
+                ->reject(fn (mixed $newValue, string $field) => $this->valuesAreEquivalent($model->getOriginal($field), $newValue))
                 ->all();
 
             if ($model::class === \App\Models\User::class) {
@@ -185,7 +186,7 @@ class AppServiceProvider extends ServiceProvider
         foreach ($changes as $field => $newValue) {
             $oldValue = $model->getOriginal($field);
 
-            if ($oldValue === $newValue) {
+            if ($this->valuesAreEquivalent($oldValue, $newValue)) {
                 continue;
             }
 
@@ -206,6 +207,19 @@ class AppServiceProvider extends ServiceProvider
         }
 
         return sprintf('%s updated: %s (%s).', $modelName, $subjectLabel, implode('; ', $parts));
+    }
+
+    protected function valuesAreEquivalent(mixed $oldValue, mixed $newValue): bool
+    {
+        if ($oldValue === $newValue) {
+            return true;
+        }
+
+        if (is_numeric($oldValue) && is_numeric($newValue)) {
+            return abs((float) $oldValue - (float) $newValue) < 0.0000001;
+        }
+
+        return false;
     }
 
     protected function stringifyValue(mixed $value): string

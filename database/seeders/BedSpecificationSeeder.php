@@ -9,8 +9,8 @@ class BedSpecificationSeeder extends Seeder
 {
     public function run(): void
     {
-        // Clear existing data (optional)
-        DB::table('bed_specifications')->truncate();
+        // Use delete instead of truncate so FK actions (null/cascade) can run safely.
+        DB::table('bed_specifications')->delete();
 
         // Insert bed specifications
         DB::table('bed_specifications')->insert([

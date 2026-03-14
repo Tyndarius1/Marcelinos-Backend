@@ -9,7 +9,7 @@ class BedModifierSeeder extends Seeder
 {
     public function run(): void
     {
-        DB::table('bed_modifiers')->truncate();
+        DB::table('bed_modifiers')->delete();
 
         DB::table('bed_modifiers')->insert([
             ['name' => 'w/Living Room'],
