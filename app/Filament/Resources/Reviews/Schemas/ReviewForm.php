@@ -45,6 +45,18 @@ class ReviewForm
                         }
                     }),
 
+                Select::make('reviewable_type')
+                    ->label('Review Type')
+                    ->options([
+                        Room::class => 'Room',
+                        Venue::class => 'Venue',
+                    ])
+                    ->searchable()
+                    ->live()
+                    ->afterStateUpdated(fn (Set $set) => $set('reviewable_id', null))
+                    ->required(fn (Get $get) => ! $get('is_site_review'))
+                    ->visible(fn (Get $get) => ! $get('is_site_review')),
+
 
 
                 Select::make('reviewable_id')

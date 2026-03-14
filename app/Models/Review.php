@@ -34,13 +34,18 @@ class Review extends Model
     protected $fillable = [
         'guest_id',
         'booking_id',
+        'reviewable_type',
+        'reviewable_id',
+        'is_site_review',
         'rating',
+        'title',
         'comment',
         'is_approved',
         'reviewed_at',
     ];
 
     protected $casts = [
+        'is_site_review' => 'boolean',
         'is_approved' => 'boolean',
         'reviewed_at' => 'datetime',
         'rating' => 'integer',
