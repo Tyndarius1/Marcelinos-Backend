@@ -119,4 +119,51 @@ class Booking extends Model
             'danger' => self::STATUS_CANCELLED,
         ];
     }
+
+    /* ================= BLOCKED DATE CONFLICTS ================= */
+
+    /**
+     * Scope: bookings that overlap a given date (any part of that day).
+     * Excludes cancelled (and optionally completed) so staff see active bookings.
+     */
+    public function scopeOverlappingDate($query, $date): \Illuminate\Database\Eloquent\Builder
+    {
+        $date = \Illuminate\Support\Carbon::parse($date);
+        $dateStart = $date->copy()->startOfDay();
+        $dateEnd = $date->copy()->endOfDay();
+
+        return $query
+            ->whereNotIn('status', [self::STATUS_CANCELLED])
+            ->where('check_in', '<=', $dateEnd)
+            ->where('check_out', '>', $dateStart);
+    }
+
+    /**
+     * Get bookings overlapping a date, with guest and assignable names for display.
+     * Used by blocked-dates flow to show "contact customer first" info.
+     *
+     * @return array<int, array{id: int, reference_number: string, guest_name: string, email: string, contact_num: string, rooms: string, venues: string, check_in: string, check_out: string, status: string}>
+     */
+    public static function getConflictsForDate($date): array
+    {
+        $bookings = self::overlappingDate($date)
+            ->with(['guest', 'rooms', 'venues'])
+            ->orderBy('check_in')
+            ->get();
+
+        return $bookings->map(function (Booking $b) {
+            return [
+                'id' => $b->id,
+                'reference_number' => $b->reference_number,
+                'guest_name' => $b->guest?->full_name ?? '—',
+                'email' => $b->guest?->email ?? '—',
+                'contact_num' => $b->guest?->contact_num ?? '—',
+                'rooms' => $b->rooms->pluck('name')->join(', ') ?: '—',
+                'venues' => $b->venues->pluck('name')->join(', ') ?: '—',
+                'check_in' => $b->check_in?->format('M j, Y g:i A') ?? '—',
+                'check_out' => $b->check_out?->format('M j, Y g:i A') ?? '—',
+                'status' => $b->status,
+            ];
+        })->values()->all();
+    }
 }

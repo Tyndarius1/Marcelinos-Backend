@@ -16,4 +16,10 @@ class EditBlockedDate extends EditRecord
             DeleteAction::make(),
         ];
     }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        unset($data['confirm_contacted']);
+        return $data;
+    }
 }
