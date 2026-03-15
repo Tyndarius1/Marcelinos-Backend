@@ -50,7 +50,7 @@ class SessionsByDeviceChart extends ChartWidget
 
         return new HtmlString(
             '<div style="display: flex; font-size: .9rem; justify-content: space-between; align-items: center; width: 100%;">' .
-            '<span>Sessions By Device</span>' .
+            '<span>Active Devices</span>' .
             '<span style="font-weight: 600; color: #374151;">' . $total . '</span>' .
             '</div>'
         );

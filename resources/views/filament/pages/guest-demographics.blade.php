@@ -111,10 +111,10 @@
                             </p>
                         </div>
                         <button
-                            class="px-3 py-1.5 rounded-lg text-xs font-bold bg-success-500 text-white hover:bg-success-600 transition-colors flex items-center gap-1.5">
+                            onclick="logAndPrint('overview_selected', 'null')"
+                            class="inline-flex w-fit self-start sm:self-auto px-3 py-1.5 rounded-lg text-xs font-bold bg-success-500 text-white hover:bg-success-600 transition-colors items-center gap-1.5">
                             <x-filament::icon icon="heroicon-m-printer" class="w-4 h-4" />
-                            <span class="uppercase tracking-wide text-[11px]"
-                                onclick="logAndPrint('overview_selected', 'null')">PRINT SELECTED</span>
+                            <span class="uppercase tracking-wide text-[11px]">PRINT SELECTED</span>
                         </button>
                     </div>
                 </x-slot>

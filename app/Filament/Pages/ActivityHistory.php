@@ -225,6 +225,17 @@ class ActivityHistory extends Page
         $baseModelName = class_basename($modelName);
         $humanModelName = strtolower(trim((string) preg_replace('/(?<!^)[A-Z]/', ' $0', $baseModelName)));
 
+        if (strtolower($baseModelName) === 'review' && $verb === 'updated') {
+            if (preg_match('/^(#[^\s]+)\s*\((.+)\)$/', $subject, $reviewMatches) === 1) {
+                $reviewId = ltrim(trim((string) $reviewMatches[1]), '#');
+                $friendlyChanges = $this->humanizeReviewChanges(trim((string) $reviewMatches[2]));
+
+                if ($friendlyChanges !== '') {
+                    return sprintf('updated review %s: %s.', $reviewId, $friendlyChanges);
+                }
+            }
+        }
+
         if (strtolower($baseModelName) === 'blockeddate') {
             try {
                 $subject = Carbon::parse($subject)->format('F d, Y');
@@ -234,6 +245,79 @@ class ActivityHistory extends Page
         }
 
         return sprintf('%s %s: %s.', $verb, $humanModelName, $subject);
+    }
+
+    private function humanizeReviewChanges(string $changesText): string
+    {
+        $parts = array_filter(array_map('trim', explode(';', $changesText)));
+
+        if (empty($parts)) {
+            return '';
+        }
+
+        $friendly = [];
+        $newTargetType = null;
+        $newTargetId = null;
+        $approvalChangeMessage = null;
+
+        foreach ($parts as $part) {
+            if (preg_match('/^(.+?)\sfrom\s(.+?)\sto\s(.+)$/i', $part, $matches) !== 1) {
+                $friendly[] = $part;
+
+                continue;
+            }
+
+            $field = strtolower(trim((string) $matches[1]));
+            $old = trim((string) $matches[2]);
+            $new = trim((string) $matches[3]);
+
+            if ($field === 'site review' || $field === 'approved') {
+                $approvalChangeMessage = sprintf('Approved was changed from %s to %s', $old, $new);
+
+                continue;
+            }
+
+            if ($field === 'reviewable type') {
+                $newTargetType = $this->normalizeReviewTargetType($new);
+
+                continue;
+            }
+
+            if ($field === 'reviewable id') {
+                $newTargetId = strtolower($new) === 'null' ? null : $new;
+
+                continue;
+            }
+
+            $friendly[] = sprintf('%s changed from %s to %s', $field, $old, $new);
+        }
+
+        if ($approvalChangeMessage !== null) {
+            array_unshift($friendly, $approvalChangeMessage);
+        }
+
+        if ($newTargetType !== null || $newTargetId !== null) {
+            if ($newTargetType === null && $newTargetId === null) {
+                $friendly[] = 'unlinked the review from a target';
+            } elseif ($newTargetType !== null && $newTargetId !== null) {
+                $friendly[] = sprintf('linked to %s %s', $newTargetType, $newTargetId);
+            } elseif ($newTargetType !== null) {
+                $friendly[] = sprintf('linked to %s', $newTargetType);
+            } else {
+                $friendly[] = sprintf('linked to item %s', $newTargetId);
+            }
+        }
+
+        return implode('; ', $friendly);
+    }
+
+    private function normalizeReviewTargetType(string $value): ?string
+    {
+        if (strtolower($value) === 'null') {
+            return null;
+        }
+
+        return class_basename($value);
     }
 
     public function getDeviceName(ActivityLog $log): string
