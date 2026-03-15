@@ -107,7 +107,7 @@ class ExportRevenue extends Page
             Action::make('exportRevenue')
                 ->label('Export Revenue')
                 ->icon('heroicon-o-arrow-down-tray')
-                ->color('success')
+                ->color('primary')
                 ->action(function () {
                     $data = $this->form->getState();
                     $from = $data['dateFrom'] ?? null;
@@ -145,7 +145,7 @@ class ExportRevenue extends Page
                     }
 
                     $filename = sprintf(
-                        'revenue-%s-to-%s.csv',
+                        'marelinos-resort-hotel-revenue-report-%s-to-%s.csv',
                         $from->format('Y-m-d'),
                         $to->format('Y-m-d')
                     );

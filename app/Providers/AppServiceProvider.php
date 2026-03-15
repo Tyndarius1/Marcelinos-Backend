@@ -200,6 +200,11 @@ class AppServiceProvider extends ServiceProvider
             if (empty($changes)) {
                 return;
             }
+
+            if ($model instanceof Review && array_keys($changes) === ['is_approved']) {
+                // ReviewObserver already writes a dedicated approval/unapproval audit event.
+                return;
+            }
         }
 
         $description = sprintf('%s %s: %s.', $modelName, $lifecycle, $subjectLabel);
@@ -235,7 +240,7 @@ class AppServiceProvider extends ServiceProvider
 
             $parts[] = sprintf(
                 '%s from %s to %s',
-                str_replace('_', ' ', $field),
+                $this->humanizeFieldName($field),
                 $this->stringifyValue($oldValue),
                 $this->stringifyValue($newValue),
             );
@@ -272,7 +277,7 @@ class AppServiceProvider extends ServiceProvider
         }
 
         if (is_bool($value)) {
-            return $value ? 'true' : 'false';
+            return $value ? 'Yes' : 'No';
         }
 
         if (is_scalar($value)) {
@@ -281,6 +286,18 @@ class AppServiceProvider extends ServiceProvider
         }
 
         return json_encode($value) ?: 'value';
+    }
+
+    protected function humanizeFieldName(string $field): string
+    {
+        $label = str_replace('_', ' ', trim($field));
+
+        // "is_site_review" -> "site review" for cleaner audit phrasing.
+        if (str_starts_with($label, 'is ')) {
+            $label = substr($label, 3);
+        }
+
+        return trim($label);
     }
 
     protected function resolveSubjectLabel(Model $model): string
