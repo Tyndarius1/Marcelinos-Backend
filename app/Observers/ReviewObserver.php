@@ -28,11 +28,24 @@ class ReviewObserver
             );
         }
 
-        ReviewsUpdated::dispatch();
+        $this->safeBroadcast();
     }
 
     public function deleted(Review $review): void
     {
-        ReviewsUpdated::dispatch();
+        $this->safeBroadcast();
+    }
+
+    private function safeBroadcast(): void
+    {
+        try {
+            ReviewsUpdated::dispatch();
+        } catch (\Throwable $exception) {
+            file_put_contents(
+                storage_path('logs/laravel.log'),
+                now()->toDateTimeString() . ' ReviewsUpdated broadcast failed: ' . $exception->getMessage() . "\n",
+                FILE_APPEND
+            );
+        }
     }
 }

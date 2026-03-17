@@ -4,28 +4,27 @@ namespace App\Observers;
 
 use App\Events\GalleryUpdated;
 use App\Models\Gallery;
-use Throwable;
 
 class GalleryObserver
 {
     public function saved(Gallery $gallery): void
     {
-        $this->dispatchGalleryUpdated();
+        $this->safeBroadcast();
     }
 
     public function deleted(Gallery $gallery): void
     {
-        $this->dispatchGalleryUpdated();
+        $this->safeBroadcast();
     }
 
-    private function dispatchGalleryUpdated(): void
+    private function safeBroadcast(): void
     {
         try {
             GalleryUpdated::dispatch();
-        } catch (Throwable $exception) {
+        } catch (\Throwable $exception) {
             file_put_contents(
                 storage_path('logs/laravel.log'),
-                now()->toDateTimeString() . ' GalleryUpdated dispatch failed: ' . $exception->getMessage() . "\n",
+                now()->toDateTimeString() . ' GalleryUpdated broadcast failed: ' . $exception->getMessage() . "\n",
                 FILE_APPEND
             );
         }

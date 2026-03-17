@@ -34,19 +34,18 @@ class BookingObserver
             }
         }
 
-        // Real-time: notify booking channel and admin dashboard (non-blocking; don't fail request if Reverb/Pusher is down)
-        try {
-            BookingStatusUpdated::dispatch($booking);
-            AdminDashboardNotification::dispatch('booking.created', 'New Booking', [
+        $this->safeBroadcast(
+            fn (): mixed => BookingStatusUpdated::dispatch($booking),
+            'BookingStatusUpdated'
+        );
+
+        $this->safeBroadcast(
+            fn (): mixed => AdminDashboardNotification::dispatch('booking.created', 'New Booking', [
                 'reference' => $booking->reference_number,
                 'booking_id' => $booking->id,
-            ]);
-        } catch (\Throwable $e) {
-            Log::warning('Broadcast failed (Reverb may not be running). Booking created successfully.', [
-                'error' => $e->getMessage(),
-                'booking_id' => $booking->id,
-            ]);
-        }
+            ]),
+            'AdminDashboardNotification'
+        );
     }
 
     public function updated(Booking $booking): void
@@ -70,16 +69,28 @@ class BookingObserver
             );
         }
 
-        try {
-            BookingStatusUpdated::dispatch($booking);
-        } catch (\Throwable $e) {
-            Log::warning('Broadcast failed on booking update.', ['error' => $e->getMessage(), 'booking_id' => $booking->id]);
-        }
+        $this->safeBroadcast(
+            fn (): mixed => BookingStatusUpdated::dispatch($booking),
+            'BookingStatusUpdated'
+        );
     }
 
     public function deleted(Booking $booking): void
     {
         //
+    }
+
+    private function safeBroadcast(callable $dispatch, string $eventName): void
+    {
+        try {
+            $dispatch();
+        } catch (\Throwable $exception) {
+            file_put_contents(
+                storage_path('logs/laravel.log'),
+                now()->toDateTimeString() . ' ' . $eventName . ' broadcast failed: ' . $exception->getMessage() . "\n",
+                FILE_APPEND
+            );
+        }
     }
 }
 

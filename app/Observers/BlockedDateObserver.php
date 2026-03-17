@@ -4,12 +4,7 @@ namespace App\Observers;
 
 use App\Events\BlockedDatesUpdated;
 use App\Models\BlockedDate;
-use Illuminate\Broadcasting\BroadcastException;
 
-/**
- * Broadcasts so frontend stays up to date when blocked dates change.
- * Broadcast failures (e.g. Reverb not running) do not fail the request.
- */
 class BlockedDateObserver
 {
     public function saved(BlockedDate $blockedDate): void
@@ -26,9 +21,12 @@ class BlockedDateObserver
     {
         try {
             BlockedDatesUpdated::dispatch();
-        } catch (BroadcastException $e) {
-            // Reverb/Pusher unreachable (e.g. local dev without server) – don't fail the request
-            report($e);
+        } catch (\Throwable $exception) {
+            file_put_contents(
+                storage_path('logs/laravel.log'),
+                now()->toDateTimeString() . ' BlockedDatesUpdated broadcast failed: ' . $exception->getMessage() . "\n",
+                FILE_APPEND
+            );
         }
     }
 }
