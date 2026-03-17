@@ -11,6 +11,7 @@ class VenueObserver
     public function saved(Venue $venue): void
     {
         $this->safeBroadcast();
+        $this->safeBroadcast();
     }
 
     public function deleted(Venue $venue): void
