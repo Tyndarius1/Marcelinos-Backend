@@ -1,10 +1,13 @@
 <?php
 
+use App\Filament\Pages\AdminDashboard;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Response;
 
+// this is for qr code images for bookings, which are stored in public disk under qr/bookings. 
+// We serve them through a route to add CORS headers so they can be fetched from the client app.
 Route::get('/qr-image/{filename}', function (string $filename) {
     $filename = basename($filename);
     if ($filename === '' || str_contains($filename, '/') || str_contains($filename, '\\')) {
@@ -25,7 +28,21 @@ Route::get('/qr-image/{filename}', function (string $filename) {
     ]);
 });
 
-Route::redirect('/', '/login');
+// Redirect root to appropriate dashboard based on user role.
+// to avoid loop, we check auth()->check() first and redirect to login if not authenticated, so the dashboard redirects don't run for unauthenticated users.
+Route::get('/', function () {
+    if (! auth()->check()) {
+        return redirect('/login');
+    }
+
+    $role = strtolower(trim((string) (auth()->user()?->role ?? '')));
+
+    if ($role === 'admin') {
+        return redirect(AdminDashboard::getUrl(panel: 'admin'));
+    }
+
+    return redirect(AdminDashboard::getUrl(panel: 'staff'));
+});
 
 
 // Signed link from testimonial email: redirects to client app testimonial form.
