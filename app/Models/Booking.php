@@ -86,6 +86,41 @@ class Booking extends Model
         return $this->hasMany(Review::class);
     }
 
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function getAmountPaidAttribute()
+    {
+        return $this->payments()->sum('amount');
+    }
+
+    public function getBalanceAttribute()
+    {
+        return max(0, $this->total_price - $this->amount_paid);
+    }
+
+    public function updateStatusBasedOnPayments()
+    {
+        // Do not alter status if it's already in a final state
+        if (in_array($this->status, [self::STATUS_COMPLETED, self::STATUS_CANCELLED, self::STATUS_OCCUPIED])) {
+            return;
+        }
+
+        if ($this->balance <= 0 && $this->status !== self::STATUS_PAID) {
+             $this->status = self::STATUS_PAID;
+             $this->saveQuietly();
+        } elseif ($this->amount_paid > 0 && $this->balance > 0 && $this->status === self::STATUS_UNPAID) {
+             $this->status = self::STATUS_CONFIRMED;
+             $this->saveQuietly();
+        } elseif ($this->amount_paid <= 0 && $this->status !== self::STATUS_UNPAID) {
+            // Revert to unpaid if all payments are deleted
+             $this->status = self::STATUS_UNPAID;
+             $this->saveQuietly();
+        }
+    }
+
     /* ================= STATUSES ================= */
 
     const STATUS_UNPAID = 'unpaid';

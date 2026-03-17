@@ -93,8 +93,21 @@ class BookingsTable
 
                 TextColumn::make('total_price')
                     ->label('Total')
-                    ->money('PHP', true)
+                    ->money('PHP')
                     ->sortable(),
+                
+                TextColumn::make('amount_paid')
+                    ->label('Paid')
+                    ->money('PHP')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('balance')
+                    ->label('Balance')
+                    ->money('PHP')
+                    ->sortable()
+                    ->color(fn (Booking $record) => $record->balance > 0 ? 'danger' : 'success')
+                    ->toggleable(),
 
                 BadgeColumn::make('status')
                     ->colors(Booking::statusColors())
@@ -203,12 +216,22 @@ class BookingsTable
                     ViewAction::make(),
                     EditAction::make(),
                     Action::make('markPaid')
-                        ->label('Mark as paid')
+                        ->label('Pay Balance')
                         ->icon('heroicon-o-banknotes')
                         ->color('info')
                         ->requiresConfirmation()
-                        ->visible(fn (Booking $record) => in_array($record->status, [Booking::STATUS_UNPAID, Booking::STATUS_CONFIRMED], true))
-                        ->action(fn (Booking $record) => $record->update(['status' => Booking::STATUS_PAID])),
+                        ->modalHeading('Pay Remaining Balance')
+                        ->modalDescription(fn (Booking $record) => 'Are you sure you want to mark the remaining balance of ₱' . number_format($record->balance, 2) . ' as Paid? This will automatically create a Cash payment record.')
+                        ->visible(fn (Booking $record) => $record->balance > 0 && ! in_array($record->status, [Booking::STATUS_CANCELLED, Booking::STATUS_COMPLETED], true))
+                        ->action(function (Booking $record) {
+                            if ($record->balance > 0) {
+                                \App\Models\Payment::create([
+                                    'booking_id' => $record->id,
+                                    'amount' => $record->balance,
+                                    'notes' => 'Auto-generated full payment'
+                                ]);
+                            }
+                        }),
                     Action::make('confirm')
                         ->label('Confirm')
                         ->icon('heroicon-o-check-circle')
