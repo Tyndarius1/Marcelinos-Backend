@@ -4,11 +4,13 @@ namespace App\Observers;
 
 use App\Events\VenuesUpdated;
 use App\Models\Venue;
+use Illuminate\Support\Facades\Log;
 
 class VenueObserver
 {
     public function saved(Venue $venue): void
     {
+        $this->safeBroadcast();
         $this->safeBroadcast();
     }
 
@@ -22,11 +24,17 @@ class VenueObserver
         try {
             VenuesUpdated::dispatch();
         } catch (\Throwable $exception) {
-            file_put_contents(
-                storage_path('logs/laravel.log'),
-                now()->toDateTimeString() . ' VenuesUpdated broadcast failed: ' . $exception->getMessage() . "\n",
-                FILE_APPEND
-            );
+            $message = trim($exception->getMessage());
+
+            // Prevent huge HTML 404 pages from flooding logs.
+            if (str_contains($message, '<!DOCTYPE html>')) {
+                $message = 'Received HTML error page instead of broadcast response (likely wrong Reverb/Pusher endpoint).';
+            }
+
+            Log::warning('VenuesUpdated broadcast failed', [
+                'error' => $message,
+                'exception' => get_class($exception),
+            ]);
         }
     }
 }

@@ -14,16 +14,21 @@ class BookingObserver
 {
     public function created(Booking $booking): void
     {
-        Log::info('BookingObserver triggered for booking: ' . $booking->id . ' with reference: ' . $booking->reference_number);
+        Log::info('BookingObserver triggered', [
+            'booking_id' => $booking->id,
+            'reference_number' => $booking->reference_number,
+        ]);
 
         $users = User::whereIn('role', ['admin', 'staff'])
             ->where('is_active', true)
             ->get();
 
-        Log::info('Users found for notification: ' . $users->count());
+        Log::info('Users found for booking notification', [
+            'count' => $users->count(),
+            'booking_id' => $booking->id,
+        ]);
 
         if ($users->isNotEmpty()) {
-            Log::info('Sending notification to users');
             foreach ($users as $user) {
                 Notification::make()
                     ->title('New Booking Created')
@@ -36,7 +41,9 @@ class BookingObserver
 
         $this->safeBroadcast(
             fn (): mixed => BookingStatusUpdated::dispatch($booking),
-            'BookingStatusUpdated'
+            'BookingStatusUpdated',
+            $booking,
+            'created'
         );
 
         $this->safeBroadcast(
@@ -44,7 +51,9 @@ class BookingObserver
                 'reference' => $booking->reference_number,
                 'booking_id' => $booking->id,
             ]),
-            'AdminDashboardNotification'
+            'AdminDashboardNotification',
+            $booking,
+            'created'
         );
     }
 
@@ -71,26 +80,45 @@ class BookingObserver
 
         $this->safeBroadcast(
             fn (): mixed => BookingStatusUpdated::dispatch($booking),
-            'BookingStatusUpdated'
+            'BookingStatusUpdated',
+            $booking,
+            'updated'
         );
     }
 
     public function deleted(Booking $booking): void
     {
-        //
+         $this->safeBroadcast(
+            fn () => BookingStatusUpdated::dispatch($booking),
+            'BookingStatusUpdated',
+            $booking,
+            'deleted'
+        );
     }
 
-    private function safeBroadcast(callable $dispatch, string $eventName): void
+    private function safeBroadcast(callable $dispatch, string $eventName, Booking $booking, string $action): void
     {
         try {
             $dispatch();
         } catch (\Throwable $exception) {
-            file_put_contents(
-                storage_path('logs/laravel.log'),
-                now()->toDateTimeString() . ' ' . $eventName . ' broadcast failed: ' . $exception->getMessage() . "\n",
-                FILE_APPEND
-            );
+            Log::warning("{$eventName} broadcast failed", [
+                'booking_id' => $booking->id,
+                'reference_number' => $booking->reference_number,
+                'action' => $action,
+                'error' => $this->normalizeBroadcastError($exception),
+                'exception' => get_class($exception),
+            ]);
         }
     }
-}
 
+    private function normalizeBroadcastError(\Throwable $exception): string
+    {
+        $message = trim($exception->getMessage());
+
+        if (str_contains($message, '<!DOCTYPE html>')) {
+            return 'Received HTML response instead of broadcast server response (likely Reverb endpoint misconfiguration).';
+        }
+
+        return $message;
+    }
+}

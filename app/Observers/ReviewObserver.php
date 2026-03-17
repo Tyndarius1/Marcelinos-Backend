@@ -5,9 +5,11 @@ namespace App\Observers;
 use App\Events\ReviewsUpdated;
 use App\Models\Review;
 use App\Support\ActivityLogger;
+use Illuminate\Support\Facades\Log;
 
 /**
- * Broadcasts when a review/testimonial is created, updated, or deleted so frontend (landing) refetches in real time.
+ * Broadcasts when a review/testimonial is created, updated, or deleted
+ * so frontend (landing) refetches in real time.
  */
 class ReviewObserver
 {
@@ -28,24 +30,32 @@ class ReviewObserver
             );
         }
 
-        $this->safeBroadcast();
+        $this->safeBroadcast($review, 'saved');
     }
 
     public function deleted(Review $review): void
     {
-        $this->safeBroadcast();
+        $this->safeBroadcast($review, 'deleted');
     }
 
-    private function safeBroadcast(): void
+    private function safeBroadcast(Review $review, string $action): void
     {
         try {
             ReviewsUpdated::dispatch();
         } catch (\Throwable $exception) {
-            file_put_contents(
-                storage_path('logs/laravel.log'),
-                now()->toDateTimeString() . ' ReviewsUpdated broadcast failed: ' . $exception->getMessage() . "\n",
-                FILE_APPEND
-            );
+            $message = trim($exception->getMessage());
+
+            // Prevent logging huge HTML error pages
+            if (str_contains($message, '<!DOCTYPE html>')) {
+                $message = 'Received HTML response instead of broadcast server response (likely wrong Reverb endpoint).';
+            }
+
+            Log::warning('ReviewsUpdated broadcast failed', [
+                'review_id' => $review->id,
+                'action' => $action,
+                'error' => $message,
+                'exception' => get_class($exception),
+            ]);
         }
     }
 }
