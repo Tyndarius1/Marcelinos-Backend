@@ -52,6 +52,7 @@ class BookingResource extends Resource
     {
         return [
             ReviewsRelationManager::class,
+            \App\Filament\Resources\Bookings\RelationManagers\PaymentsRelationManager::class,
         ];
     }
 

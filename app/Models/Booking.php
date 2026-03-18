@@ -86,6 +86,11 @@ class Booking extends Model
         return $this->hasMany(Review::class);
     }
 
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
+
     /* ================= STATUSES ================= */
 
     const STATUS_UNPAID = 'unpaid';
@@ -165,5 +170,23 @@ class Booking extends Model
                 'status' => $b->status,
             ];
         })->values()->all();
+    }
+
+    /* ================= PAYMENT HELPERS ================= */
+
+    /**
+     * Get the total amount paid so far for this booking.
+     */
+    public function getTotalPaidAttribute(): int|float
+    {
+        return $this->payments()->sum('partial_amount');
+    }
+
+    /**
+     * Get the remaining balance for this booking.
+     */
+    public function getBalanceAttribute(): int|float
+    {
+        return max(0, $this->total_price - $this->total_paid);
     }
 }

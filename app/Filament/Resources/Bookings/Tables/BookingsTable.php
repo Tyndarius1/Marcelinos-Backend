@@ -96,6 +96,17 @@ class BookingsTable
                     ->money('PHP', true)
                     ->sortable(),
 
+                TextColumn::make('total_paid')
+                    ->label('Paid')
+                    ->money('PHP', true)
+                    ->sortable()
+                    ->toggleable(),
+
+                TextColumn::make('balance')
+                    ->label('Balance')
+                    ->money('PHP', true)
+                    ->sortable(),
+
                 BadgeColumn::make('status')
                     ->colors(Booking::statusColors())
                     ->sortable(),
@@ -202,13 +213,20 @@ class BookingsTable
                 ActionGroup::make([
                     ViewAction::make(),
                     EditAction::make(),
-                    Action::make('markPaid')
-                        ->label('Mark as paid')
+                    Action::make('payBalance')
+                        ->label('Pay Balance')
                         ->icon('heroicon-o-banknotes')
                         ->color('info')
                         ->requiresConfirmation()
-                        ->visible(fn (Booking $record) => in_array($record->status, [Booking::STATUS_UNPAID, Booking::STATUS_CONFIRMED], true))
-                        ->action(fn (Booking $record) => $record->update(['status' => Booking::STATUS_PAID])),
+                        ->visible(fn (Booking $record) => $record->balance > 0 && !in_array($record->status, [Booking::STATUS_CANCELLED]))
+                        ->action(function (Booking $record) {
+                            $record->payments()->create([
+                                'total_amount' => $record->total_price,
+                                'partial_amount' => $record->balance,
+                                'is_fullypaid' => true,
+                            ]);
+                            $record->update(['status' => Booking::STATUS_PAID]);
+                        }),
                     Action::make('confirm')
                         ->label('Confirm')
                         ->icon('heroicon-o-check-circle')
