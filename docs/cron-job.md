@@ -27,7 +27,8 @@ The application uses **Laravel's task scheduling**. A single system cron job run
 
 - `CompleteCheckoutBookings.php` → `bookings:complete-checkouts`
 - `ActivateCheckinBookings.php` → `bookings:activate-checkins`
-- `CancelPendingBookings.php` → `bookings:cancel-pending`
+- `SendTestimonialFeedback.php` → `testimonials:send-feedback`
+- `CancelPendingBookings.php` → `bookings:cancel-unpaid`
 
 ---
 
@@ -35,58 +36,78 @@ The application uses **Laravel's task scheduling**. A single system cron job run
 
 ### 1. Complete checked-out bookings
 
-| Item    | Value                    |
-|--------|---------------------------|
-| Command| `bookings:complete-checkouts` |
-| Schedule | Daily at **10:00** (Asia/Manila) |
+| Item     | Value                         |
+| -------- | ----------------------------- |
+| Command  | `bookings:complete-checkouts` |
+| Schedule | Every minute (Asia/Manila)    |
 
 **Logic:**
 
-- Date used: today (Asia/Manila), or `--date=Y-m-d` when run manually.
+- Date used: `now()` (or `--before=<datetime>` when run manually; `--date=Y-m-d` uses end of that day).
 - Selects bookings where:
-  - `check_out` date = that date  
-  - `status` = `occupied`
-- Sets `status` to `complete`.
+    - `check_out <= before`
+    - `status` = `occupied`
+- Sets `status` to `completed`.
 
-**Purpose:** Mark stays as completed after check-out and free the related rooms (via the Booking model’s `saved` event).
+**Purpose:** Mark stays as completed after check-out and free the related rooms.
 
 ---
 
 ### 2. Activate check-in bookings (paid → occupied)
 
-| Item    | Value                    |
-|--------|---------------------------|
-| Command| `bookings:activate-checkins` |
+| Item     | Value                            |
+| -------- | -------------------------------- |
+| Command  | `bookings:activate-checkins`     |
 | Schedule | Daily at **12:00** (Asia/Manila) |
 
 **Logic:**
 
 - Date used: today (Asia/Manila), or `--date=Y-m-d` when run manually.
 - Selects bookings where:
-  - `check_in` date = that date  
-  - `status` = `paid`
+    - `check_in` date = that date
+    - `status` = `paid`
 - Sets `status` to `occupied`.
 
 **Purpose:** Mark paid bookings as occupied on check-in day.
 
 ---
 
-### 3. Cancel pending bookings (no-show)
+### 3. Cancel unpaid bookings (no-show)
 
-| Item    | Value                    |
-|--------|---------------------------|
-| Command| `bookings:cancel-pending` |
+| Item     | Value                            |
+| -------- | -------------------------------- |
+| Command  | `bookings:cancel-unpaid`         |
 | Schedule | Daily at **12:00** (Asia/Manila) |
 
 **Logic:**
 
 - Date used: today (Asia/Manila), or `--date=Y-m-d` when run manually.
 - Selects bookings where:
-  - `check_in` date = that date  
-  - `status` = `pending`
+    - `check_in` date = that date
+    - `status` = `unpaid`
 - Sets `status` to `cancelled`.
 
-**Purpose:** Cancel bookings that were not paid by check-in date.
+**Purpose:** Cancel unpaid bookings that reach the check-in date.
+
+---
+
+### 4. Send testimonial feedback emails
+
+| Item     | Value                            |
+| -------- | -------------------------------- |
+| Command  | `testimonials:send-feedback`     |
+| Schedule | Daily at **12:00** (Asia/Manila) |
+
+**Logic:**
+
+- Selects bookings where:
+    - `status` = `completed`
+    - `check_out <= (now - 1 day)` (effectively "at least 24 hours after check-out time has passed")
+    - `testimonial_feedback_sent_at` is `null`
+- Sends an email to the guest with a signed, expiring link to submit their testimonial.
+- Marks `testimonial_feedback_sent_at` after a successful send.
+
+---
 
 ---
 
@@ -142,12 +163,12 @@ Useful for testing or backfills.
 # Use “today” (Asia/Manila)
 php artisan bookings:complete-checkouts
 php artisan bookings:activate-checkins
-php artisan bookings:cancel-pending
+php artisan bookings:cancel-unpaid
 
 # Use a specific date (Y-m-d)
 php artisan bookings:complete-checkouts --date=2025-02-09
 php artisan bookings:activate-checkins --date=2025-02-09
-php artisan bookings:cancel-pending --date=2025-02-09
+php artisan bookings:cancel-unpaid --date=2025-02-09
 ```
 
 ### List booking-related commands
