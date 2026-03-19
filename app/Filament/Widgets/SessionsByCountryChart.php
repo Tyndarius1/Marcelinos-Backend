@@ -21,7 +21,7 @@ class SessionsByCountryChart extends ChartWidget
         $total = number_format(Guest::count());
         return new HtmlString(
             '<div style="display: flex; font-size: .9rem; justify-content: space-between; align-items: center; width: 100%;">' .
-            '<span>Leading 5 Countries</span>' .
+            '<span>5 Leading Countries</span>' .
             '<span style="font-weight: 600; color: #374151;">' . $total . '</span>' .
             '</div>'
         );
