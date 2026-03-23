@@ -39,3 +39,8 @@ Schedule::command('bookings:activate-checkins')
 Schedule::command('bookings:cancel-unpaid')
     ->dailyAt('12:00')
     ->timezone('Asia/Manila');
+
+Schedule::command('bookings:send-reminders')
+    ->dailyAt('12:00')
+    ->timezone('Asia/Manila')
+    ->withoutOverlapping();

@@ -36,7 +36,6 @@ class ActivityLogger
                 'event' => Str::limit($event, 80, ''),
                 'subject_type' => $subject ? Str::limit($subject::class, 255, '') : null,
                 'subject_id' => $subject?->getKey(),
-                // Protect write path when summaries get long (e.g., large edited text fields).
                 'description' => Str::limit($description, 255, ''),
                 'meta' => empty($meta) ? null : $meta,
                 'ip_address' => Str::limit((string) ($request?->ip() ?? ''), 45, ''),

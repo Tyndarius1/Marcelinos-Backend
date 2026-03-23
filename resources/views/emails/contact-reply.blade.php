@@ -1,7 +1,9 @@
 <x-mail::message>
 {{-- Header with Logo/Branding --}}
 @component('mail::header', ['url' => config('app.url')])
-# Marcelinos
+<a href="{{ config('app.url') }}">
+    <img src="{{ url('images/brand-logo.png') }}" alt="Marcelinos Logo" style="height: 60px;">
+</a>
 @endcomponent
 
 {{-- Greeting --}}

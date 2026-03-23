@@ -136,6 +136,6 @@ color: #ffffff !important;
 .fi-btn.fi-color-danger svg,
 .fi-icon-btn.fi-color-danger .fi-icon,
 .fi-icon-btn.fi-color-danger svg {
-color: #ffffff !;
+color: #ffffff;
 stroke: transparent;
 }
