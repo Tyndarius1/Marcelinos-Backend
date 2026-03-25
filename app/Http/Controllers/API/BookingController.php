@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Events\BookingCancelled;
+use App\Events\BookingRescheduled;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\API\StoreBookingRequest;
 use App\Models\Booking;
@@ -319,5 +320,82 @@ class BookingController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    public function reschedule(Request $request, $reference)
+    {
+        $request->validate([
+            'check_in' => 'required|date',
+            'check_out' => 'required|date|after:check_in',
+        ]);
+
+        $booking = Booking::where('reference_number', $reference)->firstOrFail();
+
+        if (in_array($booking->status, ['cancelled', 'completed'])) {
+            return response()->json(['message' => 'Cannot reschedule this booking'], 422);
+        }
+
+        // Check availability using the model scopes
+        $checkIn = \Carbon\Carbon::parse($request->check_in)->startOfDay();
+        $checkOut = \Carbon\Carbon::parse($request->check_out)->endOfDay();
+
+        $roomIds = $booking->rooms->pluck('id')->toArray();
+        if (!empty($roomIds)) {
+            $availableRoomIds = \App\Models\Room::whereIn('id', $roomIds)
+                ->availableBetween($checkIn, $checkOut, $booking->id)
+                ->pluck('id')
+                ->toArray();
+
+            if (count($availableRoomIds) !== count($roomIds)) {
+                return response()->json(['message' => 'One or more currently booked rooms are not available for the new dates'], 422);
+            }
+        }
+
+        $venueIds = $booking->venues->pluck('id')->toArray();
+        if (!empty($venueIds)) {
+            $availableVenueIds = \App\Models\Venue::whereIn('id', $venueIds)
+                ->availableBetween($checkIn, $checkOut, $booking->id)
+                ->pluck('id')
+                ->toArray();
+
+            if (count($availableVenueIds) !== count($venueIds)) {
+                return response()->json(['message' => 'One or more currently booked venues are not available for the new dates'], 422);
+            }
+        }
+
+        // Recalculate price
+        $nights = \Carbon\Carbon::parse($request->check_in)
+            ->diffInDays(\Carbon\Carbon::parse($request->check_out));
+
+        $newTotal = 0;
+
+// Rooms
+if ($booking->rooms && $booking->rooms->count()) {
+    foreach ($booking->rooms as $room) {
+        $newTotal += $room->price * $nights;
+    }
+}
+
+// Venues
+if ($booking->venues && $booking->venues->count()) {
+    foreach ($booking->venues as $venue) {
+        $newTotal += $venue->price;
+    }
+}
+
+        // Update
+        $booking->update([
+            'check_in' => $request->check_in,
+            'check_out' => $request->check_out,
+            'total_price' => $newTotal,
+            'status' => 'rescheduled',
+        ]);
+
+        broadcast(new BookingRescheduled($booking))->toOthers();
+
+        return response()->json([
+            'message' => 'Booking rescheduled successfully',
+            'booking' => $booking,
+        ]);
     }
 }
