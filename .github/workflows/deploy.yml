@@ -1,24 +1,38 @@
 # ============================================================
-# GitHub Actions – Deploy to Hostinger VPS via SSH
+# GitHub Actions – Deploy to Hostinger Shared Hosting via SSH
 # Domain: marcelinos-resort-hotel.com
 #
+# Hostinger hPanel hosting with SSH access enabled.
+# This is NOT a VPS — no sudo, no service restarts needed.
+# PHP & web server (LiteSpeed) are managed by Hostinger.
+#
+# Directory structure on server:
+#   APP_PATH    – Laravel app root (e.g. ~/marcelinos)
+#   PUBLIC_HTML – Web document root that Hostinger serves
+#                 (e.g. ~/domains/marcelinos-resort-hotel.com/public_html)
+#                 Gets symlinked → APP_PATH/public on first deploy
+#
 # FIRST-DEPLOY workflow:
-#   - Clones repo, installs deps, builds assets, caches config
+#   - Clones repo, installs deps, builds assets
+#   - Symlinks public_html → Laravel's public/ folder
 #
 # SUBSEQUENT pushes:
 #   - Pulls latest code, installs deps, rebuilds, migrates
 #
 # NOTE: Database & .env are configured MANUALLY on the server.
-#       This workflow assumes .env already exists for subsequent
-#       deploys. On first deploy it copies .env.example as a
-#       starting point — SSH in and edit it before the site goes live.
+#       On first deploy it copies .env.example as a starting
+#       point — SSH in and edit it before the site goes live.
 #
 # Required GitHub Secrets:
-#   SERVER_HOST    – Hostinger VPS IP or hostname
-#   SERVER_USER    – SSH user (e.g. root or deploy user)
+#   SERVER_HOST    – Hostinger SSH hostname (from hPanel → SSH Access)
+#   SERVER_USER    – SSH username (from hPanel → SSH Access)
 #   SERVER_SSH_KEY – Private SSH key (ed25519 recommended)
-#   SERVER_PORT    – SSH port (usually 22)
-#   APP_PATH       – Absolute path on server (e.g. /var/www/marcelinos)
+#   SERVER_PORT    – SSH port (Hostinger usually uses 65002)
+#   APP_PATH       – Laravel app path on server (e.g. ~/marcelinos)
+#   PUBLIC_HTML    – Document root path (e.g. ~/public_html)
+#
+# Optional GitHub Secrets:
+#   DEPLOY_TOKEN   – GitHub PAT for cloning private repos
 # ============================================================
 
 name: Deploy to Hostinger
@@ -41,26 +55,45 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to Hostinger VPS
+      - name: Deploy to Hostinger via SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
           APP_PATH: ${{ secrets.APP_PATH }}
+          PUBLIC_HTML: ${{ secrets.PUBLIC_HTML }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
-          envs: APP_PATH
+          envs: APP_PATH,PUBLIC_HTML
           command_timeout: 30m
           script: |
             set -e
 
             echo "============================================="
             echo "🚀 Deploying Marcelino's Resort & Hotel"
+            echo "   Hostinger Shared Hosting"
             echo "============================================="
 
+            # ── Load Node.js via nvm (Hostinger uses nvm) ──
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh" || true
+
+            # ── Verify tools ──
+            echo "🔍 Checking available tools..."
+            echo "   PHP:      $(php -v 2>/dev/null | head -1 || echo 'NOT FOUND')"
+            echo "   Composer: $(composer --version 2>/dev/null | head -1 || echo 'NOT FOUND')"
+            echo "   Node:     $(node -v 2>/dev/null || echo 'NOT FOUND')"
+            echo "   npm:      $(npm -v 2>/dev/null || echo 'NOT FOUND')"
+            echo "   Git:      $(git --version 2>/dev/null || echo 'NOT FOUND')"
+
             # ── Variables ──
-            REPO_URL="https://github.com/${{ github.repository }}.git"
+            DEPLOY_TOKEN="${{ secrets.DEPLOY_TOKEN }}"
+            if [ -n "$DEPLOY_TOKEN" ]; then
+              REPO_URL="https://${DEPLOY_TOKEN}@github.com/${{ github.repository }}.git"
+            else
+              REPO_URL="https://github.com/${{ github.repository }}.git"
+            fi
             BRANCH="${{ github.ref_name }}"
             FIRST_DEPLOY=false
 
@@ -68,13 +101,6 @@ jobs:
             if [ ! -d "$APP_PATH/.git" ]; then
               FIRST_DEPLOY=true
               echo "📦 First deploy detected — full setup will run"
-            fi
-
-            # ── Stop background services if running ──
-            if [ -f "$APP_PATH/stop-services.sh" ]; then
-              echo "🛑 Stopping background services..."
-              cd "$APP_PATH"
-              bash stop-services.sh || true
             fi
 
             # ══════════════════════════════════════════════
@@ -86,7 +112,7 @@ jobs:
               git clone --branch "$BRANCH" --single-branch "$REPO_URL" "$APP_PATH"
               cd "$APP_PATH"
 
-              # ── Copy .env from example (edit manually on server afterwards) ──
+              # ── Copy .env from example ──
               echo "📄 Creating .env from .env.example..."
               cp .env.example .env
 
@@ -115,11 +141,20 @@ jobs:
               echo "🔗 Creating storage symlink..."
               php artisan storage:link --force
 
+              # ── Symlink public_html → Laravel's public/ folder ──
+              echo "🔗 Setting up public_html → Laravel public/ symlink..."
+              if [ -d "$PUBLIC_HTML" ] && [ ! -L "$PUBLIC_HTML" ]; then
+                echo "   Backing up existing public_html..."
+                mv "$PUBLIC_HTML" "${PUBLIC_HTML}_backup_$(date +%Y%m%d%H%M%S)"
+              fi
+              ln -sfn "$APP_PATH/public" "$PUBLIC_HTML"
+              echo "   ✅ $PUBLIC_HTML → $APP_PATH/public"
+
               # ── Run database migrations ──
               echo "🗄️  Running database migrations..."
               php artisan migrate --force
 
-              # ── Seed database (if seeders exist) ──
+              # ── Seed database ──
               echo "🌱 Seeding database..."
               php artisan db:seed --force || echo "⚠️  No seeders to run or seeder failed (non-critical)"
 
@@ -140,10 +175,11 @@ jobs:
               chmod -R 775 storage bootstrap/cache
               chmod 640 .env
 
+              echo ""
               echo "✅ First deploy complete!"
               echo "⚠️  IMPORTANT: SSH into the server and edit $APP_PATH/.env"
-              echo "   Configure: DB, Reverb, APP_URL, FRONTEND_URL, etc."
-              echo "   Then run: php artisan config:cache"
+              echo "   Configure: DB_*, APP_URL, FRONTEND_URL, mail, etc."
+              echo "   Then run: cd $APP_PATH && php artisan config:cache"
 
             # ══════════════════════════════════════════════
             # SUBSEQUENT DEPLOYS — Pull & Update
@@ -151,6 +187,9 @@ jobs:
             else
               echo "🔄 Pulling latest changes..."
               cd "$APP_PATH"
+
+              # Update remote URL in case DEPLOY_TOKEN changed
+              git remote set-url origin "$REPO_URL"
               git fetch origin "$BRANCH"
               git reset --hard "origin/$BRANCH"
 
@@ -185,8 +224,17 @@ jobs:
               echo "🎨 Publishing Filament assets..."
               php artisan filament:assets || true
 
-              # ── Storage link (in case it was lost) ──
+              # ── Ensure storage link exists ──
               php artisan storage:link --force || true
+
+              # ── Ensure public_html symlink is intact ──
+              if [ ! -L "$PUBLIC_HTML" ]; then
+                echo "🔗 Re-creating public_html symlink..."
+                if [ -d "$PUBLIC_HTML" ]; then
+                  mv "$PUBLIC_HTML" "${PUBLIC_HTML}_backup_$(date +%Y%m%d%H%M%S)"
+                fi
+                ln -sfn "$APP_PATH/public" "$PUBLIC_HTML"
+              fi
 
               # ── Fix permissions ──
               echo "🔐 Fixing permissions..."
@@ -200,25 +248,12 @@ jobs:
               echo "✅ Deployment complete!"
             fi
 
-            # ── Restart background services ──
-            echo "🔄 Starting background services..."
+            # ── Restart background services if applicable ──
             if [ -f "$APP_PATH/start-services.sh" ]; then
+              echo "🔄 Starting background services..."
               cd "$APP_PATH"
               bash start-services.sh || echo "⚠️  Services start had issues (check logs)"
             fi
-
-            # ── Restart PHP-FPM (if applicable) ──
-            echo "🔄 Restarting PHP-FPM..."
-            sudo systemctl restart php8.2-fpm 2>/dev/null \
-              || sudo systemctl restart php8.3-fpm 2>/dev/null \
-              || sudo service lsphp* restart 2>/dev/null \
-              || echo "⚠️  Could not restart PHP-FPM (may need manual restart)"
-
-            # ── Restart Nginx (if applicable) ──
-            echo "🔄 Reloading Nginx..."
-            sudo systemctl reload nginx 2>/dev/null \
-              || sudo service nginx reload 2>/dev/null \
-              || echo "⚠️  Could not reload Nginx (may need manual reload)"
 
             echo ""
             echo "============================================="
