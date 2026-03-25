@@ -1,0 +1,229 @@
+# ============================================================
+# GitHub Actions – Deploy to Hostinger VPS via SSH
+# Domain: marcelinos-resort-hotel.com
+#
+# FIRST-DEPLOY workflow:
+#   - Clones repo, installs deps, builds assets, caches config
+#
+# SUBSEQUENT pushes:
+#   - Pulls latest code, installs deps, rebuilds, migrates
+#
+# NOTE: Database & .env are configured MANUALLY on the server.
+#       This workflow assumes .env already exists for subsequent
+#       deploys. On first deploy it copies .env.example as a
+#       starting point — SSH in and edit it before the site goes live.
+#
+# Required GitHub Secrets:
+#   SERVER_HOST    – Hostinger VPS IP or hostname
+#   SERVER_USER    – SSH user (e.g. root or deploy user)
+#   SERVER_SSH_KEY – Private SSH key (ed25519 recommended)
+#   SERVER_PORT    – SSH port (usually 22)
+#   APP_PATH       – Absolute path on server (e.g. /var/www/marcelinos)
+# ============================================================
+
+name: Deploy to Hostinger
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: 🚀 Deploy to Production
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Hostinger VPS
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          APP_PATH: ${{ secrets.APP_PATH }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          envs: APP_PATH
+          command_timeout: 30m
+          script: |
+            set -e
+
+            echo "============================================="
+            echo "🚀 Deploying Marcelino's Resort & Hotel"
+            echo "============================================="
+
+            # ── Variables ──
+            REPO_URL="https://github.com/${{ github.repository }}.git"
+            BRANCH="${{ github.ref_name }}"
+            FIRST_DEPLOY=false
+
+            # ── Check if this is the first deploy ──
+            if [ ! -d "$APP_PATH/.git" ]; then
+              FIRST_DEPLOY=true
+              echo "📦 First deploy detected — full setup will run"
+            fi
+
+            # ── Stop background services if running ──
+            if [ -f "$APP_PATH/stop-services.sh" ]; then
+              echo "🛑 Stopping background services..."
+              cd "$APP_PATH"
+              bash stop-services.sh || true
+            fi
+
+            # ══════════════════════════════════════════════
+            # FIRST DEPLOY — Clone & Full Setup
+            # ══════════════════════════════════════════════
+            if [ "$FIRST_DEPLOY" = true ]; then
+              echo "📥 Cloning repository..."
+              mkdir -p "$(dirname "$APP_PATH")"
+              git clone --branch "$BRANCH" --single-branch "$REPO_URL" "$APP_PATH"
+              cd "$APP_PATH"
+
+              # ── Copy .env from example (edit manually on server afterwards) ──
+              echo "📄 Creating .env from .env.example..."
+              cp .env.example .env
+
+              # ── Install PHP dependencies ──
+              echo "📦 Installing Composer dependencies..."
+              composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+              # ── Generate application key ──
+              echo "🔑 Generating application key..."
+              php artisan key:generate --force
+
+              # ── Install Node dependencies & build assets ──
+              echo "📦 Installing Node.js dependencies..."
+              npm ci --prefer-offline --no-audit
+
+              echo "🏗️  Building frontend assets..."
+              npm run build
+
+              # ── Create storage directories ──
+              echo "📁 Setting up storage directories..."
+              mkdir -p storage/framework/{cache,sessions,views}
+              mkdir -p storage/app/public
+              mkdir -p bootstrap/cache
+
+              # ── Storage link ──
+              echo "🔗 Creating storage symlink..."
+              php artisan storage:link --force
+
+              # ── Run database migrations ──
+              echo "🗄️  Running database migrations..."
+              php artisan migrate --force
+
+              # ── Seed database (if seeders exist) ──
+              echo "🌱 Seeding database..."
+              php artisan db:seed --force || echo "⚠️  No seeders to run or seeder failed (non-critical)"
+
+              # ── Cache configuration for production ──
+              echo "⚡ Caching configuration..."
+              php artisan config:cache
+              php artisan route:cache
+              php artisan view:cache
+              php artisan event:cache
+              php artisan icons:cache || true
+
+              # ── Filament assets ──
+              echo "🎨 Publishing Filament assets..."
+              php artisan filament:assets || true
+
+              # ── Set permissions ──
+              echo "🔐 Setting file permissions..."
+              chmod -R 775 storage bootstrap/cache
+              chmod 640 .env
+
+              echo "✅ First deploy complete!"
+              echo "⚠️  IMPORTANT: SSH into the server and edit $APP_PATH/.env"
+              echo "   Configure: DB, Reverb, APP_URL, FRONTEND_URL, etc."
+              echo "   Then run: php artisan config:cache"
+
+            # ══════════════════════════════════════════════
+            # SUBSEQUENT DEPLOYS — Pull & Update
+            # ══════════════════════════════════════════════
+            else
+              echo "🔄 Pulling latest changes..."
+              cd "$APP_PATH"
+              git fetch origin "$BRANCH"
+              git reset --hard "origin/$BRANCH"
+
+              # ── Maintenance mode ON ──
+              echo "🔧 Enabling maintenance mode..."
+              php artisan down --retry=60 || true
+
+              # ── Install/update PHP dependencies ──
+              echo "📦 Updating Composer dependencies..."
+              composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+              # ── Install/update Node dependencies & rebuild ──
+              echo "📦 Updating Node.js dependencies..."
+              npm ci --prefer-offline --no-audit
+
+              echo "🏗️  Rebuilding frontend assets..."
+              npm run build
+
+              # ── Run database migrations ──
+              echo "🗄️  Running database migrations..."
+              php artisan migrate --force
+
+              # ── Clear and rebuild caches ──
+              echo "⚡ Rebuilding caches..."
+              php artisan config:cache
+              php artisan route:cache
+              php artisan view:cache
+              php artisan event:cache
+              php artisan icons:cache || true
+
+              # ── Filament assets ──
+              echo "🎨 Publishing Filament assets..."
+              php artisan filament:assets || true
+
+              # ── Storage link (in case it was lost) ──
+              php artisan storage:link --force || true
+
+              # ── Fix permissions ──
+              echo "🔐 Fixing permissions..."
+              chmod -R 775 storage bootstrap/cache
+              chmod 640 .env
+
+              # ── Maintenance mode OFF ──
+              echo "✅ Disabling maintenance mode..."
+              php artisan up
+
+              echo "✅ Deployment complete!"
+            fi
+
+            # ── Restart background services ──
+            echo "🔄 Starting background services..."
+            if [ -f "$APP_PATH/start-services.sh" ]; then
+              cd "$APP_PATH"
+              bash start-services.sh || echo "⚠️  Services start had issues (check logs)"
+            fi
+
+            # ── Restart PHP-FPM (if applicable) ──
+            echo "🔄 Restarting PHP-FPM..."
+            sudo systemctl restart php8.2-fpm 2>/dev/null \
+              || sudo systemctl restart php8.3-fpm 2>/dev/null \
+              || sudo service lsphp* restart 2>/dev/null \
+              || echo "⚠️  Could not restart PHP-FPM (may need manual restart)"
+
+            # ── Restart Nginx (if applicable) ──
+            echo "🔄 Reloading Nginx..."
+            sudo systemctl reload nginx 2>/dev/null \
+              || sudo service nginx reload 2>/dev/null \
+              || echo "⚠️  Could not reload Nginx (may need manual reload)"
+
+            echo ""
+            echo "============================================="
+            echo "🎉 Deployment finished successfully!"
+            echo "   Domain: marcelinos-resort-hotel.com"
+            echo "   Branch: $BRANCH"
+            echo "   Time:   $(date)"
+            echo "============================================="
