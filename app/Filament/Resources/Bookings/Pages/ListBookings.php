@@ -28,7 +28,7 @@ class ListBookings extends ListRecords
                 ->modalCancelActionLabel('Close')
                 ->form([
                     QrCodeInput::make('qr_payload')
-                        ->label('')
+                        ->hiddenLabel()
                         ->required()
                         ->live()
                         ->afterStateUpdated(function (?string $state, $livewire): void {
