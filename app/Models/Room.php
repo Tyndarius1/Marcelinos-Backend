@@ -131,9 +131,9 @@ class Room extends Model implements HasMedia
             ->whereDoesntHave('roomBlockedDates', function ($q) use ($checkIn, $checkOut) {
                 $q->overlappingBookingRange($checkIn, $checkOut);
                 
-                if ($excludeBookingId) {
-                    $q->where('bookings.id', '!=', $excludeBookingId);
-                }
+                // if ($excludeBookingId) {
+                //     $q->where('bookings.id', '!=', $excludeBookingId);
+                // }
             });
     }
 
