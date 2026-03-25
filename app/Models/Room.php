@@ -120,16 +120,20 @@ class Room extends Model implements HasMedia
      * Overlap: booking.check_in < $checkOut AND booking.check_out > $checkIn
      * Also excludes staff-blocked calendar days on this room (room_blocked_dates).
      */
-    public function scopeAvailableBetween($query, $checkIn, $checkOut)
+    public function scopeAvailableBetween($query, $checkIn, $checkOut, $excludeBookingId = null)
     {
         return $query->where('status', '!=', self::STATUS_MAINTENANCE)
-            ->whereDoesntHave('bookings', function ($q) use ($checkIn, $checkOut) {
+            ->whereDoesntHave('bookings', function ($q) use ($checkIn, $checkOut, $excludeBookingId) {
                 $q->where('bookings.status', '!=', Booking::STATUS_CANCELLED)
                     ->where('bookings.check_in', '<', $checkOut)
                     ->where('bookings.check_out', '>', $checkIn);
             })
             ->whereDoesntHave('roomBlockedDates', function ($q) use ($checkIn, $checkOut) {
                 $q->overlappingBookingRange($checkIn, $checkOut);
+                
+                if ($excludeBookingId) {
+                    $q->where('bookings.id', '!=', $excludeBookingId);
+                }
             });
     }
 
