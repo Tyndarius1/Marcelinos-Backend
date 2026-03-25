@@ -7,26 +7,26 @@
 
 
 .fi-sidebar-nav {
--ms-overflow-style: none;  
-scrollbar-width: none;     
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }
 
 .fi-sidebar-nav::-webkit-scrollbar {
-display: none;            
+    display: none;
 }
 
 @media (max-width: 1023px) {
-.fi-sidebar {
-    width: fit-content !important;
-    min-width: 16rem;
-    max-width: calc(100vw - 1rem);
-    transition: 0.5s ease;
-}
+    .fi-sidebar {
+        width: fit-content !important;
+        min-width: 16rem;
+        max-width: calc(100vw - 1rem);
+        transition: 0.5s ease;
+    }
 }
 
 /* Reduce padding on chart widgets so doughnuts fit without overlapping */
 .fi-wi-chart .fi-section-content {
-padding: 5px !important;
+    padding: 5px !important;
 }
 
 /* Make file upload errors render as a visible alert instead of blending into dark surfaces. */
@@ -55,59 +55,59 @@ padding: 5px !important;
 }
 
 .fi-btn {
-background-color: #749b66 !important;
-border-color: #749b66 !important;
-color: #ffffff !important;
+    background-color: #749b66 !important;
+    border-color: #749b66 !important;
+    color: #ffffff !important;
 }
 
 .fi-btn:hover,
 .fi-btn:focus-visible,
 .fi-btn:active {
-background-color: #749b66 !important;
-border-color: #749b66 !important;
-color: #ffffff !important;
+    background-color: #749b66 !important;
+    border-color: #749b66 !important;
+    color: #ffffff !important;
 }
 
 .fi-btn .fi-btn-label,
 .fi-btn .fi-icon,
 .fi-btn svg {
-color: #ffffff !important;
-stroke: currentColor;
+    color: #ffffff !important;
+    stroke: currentColor;
 }
 
 /* Make ToggleButtons behave like real “selected pills”. */
-.fi-fo-toggle-buttons input:not(:checked) + label.fi-btn {
-background-color: transparent !important;
-border-color: #d1d5db !important;
-color: #4b5563 !important;
+.fi-fo-toggle-buttons input:not(:checked)+label.fi-btn {
+    background-color: transparent !important;
+    border-color: #d1d5db !important;
+    color: #4b5563 !important;
 }
 
-.fi-fo-toggle-buttons input:not(:checked) + label.fi-btn:hover,
-.fi-fo-toggle-buttons input:not(:checked) + label.fi-btn:focus-visible,
-.fi-fo-toggle-buttons input:not(:checked) + label.fi-btn:active {
-background-color: transparent !important;
-border-color: #d1d5db !important;
-color: #4b5563 !important;
+.fi-fo-toggle-buttons input:not(:checked)+label.fi-btn:hover,
+.fi-fo-toggle-buttons input:not(:checked)+label.fi-btn:focus-visible,
+.fi-fo-toggle-buttons input:not(:checked)+label.fi-btn:active {
+    background-color: transparent !important;
+    border-color: #d1d5db !important;
+    color: #4b5563 !important;
 }
 
-.fi-fo-toggle-buttons input:not(:checked) + label.fi-btn .fi-btn-label,
-.fi-fo-toggle-buttons input:not(:checked) + label.fi-btn .fi-btn-icon,
-.fi-fo-toggle-buttons input:not(:checked) + label.fi-btn svg {
-color: #4b5563 !important;
-stroke: currentColor;
+.fi-fo-toggle-buttons input:not(:checked)+label.fi-btn .fi-btn-label,
+.fi-fo-toggle-buttons input:not(:checked)+label.fi-btn .fi-btn-icon,
+.fi-fo-toggle-buttons input:not(:checked)+label.fi-btn svg {
+    color: #4b5563 !important;
+    stroke: currentColor;
 }
 
-.fi-fo-toggle-buttons input:checked + label.fi-btn {
-background-color: #749b66 !important;
-border-color: #749b66 !important;
-color: #ffffff !important;
+.fi-fo-toggle-buttons input:checked+label.fi-btn {
+    background-color: #749b66 !important;
+    border-color: #749b66 !important;
+    color: #ffffff !important;
 }
 
-.fi-fo-toggle-buttons input:checked + label.fi-btn .fi-btn-label,
-.fi-fo-toggle-buttons input:checked + label.fi-btn .fi-btn-icon,
-.fi-fo-toggle-buttons input:checked + label.fi-btn svg {
-color: #ffffff !important;
-stroke: currentColor;
+.fi-fo-toggle-buttons input:checked+label.fi-btn .fi-btn-label,
+.fi-fo-toggle-buttons input:checked+label.fi-btn .fi-btn-icon,
+.fi-fo-toggle-buttons input:checked+label.fi-btn svg {
+    color: #ffffff !important;
+    stroke: currentColor;
 }
 
 /* Keep destructive actions visually distinct. */
@@ -115,9 +115,9 @@ stroke: currentColor;
 .fi-btn.fi-color-danger:not(.fi-outlined),
 .fi-btn.fi-outlined.fi-color-danger,
 .fi-icon-btn.fi-color-danger {
-background-color: #dc2626 !important;
-border-color: #dc2626 !important;
-color: #ffffff !important;
+    background-color: #dc2626 !important;
+    border-color: #dc2626 !important;
+    color: #ffffff !important;
 }
 
 .fi-btn.fi-color-danger:hover,
@@ -126,9 +126,9 @@ color: #ffffff !important;
 .fi-icon-btn.fi-color-danger:hover,
 .fi-icon-btn.fi-color-danger:focus-visible,
 .fi-icon-btn.fi-color-danger:active {
-background-color: #b91c1c !important;
-border-color: #b91c1c !important;
-color: #ffffff !important;
+    background-color: #b91c1c !important;
+    border-color: #b91c1c !important;
+    color: #ffffff !important;
 }
 
 .fi-btn.fi-color-danger .fi-btn-label,
@@ -136,6 +136,6 @@ color: #ffffff !important;
 .fi-btn.fi-color-danger svg,
 .fi-icon-btn.fi-color-danger .fi-icon,
 .fi-icon-btn.fi-color-danger svg {
-color: #ffffff;
-stroke: transparent;
+    color: #ffffff;
+    stroke: transparent;
 }

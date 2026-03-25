@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use App\Jobs\SendBookingConfirmation;
 
 class Booking extends Model
 {
@@ -44,7 +43,13 @@ class Booking extends Model
          * Handle actions AFTER booking is created
          */
         static::created(function (Booking $booking) {
-            SendBookingConfirmation::dispatch($booking);
+            $booking->generateQrCode();
+
+            $booking->loadMissing('guest');
+            if ($booking->guest && $booking->guest->email) {
+                \Illuminate\Support\Facades\Mail::to($booking->guest->email)
+                    ->send(new \App\Mail\BookingCreated($booking));
+            }
         });
 
         /**
@@ -188,5 +193,32 @@ class Booking extends Model
     public function getBalanceAttribute(): int|float
     {
         return max(0, $this->total_price - $this->total_paid);
+    }
+
+    /**
+     * Generate and save QR Code for the booking.
+     */
+    public function generateQrCode(): void
+    {
+        if (!empty($this->qr_code)) {
+            return;
+        }
+
+        $qrData = json_encode([
+            'booking_id' => $this->id,
+            'reference' => $this->reference_number,
+            'guest_id' => $this->guest_id,
+        ]);
+
+        $path = 'qr/bookings/' . \Illuminate\Support\Str::uuid() . '.svg';
+
+        \Illuminate\Support\Facades\Storage::disk('public')->put(
+            $path,
+            \SimpleSoftwareIO\QrCode\Facades\QrCode::size(300)->generate($qrData)
+        );
+
+        $this->updateQuietly([
+            'qr_code' => $path,
+        ]);
     }
 }
