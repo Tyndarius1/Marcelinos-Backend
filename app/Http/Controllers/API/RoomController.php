@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\API\RoomResource;
 use App\Models\Room;
+use App\Models\RoomBlockedDate;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -19,6 +20,7 @@ class RoomController extends Controller
      * All rooms are returned but add availability status (available or not available).
      * - is_all=true: return all rooms (e.g. homepage).
      * - Otherwise: require check_in & check_out; return rooms with availability status based on the date range.
+     * - is_block_date: true if this room has a staff block overlapping [check_in, check_out]; null when is_all.
      */
     public function index(Request $request)
     {
@@ -64,16 +66,25 @@ class RoomController extends Controller
             $rooms = $query->get();
 
             $availableRoomIds = [];
+            $blockedDateRoomIds = [];
             if (!$isAll && $rooms->isNotEmpty()) {
-                $availableRoomIds = Room::whereIn('id', $rooms->pluck('id'))
+                $roomIds = $rooms->pluck('id')->all();
+                $availableRoomIds = Room::whereIn('id', $roomIds)
                     ->availableBetween($checkIn, $checkOut)
                     ->pluck('id')
+                    ->all();
+                $blockedDateRoomIds = RoomBlockedDate::query()
+                    ->whereIn('room_id', $roomIds)
+                    ->overlappingBookingRange($checkIn, $checkOut)
+                    ->pluck('room_id')
+                    ->unique()
                     ->all();
             }
 
             $data = RoomResource::collection($rooms)->resolve();
-            $data = array_map(function ($item) use ($isAll, $availableRoomIds) {
-                $item['available'] = $isAll ? null : in_array($item['id'], $availableRoomIds);
+            $data = array_map(function ($item) use ($isAll, $availableRoomIds, $blockedDateRoomIds) {
+                $item['available'] = $isAll ? null : in_array($item['id'], $availableRoomIds, true);
+                $item['is_block_date'] = $isAll ? null : in_array($item['id'], $blockedDateRoomIds, true);
                 return $item;
             }, $data);
 
@@ -96,13 +107,35 @@ class RoomController extends Controller
         }
     }
 
-    public function show($id): JsonResponse
+    /**
+     * Show room details by id.
+     */
+    public function show(Request $request, $id): JsonResponse
     {
         try {
             $room = Room::with(['amenities', 'media', 'bedSpecifications', 'bedModifiers'])->findOrFail($id);
+            $data = (new RoomResource($room))->resolve();
+
+            $checkInQuery = $request->query('check_in');
+            $checkOutQuery = $request->query('check_out');
+            if ($checkInQuery !== null && $checkInQuery !== '' && $checkOutQuery !== null && $checkOutQuery !== '') {
+                try {
+                    $ci = Carbon::parse($checkInQuery)->startOfDay();
+                    $co = Carbon::parse($checkOutQuery)->endOfDay();
+                    if (! $co->lt($ci)) {
+                        $data['is_block_date'] = RoomBlockedDate::query()
+                            ->where('room_id', $room->id)
+                            ->overlappingBookingRange($ci, $co)
+                            ->exists();
+                    }
+                } catch (\Exception $e) {
+                    // leave is_block_date unset if dates are invalid
+                }
+            }
+
             return response()->json([
                 'success' => true,
-                'data' => (new RoomResource($room))->resolve(),
+                'data' => $data,
             ], 200);
         } catch (ModelNotFoundException $e) {
             return response()->json([
