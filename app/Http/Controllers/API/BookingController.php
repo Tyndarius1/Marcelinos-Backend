@@ -147,7 +147,7 @@ class BookingController extends Controller
                 if (!empty($conflictingRoomIds)) {
                     $conflictingRooms = Room::whereIn('id', $conflictingRoomIds)->get(['id', 'name']);
                     return response()->json([
-                        'message' => 'Booking conflict: one or more rooms are already booked for the selected dates.',
+                        'message' => 'Booking conflict: one or more rooms are not available for the selected dates (already booked or blocked).',
                         'error' => 'date_range_conflict',
                         'conflicts' => [
                             'rooms' => $conflictingRooms->map(fn($r) => ['id' => $r->id, 'name' => $r->name])->values()->all(),

@@ -27,12 +27,14 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use App\Models\Booking;
 use App\Models\BlockedDate;
+use App\Models\RoomBlockedDate;
 use App\Models\Gallery;
 use App\Models\Review;
 use App\Models\Room;
 use App\Models\User;
 use App\Models\Venue;
 use App\Observers\BlockedDateObserver;
+use App\Observers\RoomBlockedDateObserver;
 use App\Observers\BookingObserver;
 use App\Observers\GalleryObserver;
 use App\Observers\ReviewObserver;
@@ -71,6 +73,7 @@ class AppServiceProvider extends ServiceProvider
         Room::observe(RoomObserver::class);
         Venue::observe(VenueObserver::class);
         BlockedDate::observe(BlockedDateObserver::class);
+        RoomBlockedDate::observe(RoomBlockedDateObserver::class);
         Gallery::observe(GalleryObserver::class);
         Review::observe(ReviewObserver::class);
 

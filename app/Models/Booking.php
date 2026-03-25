@@ -172,6 +172,35 @@ class Booking extends Model
         })->values()->all();
     }
 
+    /**
+     * Bookings overlapping a calendar day that include a given room (for staff block warnings).
+     *
+     * @return array<int, array{id: int, reference_number: string, guest_name: string, email: string, contact_num: string, rooms: string, venues: string, check_in: string, check_out: string, status: string}>
+     */
+    public static function getConflictsForRoomOnDate(int $roomId, $date): array
+    {
+        $bookings = self::overlappingDate($date)
+            ->whereHas('rooms', fn ($q) => $q->where('rooms.id', $roomId))
+            ->with(['guest', 'rooms', 'venues'])
+            ->orderBy('check_in')
+            ->get();
+
+        return $bookings->map(function (Booking $b) {
+            return [
+                'id' => $b->id,
+                'reference_number' => $b->reference_number,
+                'guest_name' => $b->guest?->full_name ?? '—',
+                'email' => $b->guest?->email ?? '—',
+                'contact_num' => $b->guest?->contact_num ?? '—',
+                'rooms' => $b->rooms->pluck('name')->join(', ') ?: '—',
+                'venues' => $b->venues->pluck('name')->join(', ') ?: '—',
+                'check_in' => $b->check_in?->format('M j, Y g:i A') ?? '—',
+                'check_out' => $b->check_out?->format('M j, Y g:i A') ?? '—',
+                'status' => $b->status,
+            ];
+        })->values()->all();
+    }
+
     /* ================= PAYMENT HELPERS ================= */
 
     /**

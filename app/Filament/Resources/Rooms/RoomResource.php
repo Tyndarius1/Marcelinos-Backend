@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Rooms;
 
-use App\Filament\Resources\Rooms\RelationManagers\ReviewsRelationManager;
+use App\Filament\Resources\Rooms\RelationManagers\RoomBlockedDatesRelationManager;
 use App\Filament\Resources\Rooms\Pages\CreateRoom;
 use App\Filament\Resources\Rooms\Pages\EditRoom;
 use App\Filament\Resources\Rooms\Pages\ListRooms;
@@ -40,19 +40,12 @@ class RoomResource extends Resource
         return RoomsTable::configure($table);
     }
 
-    /**
-     * Define relations (currently none, but you can add e.g., bookings)
-     * @return array
-     * @description: Ignore sa laman ni kay dili pani necesary na may relation manager
-     * @note: E uncomment ra laman (line 51-56) if kinahanglan ang reviews relation manager section 
-     */
-
-    // public static function getRelations(): array
-    // {
-    //     return [
-    //         ReviewsRelationManager::class,
-    //     ];
-    // }
+    public static function getRelations(): array
+    {
+        return [
+            RoomBlockedDatesRelationManager::class,
+        ];
+    }
 
     // Define resource pages
     public static function getPages(): array

@@ -110,9 +110,15 @@ class Room extends Model implements HasMedia
         return $this->belongsToMany(Booking::class, 'booking_room')->withTimestamps();
     }
 
+    public function roomBlockedDates()
+    {
+        return $this->hasMany(RoomBlockedDate::class);
+    }
+
     /**
      * Scope: only rooms not booked (by a non-cancelled booking) in the given date range AND not in maintenance.
      * Overlap: booking.check_in < $checkOut AND booking.check_out > $checkIn
+     * Also excludes staff-blocked calendar days on this room (room_blocked_dates).
      */
     public function scopeAvailableBetween($query, $checkIn, $checkOut)
     {
@@ -121,6 +127,9 @@ class Room extends Model implements HasMedia
                 $q->where('bookings.status', '!=', Booking::STATUS_CANCELLED)
                     ->where('bookings.check_in', '<', $checkOut)
                     ->where('bookings.check_out', '>', $checkIn);
+            })
+            ->whereDoesntHave('roomBlockedDates', function ($q) use ($checkIn, $checkOut) {
+                $q->overlappingBookingRange($checkIn, $checkOut);
             });
     }
 

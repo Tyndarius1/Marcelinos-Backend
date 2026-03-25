@@ -204,12 +204,20 @@ class BookingForm
             return false;
         }
 
-        return Booking::query()
+        if (Booking::query()
             ->when($record, fn ($query) => $query->where('id', '!=', $record->id))
             ->whereNotIn('status', [Booking::STATUS_CANCELLED, Booking::STATUS_COMPLETED])
             ->where('check_in', '<', $end)
             ->where('check_out', '>', $start)
             ->whereHas('rooms', fn ($query) => $query->whereIn('rooms.id', $roomIds))
+            ->exists()) {
+            return true;
+        }
+
+        return Room::whereIn('id', $roomIds)
+            ->whereHas('roomBlockedDates', function ($query) use ($start, $end): void {
+                $query->overlappingBookingRange($start, $end);
+            })
             ->exists();
     }
 
