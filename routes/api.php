@@ -34,7 +34,7 @@ Route::middleware([\App\Http\Middleware\EnsureApiKeyIsValid::class])->group(func
         Route::patch('/bookings/{booking:reference_number}/cancel', [BookingController::class, 'cancel']);
         Route::get('bookings/reference/{reference}', [BookingController::class, 'showByReferenceNumber']);
         Route::post('bookings/reference/{reference}/review', [ReviewController::class, 'storeByBookingReference'])->middleware('throttle:bookings');
-
+        Route::patch('/bookings/{reference}/reschedule', [BookingController::class, 'reschedule']);
         // Venues
         Route::get('/venues', [VenueController::class, 'index']);
         Route::get('/venues/{id}', [VenueController::class, 'show']);

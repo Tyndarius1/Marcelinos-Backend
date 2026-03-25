@@ -109,13 +109,17 @@ class Venue extends Model implements HasMedia
      * Same logic as Room::scopeAvailableBetween: exclude maintenance and those
      * with a non-cancelled booking overlapping the range.
      */
-    public function scopeAvailableBetween($query, $checkIn, $checkOut)
+    public function scopeAvailableBetween($query, $checkIn, $checkOut, $excludeBookingId = null)
     {
         return $query->where('status', '!=', self::STATUS_MAINTENANCE)
-            ->whereDoesntHave('bookings', function ($q) use ($checkIn, $checkOut) {
+            ->whereDoesntHave('bookings', function ($q) use ($checkIn, $checkOut, $excludeBookingId) {
                 $q->where('bookings.status', '!=', Booking::STATUS_CANCELLED)
                     ->where('bookings.check_in', '<', $checkOut)
                     ->where('bookings.check_out', '>', $checkIn);
+                
+                if ($excludeBookingId) {
+                    $q->where('bookings.id', '!=', $excludeBookingId);
+                }
             });
     }
 
