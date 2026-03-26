@@ -24,7 +24,6 @@ Route::get('/qr-image/{filename}', function (string $filename) {
 
     return Response::make($file, 200, [
         'Content-Type' => $type,
-        'Access-Control-Allow-Origin' => '*',
     ]);
 });
 
