@@ -3,6 +3,7 @@
 use App\Http\Controllers\API\BookingController;
 use App\Http\Controllers\API\BlockedDateController;
 use App\Http\Controllers\API\ContactController;
+use App\Http\Controllers\API\BlogPostController;
 use App\Http\Controllers\API\GalleryController;
 use App\Http\Controllers\API\ReviewController;
 use App\Http\Controllers\API\RoomController;
@@ -52,6 +53,11 @@ Route::middleware([\App\Http\Middleware\EnsureApiKeyIsValid::class])->group(func
         // Gallery
         Route::get('/galleries', [GalleryController::class, 'index']);
         Route::get('/galleries/{id}', [GalleryController::class, 'show']);
+
+        // Blog (Facebook embed posts)
+        Route::get('/blog-posts', [BlogPostController::class, 'index']);
+        Route::get('/blog-posts/{slug}', [BlogPostController::class, 'show'])
+            ->where('slug', '[a-z0-9]+(?:-[a-z0-9]+)*');
 
         Route::get('/reviews', [ReviewController::class, 'index']);
     });
