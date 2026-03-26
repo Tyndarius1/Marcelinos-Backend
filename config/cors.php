@@ -15,7 +15,7 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+    'paths' => ['api/*', 'sanctum/csrf-cookie', 'qr-image/*'],
 
     'allowed_methods' => ['*'],
 
@@ -24,6 +24,7 @@ return [
         'http://localhost:5174',
         'http://127.0.0.1:5173',
         env('FRONTEND_URL'),
+        'https://marcelinos-resort-hotel.com',
     ])) ?: ['*'],
 
     'allowed_origins_patterns' => [],
