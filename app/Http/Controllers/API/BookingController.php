@@ -7,15 +7,18 @@ use App\Events\BookingRescheduled;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\API\StoreBookingRequest;
 use App\Models\Booking;
+use App\Models\Guest;
 use App\Models\Room;
 use App\Models\Venue;
-use App\Models\Guest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class BookingController extends Controller
 {
-    //
     /**
      * Display all bookings (paginated).
      */
@@ -23,21 +26,22 @@ class BookingController extends Controller
     {
         try {
             $perPage = min((int) $request->query('per_page', 15), 50);
+
             $bookings = Booking::with(['guest', 'rooms', 'venues'])
                 ->orderByDesc('created_at')
                 ->paginate($perPage);
 
             return response()->json($bookings, 200);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'Error retrieving bookings',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Display a booking by reference number (frontend QR lookup)
+     * Display a booking by reference number (frontend QR lookup).
      */
     public function showByReferenceNumber(string $reference)
     {
@@ -46,24 +50,24 @@ class BookingController extends Controller
                 ->where('reference_number', $reference)
                 ->first();
 
-            if (!$booking) {
-                return response()->json(['message' => 'Booking not found'], 404);
+            if (! $booking) {
+                return response()->json([
+                    'message' => 'Booking not found',
+                ], 404);
             }
 
             $hasTestimonial = $booking->reviews()->exists();
 
-            $filename = $booking->qr_code
-                ? basename($booking->qr_code)
-                : null;
+            $this->ensureBookingQrExists($booking);
+
+            $filename = $booking->qr_code ? basename($booking->qr_code) : null;
 
             return response()->json([
-                'booking' => $booking,
-                'qr_code_url' => $filename
-                    ? url("/qr-image/{$filename}")
-                    : null,
+                'booking' => $booking->fresh(['guest', 'rooms', 'venues']),
+                'qr_code_url' => $filename ? url("/qr-image/{$filename}") : null,
                 'has_testimonial' => $hasTestimonial,
             ], 200);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'Error retrieving booking',
                 'error' => $e->getMessage(),
@@ -71,17 +75,14 @@ class BookingController extends Controller
         }
     }
 
-
-
     public function store(StoreBookingRequest $request)
     {
         $validated = $request->validated();
 
-        // At least either rooms or venues must be provided AND not both empty
         $hasRooms = isset($validated['rooms']) && is_array($validated['rooms']) && count($validated['rooms']) > 0;
         $hasVenues = isset($validated['venues']) && is_array($validated['venues']) && count($validated['venues']) > 0;
 
-        if (!$hasRooms && !$hasVenues) {
+        if (! $hasRooms && ! $hasVenues) {
             return response()->json([
                 'message' => 'Must select at least one room or one venue.',
                 'error' => 'accommodation_required',
@@ -92,7 +93,6 @@ class BookingController extends Controller
             $checkIn = Carbon::createFromFormat('M d, Y', $validated['check_in'])->startOfDay();
             $checkOut = Carbon::createFromFormat('M d, Y', $validated['check_out'])->endOfDay();
 
-            // Logical date validation
             if ($checkOut->lt($checkIn)) {
                 return response()->json([
                     'message' => 'Invalid date range',
@@ -100,7 +100,6 @@ class BookingController extends Controller
                 ], 422);
             }
 
-            // Store Guest first
             $guest = Guest::store($request);
 
             $roomIds = $hasRooms
@@ -109,49 +108,51 @@ class BookingController extends Controller
                         if (is_array($room)) {
                             return $room['id'] ?? ($room[0] ?? null);
                         }
+
                         return $room;
                     })
                     ->filter()
-                    ->map(fn($id) => (int) $id)
+                    ->map(fn ($id) => (int) $id)
                     ->values()
                     ->all()
                 : [];
 
             $venueIds = $hasVenues
                 ? collect($validated['venues'])
-                    ->map(fn($id) => (int) $id)
+                    ->map(fn ($id) => (int) $id)
                     ->filter()
                     ->values()
                     ->all()
                 : [];
 
-            // Fail early if any provided room does not actually exist
             if ($hasRooms) {
                 $existingRoomIds = Room::whereIn('id', $roomIds)->pluck('id')->all();
+
                 if (count($existingRoomIds) !== count($roomIds)) {
                     return response()->json([
                         'message' => 'One or more selected rooms do not exist',
                     ], 422);
                 }
 
-                /*
-                |--------------------------------------------------------------------------
-                | Prevent booking conflict: no double-booking within date range
-                |--------------------------------------------------------------------------
-                */
                 $availableRoomIds = Room::whereIn('id', $roomIds)
                     ->availableBetween($checkIn, $checkOut)
                     ->pluck('id')
                     ->all();
+
                 $conflictingRoomIds = array_values(array_diff($roomIds, $availableRoomIds));
 
-                if (!empty($conflictingRoomIds)) {
-                    $conflictingRooms = Room::whereIn('id', $conflictingRoomIds)->get(['id', 'name']);
+                if (! empty($conflictingRoomIds)) {
+                    $conflictingRooms = Room::whereIn('id', $conflictingRoomIds)
+                        ->get(['id', 'name']);
+
                     return response()->json([
                         'message' => 'Booking conflict: one or more rooms are not available for the selected dates (already booked or blocked).',
                         'error' => 'date_range_conflict',
                         'conflicts' => [
-                            'rooms' => $conflictingRooms->map(fn($r) => ['id' => $r->id, 'name' => $r->name])->values()->all(),
+                            'rooms' => $conflictingRooms
+                                ->map(fn ($r) => ['id' => $r->id, 'name' => $r->name])
+                                ->values()
+                                ->all(),
                         ],
                     ], 422);
                 }
@@ -162,39 +163,56 @@ class BookingController extends Controller
                     ->availableBetween($checkIn, $checkOut)
                     ->pluck('id')
                     ->all();
+
                 $conflictingVenueIds = array_values(array_diff($venueIds, $availableVenueIds));
 
-                if (!empty($conflictingVenueIds)) {
-                    $conflictingVenues = Venue::whereIn('id', $conflictingVenueIds)->get(['id', 'name']);
+                if (! empty($conflictingVenueIds)) {
+                    $conflictingVenues = Venue::whereIn('id', $conflictingVenueIds)
+                        ->get(['id', 'name']);
+
                     return response()->json([
                         'message' => 'Booking conflict: one or more venues are already booked for the selected dates.',
                         'error' => 'date_range_conflict',
                         'conflicts' => [
-                            'venues' => $conflictingVenues->map(fn($v) => ['id' => $v->id, 'name' => $v->name])->values()->all(),
+                            'venues' => $conflictingVenues
+                                ->map(fn ($v) => ['id' => $v->id, 'name' => $v->name])
+                                ->values()
+                                ->all(),
                         ],
                     ], 422);
                 }
             }
 
-            // Single booking row; attach multiple rooms and venues
-            $booking = Booking::create([
-                'guest_id' => $guest->id,
-                'reference_number' => $validated['reference_number'] ?? null, // model auto-generates if null
-                'check_in' => $checkIn,
-                'check_out' => $checkOut,
-                'no_of_days' => $validated['days'],
-                'total_price' => $validated['total_price'],
-                'status' => Booking::STATUS_UNPAID,
-            ]);
+            $booking = DB::transaction(function () use (
+                $guest,
+                $validated,
+                $checkIn,
+                $checkOut,
+                $roomIds,
+                $venueIds
+            ) {
+                $booking = Booking::create([
+                    'guest_id' => $guest->id,
+                    'reference_number' => $validated['reference_number'] ?? null,
+                    'check_in' => $checkIn,
+                    'check_out' => $checkOut,
+                    'no_of_days' => $validated['days'],
+                    'total_price' => $validated['total_price'],
+                    'status' => Booking::STATUS_UNPAID,
+                ]);
 
-            if (!empty($roomIds)) {
-                $booking->rooms()->attach($roomIds);
-            }
-            if (!empty($venueIds)) {
-                $booking->venues()->attach($venueIds);
-            }
+                $this->generateBookingQr($booking);
 
-            $booking->load(['guest', 'rooms', 'venues']);
+                if (! empty($roomIds)) {
+                    $booking->rooms()->attach($roomIds);
+                }
+
+                if (! empty($venueIds)) {
+                    $booking->venues()->attach($venueIds);
+                }
+
+                return $booking->fresh(['guest', 'rooms', 'venues']);
+            });
 
             return response()->json([
                 'message' => 'Booking created successfully',
@@ -202,31 +220,33 @@ class BookingController extends Controller
                 'booking' => $booking,
                 'total_price' => $validated['total_price'],
             ], 201);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'Failed to create booking',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Display a specific booking
+     * Display a specific booking.
      */
     public function show($id)
     {
         try {
             $booking = Booking::with(['guest', 'rooms', 'venues'])->find($id);
 
-            if (!$booking) {
-                return response()->json(['message' => 'Booking not found'], 404);
+            if (! $booking) {
+                return response()->json([
+                    'message' => 'Booking not found',
+                ], 404);
             }
 
             return response()->json($booking, 200);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'Error retrieving booking',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -236,8 +256,10 @@ class BookingController extends Controller
         try {
             $booking = Booking::with(['guest', 'rooms', 'venues'])->find($id);
 
-            if (!$booking) {
-                return response()->json(['message' => 'Booking not found'], 404);
+            if (! $booking) {
+                return response()->json([
+                    'message' => 'Booking not found',
+                ], 404);
             }
 
             $validated = $request->validate([
@@ -251,8 +273,10 @@ class BookingController extends Controller
                 ]),
             ]);
 
-            if (!empty($validated['status'])) {
-                $booking->update(['status' => $validated['status']]);
+            if (! empty($validated['status'])) {
+                $booking->update([
+                    'status' => $validated['status'],
+                ]);
             }
 
             $booking->refresh()->load(['guest', 'rooms', 'venues']);
@@ -266,7 +290,7 @@ class BookingController extends Controller
                 'message' => 'Validation failed',
                 'errors' => $e->errors(),
             ], 422);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'Error updating booking',
                 'error' => $e->getMessage(),
@@ -279,17 +303,21 @@ class BookingController extends Controller
         try {
             $booking = Booking::find($id);
 
-            if (!$booking) {
-                return response()->json(['message' => 'Booking not found'], 404);
+            if (! $booking) {
+                return response()->json([
+                    'message' => 'Booking not found',
+                ], 404);
             }
 
             $booking->delete();
 
-            return response()->json(['message' => 'Booking deleted successfully'], 200);
-        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Booking deleted successfully',
+            ], 200);
+        } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'Error deleting booking',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -297,27 +325,35 @@ class BookingController extends Controller
     public function cancel(Request $request, Booking $booking)
     {
         try {
-            if (!in_array($booking->status, [Booking::STATUS_UNPAID, Booking::STATUS_CONFIRMED, Booking::STATUS_RESCHEDULED])) {
+            $allowedStatuses = [
+                Booking::STATUS_UNPAID,
+                Booking::STATUS_CONFIRMED,
+            ];
+
+            if (defined(Booking::class . '::STATUS_RESCHEDULED')) {
+                $allowedStatuses[] = Booking::STATUS_RESCHEDULED;
+            }
+
+            if (! in_array($booking->status, $allowedStatuses, true)) {
                 return response()->json([
-                    'message' => 'Booking cannot be cancelled in its current state.'
+                    'message' => 'Booking cannot be cancelled in its current state.',
                 ], 422);
             }
 
             $booking->update([
-                'status' => Booking::STATUS_CANCELLED
+                'status' => Booking::STATUS_CANCELLED,
             ]);
 
             broadcast(new BookingCancelled($booking))->toOthers();
 
             return response()->json([
                 'message' => 'Booking cancelled successfully.',
-                'booking' => $booking
+                'booking' => $booking,
             ], 200);
-
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'Error cancelling booking',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -331,59 +367,60 @@ class BookingController extends Controller
 
         $booking = Booking::where('reference_number', $reference)->firstOrFail();
 
-        if (in_array($booking->status, ['cancelled', 'completed'])) {
-            return response()->json(['message' => 'Cannot reschedule this booking'], 422);
+        if (in_array($booking->status, ['cancelled', 'completed'], true)) {
+            return response()->json([
+                'message' => 'Cannot reschedule this booking',
+            ], 422);
         }
 
-        // Check availability using the model scopes
         $checkIn = \Carbon\Carbon::parse($request->check_in)->startOfDay();
         $checkOut = \Carbon\Carbon::parse($request->check_out)->endOfDay();
 
         $roomIds = $booking->rooms->pluck('id')->toArray();
-        if (!empty($roomIds)) {
+        if (! empty($roomIds)) {
             $availableRoomIds = \App\Models\Room::whereIn('id', $roomIds)
                 ->availableBetween($checkIn, $checkOut, $booking->id)
                 ->pluck('id')
                 ->toArray();
 
             if (count($availableRoomIds) !== count($roomIds)) {
-                return response()->json(['message' => 'One or more currently booked rooms are not available for the new dates'], 422);
+                return response()->json([
+                    'message' => 'One or more currently booked rooms are not available for the new dates',
+                ], 422);
             }
         }
 
         $venueIds = $booking->venues->pluck('id')->toArray();
-        if (!empty($venueIds)) {
+        if (! empty($venueIds)) {
             $availableVenueIds = \App\Models\Venue::whereIn('id', $venueIds)
                 ->availableBetween($checkIn, $checkOut, $booking->id)
                 ->pluck('id')
                 ->toArray();
 
             if (count($availableVenueIds) !== count($venueIds)) {
-                return response()->json(['message' => 'One or more currently booked venues are not available for the new dates'], 422);
+                return response()->json([
+                    'message' => 'One or more currently booked venues are not available for the new dates',
+                ], 422);
             }
         }
 
-        // Recalculate price
         $nights = \Carbon\Carbon::parse($request->check_in)
             ->diffInDays(\Carbon\Carbon::parse($request->check_out));
 
         $newTotal = 0;
 
-// Rooms
-if ($booking->rooms && $booking->rooms->count()) {
-    foreach ($booking->rooms as $room) {
-        $newTotal += $room->price * $nights;
-    }
-}
+        if ($booking->rooms && $booking->rooms->count()) {
+            foreach ($booking->rooms as $room) {
+                $newTotal += $room->price * $nights;
+            }
+        }
 
-// Venues
-if ($booking->venues && $booking->venues->count()) {
-    foreach ($booking->venues as $venue) {
-        $newTotal += $venue->price;
-    }
-}
+        if ($booking->venues && $booking->venues->count()) {
+            foreach ($booking->venues as $venue) {
+                $newTotal += $venue->price;
+            }
+        }
 
-        // Update
         $booking->update([
             'check_in' => $request->check_in,
             'check_out' => $request->check_out,
@@ -397,5 +434,38 @@ if ($booking->venues && $booking->venues->count()) {
             'message' => 'Booking rescheduled successfully',
             'booking' => $booking,
         ]);
+    }
+
+    private function ensureBookingQrExists(Booking $booking): void
+    {
+        if ($booking->qr_code && Storage::disk('public')->exists($booking->qr_code)) {
+            return;
+        }
+
+        $this->generateBookingQr($booking, $booking->qr_code ? basename($booking->qr_code) : null);
+    }
+
+    private function generateBookingQr(Booking $booking, ?string $filename = null): string
+    {
+        $payload = json_encode([
+            'booking_id' => $booking->id,
+            'reference_number' => $booking->reference_number,
+            'guest_id' => $booking->guest_id,
+        ]);
+
+        $filename = $filename ?: Str::uuid() . '.svg';
+        $path = 'qr/bookings/' . $filename;
+
+        $svg = QrCode::format('svg')->size(300)->generate($payload);
+
+        Storage::disk('public')->put($path, $svg);
+
+        if ($booking->qr_code !== $path) {
+            $booking->update([
+                'qr_code' => $path,
+            ]);
+        }
+
+        return $path;
     }
 }
