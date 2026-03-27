@@ -10,15 +10,62 @@ use App\Models\Booking;
 use App\Models\Guest;
 use App\Models\Room;
 use App\Models\Venue;
+use App\Services\BookingActionOtpService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class BookingController extends Controller
 {
+    public function __construct(
+        private BookingActionOtpService $bookingActionOtpService,
+    ) {}
+
+    /**
+     * Send SMS OTP for cancel or reschedule (Semaphore).
+     */
+    public function sendBookingOtp(Request $request, Booking $booking)
+    {
+        $request->validate([
+            'purpose' => 'required|in:cancel,reschedule',
+        ]);
+
+        $purpose = (string) $request->input('purpose');
+
+        if ($purpose === BookingActionOtpService::PURPOSE_CANCEL) {
+            $allowedStatuses = [
+                Booking::STATUS_UNPAID,
+                Booking::STATUS_CONFIRMED,
+            ];
+
+            if (defined(Booking::class.'::STATUS_RESCHEDULED')) {
+                $allowedStatuses[] = Booking::STATUS_RESCHEDULED;
+            }
+
+            if (! in_array($booking->status, $allowedStatuses, true)) {
+                return response()->json([
+                    'message' => 'Booking cannot be cancelled in its current state.',
+                ], 422);
+            }
+        } else {
+            if (in_array($booking->status, [Booking::STATUS_CANCELLED, Booking::STATUS_COMPLETED], true)) {
+                return response()->json([
+                    'message' => 'Cannot reschedule this booking.',
+                ], 422);
+            }
+        }
+
+        $this->bookingActionOtpService->send($booking, $purpose);
+
+        return response()->json([
+            'message' => 'Verification code sent.',
+        ]);
+    }
+
     /**
      * Display all bookings (paginated).
      */
@@ -263,7 +310,7 @@ class BookingController extends Controller
             }
 
             $validated = $request->validate([
-                'status' => 'sometimes|string|in:' . implode(',', [
+                'status' => 'sometimes|string|in:'.implode(',', [
                     Booking::STATUS_UNPAID,
                     Booking::STATUS_PAID,
                     Booking::STATUS_CONFIRMED,
@@ -285,7 +332,7 @@ class BookingController extends Controller
                 'message' => 'Booking updated successfully',
                 'booking' => $booking,
             ], 200);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             return response()->json([
                 'message' => 'Validation failed',
                 'errors' => $e->errors(),
@@ -324,19 +371,33 @@ class BookingController extends Controller
 
     public function cancel(Request $request, Booking $booking)
     {
+        $request->validate([
+            'otp' => 'required|string',
+        ]);
+
         try {
             $allowedStatuses = [
                 Booking::STATUS_UNPAID,
                 Booking::STATUS_CONFIRMED,
             ];
 
-            if (defined(Booking::class . '::STATUS_RESCHEDULED')) {
+            if (defined(Booking::class.'::STATUS_RESCHEDULED')) {
                 $allowedStatuses[] = Booking::STATUS_RESCHEDULED;
             }
 
             if (! in_array($booking->status, $allowedStatuses, true)) {
                 return response()->json([
                     'message' => 'Booking cannot be cancelled in its current state.',
+                ], 422);
+            }
+
+            if (! $this->bookingActionOtpService->verifyAndConsume(
+                $booking->reference_number,
+                BookingActionOtpService::PURPOSE_CANCEL,
+                (string) $request->input('otp'),
+            )) {
+                return response()->json([
+                    'message' => 'Invalid or expired verification code.',
                 ], 422);
             }
 
@@ -363,6 +424,7 @@ class BookingController extends Controller
         $request->validate([
             'check_in' => 'required|date',
             'check_out' => 'required|date|after:check_in',
+            'otp' => 'required|string',
         ]);
 
         $booking = Booking::where('reference_number', $reference)->firstOrFail();
@@ -378,7 +440,7 @@ class BookingController extends Controller
 
         $roomIds = $booking->rooms->pluck('id')->toArray();
         if (! empty($roomIds)) {
-            $availableRoomIds = \App\Models\Room::whereIn('id', $roomIds)
+            $availableRoomIds = Room::whereIn('id', $roomIds)
                 ->availableBetween($checkIn, $checkOut, $booking->id)
                 ->pluck('id')
                 ->toArray();
@@ -392,7 +454,7 @@ class BookingController extends Controller
 
         $venueIds = $booking->venues->pluck('id')->toArray();
         if (! empty($venueIds)) {
-            $availableVenueIds = \App\Models\Venue::whereIn('id', $venueIds)
+            $availableVenueIds = Venue::whereIn('id', $venueIds)
                 ->availableBetween($checkIn, $checkOut, $booking->id)
                 ->pluck('id')
                 ->toArray();
@@ -402,6 +464,16 @@ class BookingController extends Controller
                     'message' => 'One or more currently booked venues are not available for the new dates',
                 ], 422);
             }
+        }
+
+        if (! $this->bookingActionOtpService->verifyAndConsume(
+            $booking->reference_number,
+            BookingActionOtpService::PURPOSE_RESCHEDULE,
+            (string) $request->input('otp'),
+        )) {
+            return response()->json([
+                'message' => 'Invalid or expired verification code.',
+            ], 422);
         }
 
         $nights = \Carbon\Carbon::parse($request->check_in)
@@ -453,8 +525,8 @@ class BookingController extends Controller
             'guest_id' => $booking->guest_id,
         ]);
 
-        $filename = $filename ?: Str::uuid() . '.svg';
-        $path = 'qr/bookings/' . $filename;
+        $filename = $filename ?: Str::uuid().'.svg';
+        $path = 'qr/bookings/'.$filename;
 
         $svg = QrCode::format('svg')->size(300)->generate($payload);
 

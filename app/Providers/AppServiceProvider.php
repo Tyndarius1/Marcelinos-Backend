@@ -352,5 +352,14 @@ class AppServiceProvider extends ServiceProvider
                 ->by($request->ip())
                 ->response($jsonTooManyRequests);
         });
+
+        RateLimiter::for('booking_otp', function (Request $request) use ($jsonTooManyRequests) {
+            $booking = $request->route('booking');
+            $ref = $booking instanceof Booking ? $booking->reference_number : (string) ($request->route('booking') ?? '');
+
+            return Limit::perMinutes(15, 3)
+                ->by($request->ip().':'.$ref)
+                ->response($jsonTooManyRequests);
+        });
     }
 }

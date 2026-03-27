@@ -39,4 +39,10 @@ return [
         'key' => env('API_KEY'),
     ],
 
+    'semaphore' => [
+        'api_key' => env('SEMAPHORE_API_KEY'),
+        'otp_url' => env('SEMAPHORE_OTP_URL', 'https://api.semaphore.co/api/v4/otp'),
+        'sender_name' => env('SEMAPHORE_SENDER_NAME'),
+    ],
+
 ];
