@@ -23,7 +23,7 @@
                                 <tr>
                                     <td style="vertical-align:middle;">
                                         <a href="{{ config('app.url') }}" style="text-decoration:none;">
-                                            <img src="{{ config('app.url') . '/brand-logo.png' }}" alt="Marcelino's Logo" width="80" style="display:block; height:auto; border:0; outline:none; text-decoration:none;">
+                                            <img src="{{ config('app.url') . '/brand-logo.png' }}" alt="Marcelino's Logo" width="60" style="display:block; height:auto; border:0; outline:none; text-decoration:none;">
                                         </a>
                                     </td>
                                     <td style="vertical-align:middle; text-align:right; color:#111827; font-family:'Poppins', Arial, Helvetica, sans-serif;">
