@@ -1,14 +1,16 @@
 <?php
 
-use App\Http\Controllers\API\BookingController;
 use App\Http\Controllers\API\BlockedDateController;
-use App\Http\Controllers\API\ContactController;
 use App\Http\Controllers\API\BlogPostController;
+use App\Http\Controllers\API\BookingController;
+use App\Http\Controllers\API\ContactController;
 use App\Http\Controllers\API\GalleryController;
 use App\Http\Controllers\API\ReviewController;
 use App\Http\Controllers\API\RoomController;
 use App\Http\Controllers\API\VenueController;
+use App\Http\Middleware\EnsureApiKeyIsValid;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/user', function (Request $request) {
@@ -17,14 +19,15 @@ Route::get('/user', function (Request $request) {
 
 Route::get('/health', function () {
     try {
-        \Illuminate\Support\Facades\DB::connection()->getPdo();
+        DB::connection()->getPdo();
+
         return response()->json(['status' => 'ok', 'database' => 'connected'], 200);
-    } catch (\Throwable $e) {
+    } catch (Throwable $e) {
         return response()->json(['status' => 'error', 'database' => 'disconnected'], 503);
     }
 });
 
-Route::middleware([\App\Http\Middleware\EnsureApiKeyIsValid::class])->group(function () {
+Route::middleware([EnsureApiKeyIsValid::class])->group(function () {
     Route::middleware('throttle:api')->group(function () {
         // Bookings (stricter limit on create and review)
         Route::get('bookings', [BookingController::class, 'index']);
@@ -32,6 +35,8 @@ Route::middleware([\App\Http\Middleware\EnsureApiKeyIsValid::class])->group(func
         Route::get('bookings/{id}', [BookingController::class, 'show']);
         Route::put('bookings/{id}', [BookingController::class, 'update']);
         Route::delete('bookings/{id}', [BookingController::class, 'destroy']);
+        Route::post('/bookings/{booking:reference_number}/otp/send', [BookingController::class, 'sendBookingOtp'])
+            ->middleware('throttle:booking_otp');
         Route::patch('/bookings/{booking:reference_number}/cancel', [BookingController::class, 'cancel']);
         Route::get('bookings/reference/{reference}', [BookingController::class, 'showByReferenceNumber']);
         Route::post('bookings/reference/{reference}/review', [ReviewController::class, 'storeByBookingReference'])->middleware('throttle:bookings');
