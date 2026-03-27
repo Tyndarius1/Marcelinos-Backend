@@ -48,7 +48,10 @@ class StaffTable
                 TextColumn::make('permissions')
                     ->label('Privileges')
                     ->badge()
-                    ->formatStateUsing(function (?array $state): string {
+                    ->formatStateUsing(function ($state): string {
+                        if (is_string($state)) {
+                            $state = json_decode($state, true);
+                        }
                         if (! is_array($state) || empty($state)) {
                             return 'No privileges';
                         }
