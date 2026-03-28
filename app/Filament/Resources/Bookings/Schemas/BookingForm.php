@@ -7,17 +7,38 @@ use App\Models\Guest;
 use App\Models\Room;
 use App\Models\Venue;
 use App\Support\BookingPricing;
+use App\Support\RoomInventoryGroupKey;
 use Carbon\Carbon;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Illuminate\Support\HtmlString;
+use Illuminate\Validation\ValidationException;
 
 class BookingForm
 {
+    /**
+     * Distinct row backgrounds for “type + bed spec” groups (Tailwind must see full class strings).
+     *
+     * @var array<int, string>
+     */
+    private const ROOM_ASSIGNMENT_GROUP_BG_CLASSES = [
+        'rounded-sm px-2 py-0.5 border-s-[3px] border-amber-500 bg-amber-500/15 dark:bg-amber-500/20',
+        'rounded-sm px-2 py-0.5 border-s-[3px] border-sky-500 bg-sky-500/15 dark:bg-sky-500/20',
+        'rounded-sm px-2 py-0.5 border-s-[3px] border-violet-500 bg-violet-500/15 dark:bg-violet-500/20',
+        'rounded-sm px-2 py-0.5 border-s-[3px] border-emerald-500 bg-emerald-500/15 dark:bg-emerald-500/20',
+        'rounded-sm px-2 py-0.5 border-s-[3px] border-rose-500 bg-rose-500/15 dark:bg-rose-500/20',
+        'rounded-sm px-2 py-0.5 border-s-[3px] border-orange-500 bg-orange-500/15 dark:bg-orange-500/20',
+        'rounded-sm px-2 py-0.5 border-s-[3px] border-cyan-500 bg-cyan-500/15 dark:bg-cyan-500/20',
+        'rounded-sm px-2 py-0.5 border-s-[3px] border-fuchsia-500 bg-fuchsia-500/15 dark:bg-fuchsia-500/20',
+    ];
+
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
@@ -29,23 +50,122 @@ class BookingForm
                 ->preload()
                 ->required(),
 
+            Section::make('Guest booking (billing summary)')
+                ->description(function (?Booking $record): ?HtmlString {
+                    if (! $record || $record->roomLines->isEmpty()) {
+                        return null;
+                    }
+                    $record->loadMissing('roomLines');
+                    $html = '<ul class="list-disc ms-5 space-y-1 text-sm">';
+                    foreach ($record->roomLines as $line) {
+                        $html .= '<li>'.e($line->displayLabel()).' × '.(int) $line->quantity.'</li>';
+                    }
+                    $total = (int) $record->roomLines->sum('quantity');
+                    $html .= '</ul>';
+                    $html .= '<p class="mt-3 text-sm text-gray-500 dark:text-gray-400">Assign exactly <strong>'.$total.'</strong> physical room(s) under “Assigned rooms” so each line matches. You cannot save until this matches the guest request.</p>';
+
+                    return new HtmlString($html);
+                })
+                ->visible(fn (?Booking $record) => $record?->roomLines?->isNotEmpty())
+                ->schema([
+                    Hidden::make('guest_booking_section_placeholder')->dehydrated(false),
+                ]),
+
             Select::make('rooms')
-                ->label('Rooms')
-                ->relationship('rooms', 'name')
+                ->label('Assigned rooms')
+                ->relationship(
+                    'rooms',
+                    'name',
+                    modifyQueryUsing: function ($query, ?string $search, ?Booking $record = null): void {
+                        $booking = $record ?? (request()->route('record') instanceof Booking ? request()->route('record') : null);
+                        $roomTableKey = $query->getModel()->getQualifiedKeyName();
+                        $roomStatusCol = $query->getModel()->qualifyColumn('status');
+                        if ($booking instanceof Booking) {
+                            $eligible = Room::idsEligibleForBookingAssignment($booking);
+                            if ($eligible !== null) {
+                                if ($eligible === []) {
+                                    $query->whereRaw('0 = 1');
+                                } else {
+                                    $query->whereIn($roomTableKey, $eligible);
+                                }
+                                $query->with(['bedSpecifications', 'bedModifiers']);
+                                $typeCol = $query->getModel()->qualifyColumn('type');
+                                $nameCol = $query->getModel()->qualifyColumn('name');
+                                $query->orderBy($typeCol)->orderBy($nameCol);
+
+                                return;
+                            }
+                        }
+                        $query->where($roomStatusCol, '!=', Room::STATUS_MAINTENANCE)
+                            ->with(['bedSpecifications', 'bedModifiers']);
+                        $typeCol = $query->getModel()->qualifyColumn('type');
+                        $nameCol = $query->getModel()->qualifyColumn('name');
+                        $query->orderBy($typeCol)->orderBy($nameCol);
+                    },
+                )
                 ->multiple()
                 ->searchable()
                 ->preload()
-                ->required()
+                ->allowHtml()
+                ->getOptionLabelFromRecordUsing(function (Room $record): string {
+                    $booking = request()->route('record');
+                    $booking = $booking instanceof Booking ? $booking : null;
+
+                    return self::assignedRoomOptionHtml($record, $booking);
+                })
                 ->live()
-                ->helperText('Selecting rooms automatically recalculates nights and total. Conflicting rooms will be blocked.')
+                ->maxItems(function (?Booking $record): ?int {
+                    if (! $record instanceof Booking) {
+                        return null;
+                    }
+                    $record->loadMissing('roomLines');
+                    if ($record->roomLines->isEmpty()) {
+                        return null;
+                    }
+                    $total = (int) $record->roomLines->sum('quantity');
+
+                    return $total > 0 ? $total : null;
+                })
+                ->helperText('Options are color-coded by room type + bed specification (same colors as the billing summary lines when this booking has room lines). You can pick at most as many rooms as billing lines require; extra picks for the same type/bed group are dropped. Totals update when you select rooms.')
                 ->rules([
+                    fn (Get $get, ?Booking $record) => function (string $attribute, $value, $fail) use ($get, $record): void {
+                        $roomIds = array_filter((array) ($get('rooms') ?? []));
+                        $venueIds = array_filter((array) ($get('venues') ?? []));
+                        if ($roomIds === [] && $venueIds === []) {
+                            $fail('Select at least one room or one venue.');
+                        }
+                    },
                     fn (Get $get, ?Booking $record) => function (string $attribute, $value, $fail) use ($get, $record): void {
                         if (self::hasRoomConflicts($value, $get('check_in'), $get('check_out'), $record)) {
                             $fail('One or more selected rooms are not available for the chosen dates.');
                         }
                     },
+                    fn (Get $get, ?Booking $record) => function (string $attribute, $value, $fail) use ($record): void {
+                        if (! $record instanceof Booking) {
+                            return;
+                        }
+                        try {
+                            Booking::validateAssignedRoomsFulfillRoomLines($record, is_array($value) ? $value : []);
+                        } catch (ValidationException $e) {
+                            $msg = $e->errors()['rooms'][0] ?? $e->getMessage();
+                            $fail($msg);
+                        }
+                    },
                 ])
-                ->afterStateUpdated(fn (Get $get, Set $set) => self::updatePricing($get, $set)),
+                ->afterStateUpdated(function (Get $get, Set $set): void {
+                    $routeRecord = request()->route('record');
+                    $booking = $routeRecord instanceof Booking ? $routeRecord : null;
+                    $rooms = $get('rooms');
+                    $roomIds = is_array($rooms) ? $rooms : [];
+                    if ($booking instanceof Booking) {
+                        $clamped = self::clampAssignedRoomsToRoomLines($booking, $roomIds);
+                        $before = self::normalizeRoomIdList($roomIds);
+                        if ($clamped !== $before) {
+                            $set('rooms', $clamped);
+                        }
+                    }
+                    self::updatePricing($get, $set);
+                }),
 
             Select::make('venues')
                 ->label('Venues')
@@ -56,6 +176,13 @@ class BookingForm
                 ->live()
                 ->helperText('Optional. Venues are validated against the same date range.')
                 ->rules([
+                    fn (Get $get) => function (string $attribute, $value, $fail) use ($get): void {
+                        $roomIds = array_filter((array) ($get('rooms') ?? []));
+                        $venueIds = array_filter((array) ($get('venues') ?? []));
+                        if ($roomIds === [] && $venueIds === []) {
+                            $fail('Select at least one room or one venue.');
+                        }
+                    },
                     fn (Get $get, ?Booking $record) => function (string $attribute, $value, $fail) use ($get, $record): void {
                         if (self::hasVenueConflicts($value, $get('check_in'), $get('check_out'), $record)) {
                             $fail('One or more selected venues are not available for the chosen dates.');
@@ -186,7 +313,20 @@ class BookingForm
         $venueIds = array_filter($venueIds);
 
         if (($roomIds || $venueIds) && $days > 0) {
-            $roomsTotal = Room::whereIn('id', $roomIds)->sum('price');
+            if ($roomIds !== []) {
+                $roomsTotal = Room::whereIn('id', $roomIds)->sum('price');
+            } else {
+                $roomsTotal = 0.0;
+                $routeRecord = request()->route('record');
+                if ($routeRecord instanceof Booking) {
+                    $routeRecord->loadMissing('roomLines');
+                    if ($routeRecord->roomLines->isNotEmpty()) {
+                        $roomsTotal = (float) $routeRecord->roomLines->sum(
+                            fn ($line) => $line->quantity * (float) $line->unit_price_per_night
+                        );
+                    }
+                }
+            }
             $venueEventType = $get('venue_event_type');
             $venues = Venue::whereIn('id', $venueIds)->get();
             $venuesTotal = BookingPricing::sumVenueLine($venues, $venueEventType);
@@ -260,5 +400,88 @@ class BookingForm
             ->where('check_out', '>', $start)
             ->whereHas('venues', fn ($query) => $query->whereIn('venues.id', $venueIds))
             ->exists();
+    }
+
+    /**
+     * HTML label for the Assigned rooms select: colored strip per type + bed-spec group.
+     * When the booking has room lines, colors follow the same order as the billing summary lines.
+     */
+    private static function assignedRoomOptionHtml(Room $room, ?Booking $booking): string
+    {
+        $room->loadMissing(['bedSpecifications', 'bedModifiers']);
+        $igk = RoomInventoryGroupKey::forRoom($room);
+        $palette = self::ROOM_ASSIGNMENT_GROUP_BG_CLASSES;
+        $n = count($palette);
+        $class = $palette[abs(crc32($room->type."\0".$igk)) % $n];
+
+        if ($booking !== null) {
+            $booking->loadMissing('roomLines');
+            foreach ($booking->roomLines as $index => $line) {
+                if ($room->type === $line->room_type && $igk === $line->inventory_group_key) {
+                    $class = $palette[$index % $n];
+                    break;
+                }
+            }
+        }
+
+        $name = e(trim((string) $room->name));
+        $summary = e($room->typeDashBedSummary());
+
+        return '<span class="inline-flex w-full max-w-full min-w-0 items-baseline gap-x-1 '.$class.'"><span class="font-medium text-gray-950 dark:text-white">'.$name.'</span><span class="text-gray-600 dark:text-gray-300 shrink-0">('.$summary.')</span></span>';
+    }
+
+    /**
+     * @param  array<int|string|null>  $roomIds
+     * @return array<int>
+     */
+    private static function normalizeRoomIdList(array $roomIds): array
+    {
+        return array_values(array_unique(array_filter(array_map('intval', $roomIds))));
+    }
+
+    /**
+     * Keeps selection order but drops rooms beyond each billing line's quantity for the same room type + bed-spec group.
+     *
+     * @param  array<int|string|null>  $roomIds
+     * @return array<int>
+     */
+    private static function clampAssignedRoomsToRoomLines(Booking $booking, array $roomIds): array
+    {
+        $booking->loadMissing('roomLines');
+        if ($booking->roomLines->isEmpty()) {
+            return self::normalizeRoomIdList($roomIds);
+        }
+
+        $needs = [];
+        foreach ($booking->roomLines as $line) {
+            $k = $line->room_type."\0".$line->inventory_group_key;
+            $needs[$k] = ($needs[$k] ?? 0) + (int) $line->quantity;
+        }
+
+        $roomIds = self::normalizeRoomIdList($roomIds);
+        if ($roomIds === []) {
+            return [];
+        }
+
+        $rooms = Room::query()
+            ->whereIn('id', $roomIds)
+            ->with(['bedSpecifications', 'bedModifiers'])
+            ->get()
+            ->keyBy('id');
+
+        $result = [];
+        foreach ($roomIds as $id) {
+            $room = $rooms->get($id);
+            if (! $room) {
+                continue;
+            }
+            $k = $room->type."\0".RoomInventoryGroupKey::forRoom($room);
+            if (($needs[$k] ?? 0) > 0) {
+                $result[] = $id;
+                $needs[$k]--;
+            }
+        }
+
+        return $result;
     }
 }

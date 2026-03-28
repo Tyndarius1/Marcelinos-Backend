@@ -12,6 +12,7 @@ use App\Models\Room;
 use App\Models\Venue;
 use App\Services\BookingActionOtpService;
 use App\Support\BookingPricing;
+use App\Support\RoomInventoryGroupKey;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -75,7 +76,7 @@ class BookingController extends Controller
         try {
             $perPage = min((int) $request->query('per_page', 15), 50);
 
-            $bookings = Booking::with(['guest', 'rooms', 'venues'])
+            $bookings = Booking::with(['guest', 'rooms', 'venues', 'roomLines'])
                 ->orderByDesc('created_at')
                 ->paginate($perPage);
 
@@ -94,7 +95,7 @@ class BookingController extends Controller
     public function showByReferenceNumber(string $reference)
     {
         try {
-            $booking = Booking::with(['guest', 'rooms', 'venues'])
+            $booking = Booking::with(['guest', 'rooms', 'venues', 'roomLines'])
                 ->where('reference_number', $reference)
                 ->first();
 
@@ -111,7 +112,7 @@ class BookingController extends Controller
             $filename = $booking->qr_code ? basename($booking->qr_code) : null;
 
             return response()->json([
-                'booking' => $booking->fresh(['guest', 'rooms', 'venues']),
+                'booking' => $booking->fresh(['guest', 'rooms', 'venues', 'roomLines']),
                 'qr_code_url' => $filename ? url("/qr-image/{$filename}") : null,
                 'has_testimonial' => $hasTestimonial,
             ], 200);
@@ -127,43 +128,34 @@ class BookingController extends Controller
     {
         $validated = $request->validated();
 
-        $hasRooms = isset($validated['rooms']) && is_array($validated['rooms']) && count($validated['rooms']) > 0;
+        $roomLines = isset($validated['room_lines']) && is_array($validated['room_lines'])
+            ? $validated['room_lines']
+            : [];
+        $hasRoomLines = count($roomLines) > 0;
         $hasVenues = isset($validated['venues']) && is_array($validated['venues']) && count($validated['venues']) > 0;
 
-        if (! $hasRooms && ! $hasVenues) {
+        if (! $hasRoomLines && ! $hasVenues) {
             return response()->json([
-                'message' => 'Must select at least one room or one venue.',
+                'message' => 'Must select at least one room type or one venue.',
                 'error' => 'accommodation_required',
             ], 422);
         }
 
         try {
-            $checkIn = Carbon::createFromFormat('M d, Y', $validated['check_in'])->startOfDay();
-            $checkOut = Carbon::createFromFormat('M d, Y', $validated['check_out'])->endOfDay();
+            $checkInDate = Carbon::createFromFormat('M d, Y', $validated['check_in'])->startOfDay();
+            $checkOutDate = Carbon::createFromFormat('M d, Y', $validated['check_out'])->startOfDay();
 
-            if ($checkOut->lt($checkIn)) {
+            if ($checkOutDate->lt($checkInDate)) {
                 return response()->json([
                     'message' => 'Invalid date range',
                     'error' => 'Check-out cannot be before check-in',
                 ], 422);
             }
 
+            $hasRoomComponent = $hasRoomLines;
+            [$checkIn, $checkOut] = $this->bookingWindowForStorage($hasRoomComponent, $checkInDate, $checkOutDate);
+
             $guest = Guest::store($request);
-
-            $roomIds = $hasRooms
-                ? collect($validated['rooms'])
-                    ->map(function ($room) {
-                        if (is_array($room)) {
-                            return $room['id'] ?? ($room[0] ?? null);
-                        }
-
-                        return $room;
-                    })
-                    ->filter()
-                    ->map(fn ($id) => (int) $id)
-                    ->values()
-                    ->all()
-                : [];
 
             $venueIds = $hasVenues
                 ? collect($validated['venues'])
@@ -173,36 +165,10 @@ class BookingController extends Controller
                     ->all()
                 : [];
 
-            if ($hasRooms) {
-                $existingRoomIds = Room::whereIn('id', $roomIds)->pluck('id')->all();
-
-                if (count($existingRoomIds) !== count($roomIds)) {
-                    return response()->json([
-                        'message' => 'One or more selected rooms do not exist',
-                    ], 422);
-                }
-
-                $availableRoomIds = Room::whereIn('id', $roomIds)
-                    ->availableBetween($checkIn, $checkOut)
-                    ->pluck('id')
-                    ->all();
-
-                $conflictingRoomIds = array_values(array_diff($roomIds, $availableRoomIds));
-
-                if (! empty($conflictingRoomIds)) {
-                    $conflictingRooms = Room::whereIn('id', $conflictingRoomIds)
-                        ->get(['id', 'name']);
-
-                    return response()->json([
-                        'message' => 'Booking conflict: one or more rooms are not available for the selected dates (already booked or blocked).',
-                        'error' => 'date_range_conflict',
-                        'conflicts' => [
-                            'rooms' => $conflictingRooms
-                                ->map(fn ($r) => ['id' => $r->id, 'name' => $r->name])
-                                ->values()
-                                ->all(),
-                        ],
-                    ], 422);
+            if ($hasRoomLines) {
+                $roomLineError = $this->validateGuestRoomLines($roomLines, $checkIn, $checkOut, null);
+                if ($roomLineError !== null) {
+                    return $roomLineError;
                 }
             }
 
@@ -235,16 +201,16 @@ class BookingController extends Controller
                 ? ($validated['venue_event_type'] ?? BookingPricing::VENUE_EVENT_WEDDING)
                 : null;
 
-            $expectedTotal = BookingPricing::expectedTotal(
+            $expectedTotal = BookingPricing::expectedTotalFromRoomLines(
                 (int) $validated['days'],
-                $hasRooms ? Room::whereIn('id', $roomIds)->get() : collect(),
+                $roomLines,
                 $hasVenues ? Venue::whereIn('id', $venueIds)->get() : collect(),
                 $venueEventType,
             );
 
             if (! BookingPricing::totalsMatch($expectedTotal, (float) $validated['total_price'])) {
                 return response()->json([
-                    'message' => 'Total price does not match the selected rooms, venues, and event type.',
+                    'message' => 'Total price does not match the selected room types, venues, and event type.',
                     'error' => 'price_mismatch',
                 ], 422);
             }
@@ -254,7 +220,7 @@ class BookingController extends Controller
                 $validated,
                 $checkIn,
                 $checkOut,
-                $roomIds,
+                $roomLines,
                 $venueIds,
                 $venueEventType,
                 $expectedTotal
@@ -272,15 +238,20 @@ class BookingController extends Controller
 
                 $this->generateBookingQr($booking);
 
-                if (! empty($roomIds)) {
-                    $booking->rooms()->attach($roomIds);
+                foreach ($roomLines as $line) {
+                    $booking->roomLines()->create([
+                        'room_type' => $line['room_type'],
+                        'inventory_group_key' => $line['inventory_group_key'],
+                        'quantity' => (int) $line['quantity'],
+                        'unit_price_per_night' => (float) $line['unit_price'],
+                    ]);
                 }
 
                 if (! empty($venueIds)) {
                     $booking->venues()->attach($venueIds);
                 }
 
-                return $booking->fresh(['guest', 'rooms', 'venues']);
+                return $booking->fresh(['guest', 'rooms', 'venues', 'roomLines']);
             });
 
             return response()->json([
@@ -298,12 +269,120 @@ class BookingController extends Controller
     }
 
     /**
+     * Room stays: check-in 12:00 PM, check-out 10:00 AM (local) on the selected calendar dates.
+     * Venue-only: full-day window (start of first day → end of last day) for availability overlap.
+     *
+     * @return array{0: \Illuminate\Support\Carbon, 1: \Illuminate\Support\Carbon}
+     */
+    private function bookingWindowForStorage(bool $hasRoomComponent, Carbon $checkInDate, Carbon $checkOutDate): array
+    {
+        if ($hasRoomComponent) {
+            return [
+                $checkInDate->copy()->setTime(12, 0, 0),
+                $checkOutDate->copy()->setTime(10, 0, 0),
+            ];
+        }
+
+        return [
+            $checkInDate->copy()->startOfDay(),
+            $checkOutDate->copy()->endOfDay(),
+        ];
+    }
+
+    /**
+     * Ensure enough unassigned inventory exists for each requested line and unit prices match catalogue.
+     */
+    private function validateGuestRoomLines(array $roomLines, Carbon $checkIn, Carbon $checkOut, ?int $excludeBookingId): ?\Illuminate\Http\JsonResponse
+    {
+        foreach ($roomLines as $line) {
+            $type = $line['room_type'];
+            $key = $line['inventory_group_key'];
+            $qty = (int) $line['quantity'];
+            $submittedUnit = (float) $line['unit_price'];
+
+            $candidates = Room::query()
+                ->where('type', $type)
+                ->where('status', '!=', Room::STATUS_MAINTENANCE)
+                ->with(['bedSpecifications', 'bedModifiers'])
+                ->get()
+                ->filter(fn (Room $r) => RoomInventoryGroupKey::forRoom($r) === $key);
+
+            $representative = $candidates->first();
+            if ($representative === null) {
+                return response()->json([
+                    'message' => 'One or more room selections do not match available inventory.',
+                    'error' => 'invalid_room_line',
+                ], 422);
+            }
+
+            if (! BookingPricing::totalsMatch((float) $representative->price, $submittedUnit)) {
+                return response()->json([
+                    'message' => 'Room line price does not match current rates.',
+                    'error' => 'price_mismatch',
+                ], 422);
+            }
+
+            $ids = $candidates->pluck('id')->all();
+            $availableCount = Room::whereIn('id', $ids)
+                ->availableBetween($checkIn, $checkOut, $excludeBookingId)
+                ->count();
+
+            if ($availableCount < $qty) {
+                return response()->json([
+                    'message' => 'Booking conflict: not enough rooms available for one of your selected room types for these dates.',
+                    'error' => 'date_range_conflict',
+                    'conflicts' => [
+                        'room_lines' => [
+                            [
+                                'room_type' => $type,
+                                'inventory_group_key' => $key,
+                                'requested' => $qty,
+                                'available' => $availableCount,
+                            ],
+                        ],
+                    ],
+                ], 422);
+            }
+        }
+
+        return null;
+    }
+
+    private function expectedTotalForBooking(Booking $booking, int $nights): float
+    {
+        $nights = max(1, $nights);
+        if ($booking->rooms->isNotEmpty()) {
+            return BookingPricing::expectedTotal(
+                $nights,
+                $booking->rooms,
+                $booking->venues,
+                $booking->venue_event_type,
+            );
+        }
+        if ($booking->roomLines->isNotEmpty()) {
+            return BookingPricing::expectedTotalFromRoomLines(
+                $nights,
+                $booking->roomLines,
+                $booking->venues,
+                $booking->venue_event_type,
+            );
+        }
+
+        return BookingPricing::expectedTotal(
+            $nights,
+            collect(),
+            $booking->venues,
+            $booking->venue_event_type,
+        );
+    }
+
+    /**
      * Display a specific booking.
      */
     public function show($id)
     {
         try {
-            $booking = Booking::with(['guest', 'rooms', 'venues'])->find($id);
+            $booking = Booking::with(['guest', 'rooms', 'venues', 'roomLines'])->find($id);
 
             if (! $booking) {
                 return response()->json([
@@ -323,7 +402,7 @@ class BookingController extends Controller
     public function update(Request $request, $id)
     {
         try {
-            $booking = Booking::with(['guest', 'rooms', 'venues'])->find($id);
+            $booking = Booking::with(['guest', 'rooms', 'venues', 'roomLines'])->find($id);
 
             if (! $booking) {
                 return response()->json([
@@ -457,8 +536,13 @@ class BookingController extends Controller
             ], 422);
         }
 
-        $checkIn = \Carbon\Carbon::parse($request->check_in)->startOfDay();
-        $checkOut = \Carbon\Carbon::parse($request->check_out)->endOfDay();
+        $booking->loadMissing(['rooms', 'venues', 'roomLines']);
+
+        $checkInDate = Carbon::parse($request->check_in)->startOfDay();
+        $checkOutDate = Carbon::parse($request->check_out)->startOfDay();
+
+        $hasRoomComponent = $booking->rooms->isNotEmpty() || $booking->roomLines->isNotEmpty();
+        [$checkIn, $checkOut] = $this->bookingWindowForStorage($hasRoomComponent, $checkInDate, $checkOutDate);
 
         $roomIds = $booking->rooms->pluck('id')->toArray();
         if (! empty($roomIds)) {
@@ -471,6 +555,21 @@ class BookingController extends Controller
                 return response()->json([
                     'message' => 'One or more currently booked rooms are not available for the new dates',
                 ], 422);
+            }
+        } elseif ($booking->roomLines->isNotEmpty()) {
+            $roomLineError = $this->validateGuestRoomLines(
+                $booking->roomLines->map(fn ($l) => [
+                    'room_type' => $l->room_type,
+                    'inventory_group_key' => $l->inventory_group_key,
+                    'quantity' => $l->quantity,
+                    'unit_price' => (float) $l->unit_price_per_night,
+                ])->all(),
+                $checkIn,
+                $checkOut,
+                $booking->id,
+            );
+            if ($roomLineError !== null) {
+                return $roomLineError;
             }
         }
 
@@ -498,21 +597,13 @@ class BookingController extends Controller
             ], 422);
         }
 
-        $nights = max(1, (int) \Carbon\Carbon::parse($request->check_in)
-            ->diffInDays(\Carbon\Carbon::parse($request->check_out)));
+        $nights = max(1, (int) $checkInDate->diffInDays($checkOutDate));
 
-        $booking->loadMissing(['rooms', 'venues']);
-
-        $newTotal = BookingPricing::expectedTotal(
-            $nights,
-            $booking->rooms,
-            $booking->venues,
-            $booking->venue_event_type,
-        );
+        $newTotal = $this->expectedTotalForBooking($booking, $nights);
 
         $booking->update([
-            'check_in' => $request->check_in,
-            'check_out' => $request->check_out,
+            'check_in' => $checkIn,
+            'check_out' => $checkOut,
             'total_price' => $newTotal,
             'status' => 'rescheduled',
         ]);
