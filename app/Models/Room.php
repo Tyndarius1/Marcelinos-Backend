@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use App\Eloquent\Relations\RoomReviewsRelation;
 use App\Models\Review;
+use App\Support\RoomInventoryGroupKey;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Collection;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class Room extends Model implements HasMedia
@@ -33,6 +35,95 @@ class Room extends Model implements HasMedia
             self::TYPE_FAMILY => 'Family',
             self::TYPE_DELUXE => 'Deluxe',
         ];
+    }
+
+    /**
+     * Human-readable type label (Standard / Family / Deluxe).
+     */
+    public function typeDisplayLabel(): string
+    {
+        return self::typeOptions()[$this->type] ?? ucfirst((string) $this->type);
+    }
+
+    /**
+     * "Standard - 1 Double Bed" style summary (matches guest UI / billing inner part).
+     */
+    public function typeDashBedSummary(): string
+    {
+        $this->loadMissing(['bedSpecifications', 'bedModifiers']);
+        $typeLabel = $this->typeDisplayLabel();
+        $bed = RoomInventoryGroupKey::bedSpecificationLine($this);
+        if ($bed !== null) {
+            return $typeLabel.' - '.$bed;
+        }
+        $desc = trim((string) $this->description);
+        if ($desc !== '') {
+            return $typeLabel.' - '.$desc;
+        }
+
+        return $typeLabel;
+    }
+
+    /**
+     * Filament / admin selects: "Room 101 (Standard - 1 Double Bed)".
+     */
+    public function adminSelectLabel(): string
+    {
+        return trim((string) $this->name).' ('.$this->typeDashBedSummary().')';
+    }
+
+    /**
+     * Room IDs matching guest-requested booking lines (same type + inventory group key).
+     *
+     * @param  Collection<int, BookingRoomLine>  $lines
+     * @return array<int>
+     */
+    public static function idsMatchingBookingRoomLines(Collection $lines): array
+    {
+        if ($lines->isEmpty()) {
+            return [];
+        }
+
+        $types = $lines->pluck('room_type')->unique()->values()->all();
+
+        return static::query()
+            ->where('status', '!=', self::STATUS_MAINTENANCE)
+            ->whereIn('type', $types)
+            ->with(['bedSpecifications', 'bedModifiers'])
+            ->get()
+            ->filter(function (Room $room) use ($lines) {
+                $key = RoomInventoryGroupKey::forRoom($room);
+                foreach ($lines as $line) {
+                    if ($room->type === $line->room_type && $key === $line->inventory_group_key) {
+                        return true;
+                    }
+                }
+
+                return false;
+            })
+            ->pluck('id')
+            ->all();
+    }
+
+    /**
+     * IDs allowed in Filament "Assigned rooms" when the booking has requested room lines.
+     * Returns matching inventory plus rooms already attached so labels do not disappear.
+     * Null = no filter (show all non-maintenance rooms), e.g. admin-created bookings without lines.
+     *
+     * @return array<int>|null
+     */
+    public static function idsEligibleForBookingAssignment(Booking $booking): ?array
+    {
+        $booking->loadMissing(['roomLines', 'rooms']);
+
+        if ($booking->roomLines->isEmpty()) {
+            return null;
+        }
+
+        $matched = self::idsMatchingBookingRoomLines($booking->roomLines);
+        $assigned = $booking->rooms->pluck('id')->all();
+
+        return array_values(array_unique(array_merge($matched, $assigned)));
     }
 
     /* ================= STATUSES ================= */
@@ -125,6 +216,7 @@ class Room extends Model implements HasMedia
         return $query->where('status', '!=', self::STATUS_MAINTENANCE)
             ->whereDoesntHave('bookings', function ($q) use ($checkIn, $checkOut, $excludeBookingId) {
                 $q->where('bookings.status', '!=', Booking::STATUS_CANCELLED)
+                    ->when($excludeBookingId, fn ($q2) => $q2->where('bookings.id', '!=', $excludeBookingId))
                     ->where('bookings.check_in', '<', $checkOut)
                     ->where('bookings.check_out', '>', $checkIn);
             })

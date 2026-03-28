@@ -3,6 +3,7 @@
 namespace App\Filament\Exports;
 
 use App\Models\Booking;
+use App\Models\Room;
 use Carbon\Carbon;
 use Filament\Actions\Exports\ExportColumn;
 use Filament\Actions\Exports\Exporter;
@@ -79,9 +80,18 @@ class RevenueExporter extends Exporter
                 ->label('Rooms')
                 ->state(function (Booking $record): string {
                     try {
-                        $record->loadMissing('rooms');
-                        $names = $record->rooms?->pluck('name')->filter()->implode(', ');
-                        return $names !== '' && $names !== null ? $names : '—';
+                        $record->loadMissing([
+                            'rooms.bedSpecifications',
+                            'rooms.bedModifiers',
+                        ]);
+                        $rooms = $record->rooms;
+                        if (! $rooms || $rooms->isEmpty()) {
+                            return '—';
+                        }
+
+                        return $rooms
+                            ->map(fn (Room $room) => $room->adminSelectLabel())
+                            ->implode(', ');
                     } catch (\Throwable) {
                         return '—';
                     }
@@ -136,7 +146,7 @@ class RevenueExporter extends Exporter
             ->whereIn('status', [Booking::STATUS_PAID, Booking::STATUS_COMPLETED])
             ->with([
                 'guest:id,first_name,middle_name,last_name,email',
-                'rooms:id,name',
+                'rooms' => fn ($q) => $q->with(['bedSpecifications', 'bedModifiers']),
                 'venues:id,name',
             ]);
     }

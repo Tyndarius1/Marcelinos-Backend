@@ -15,10 +15,21 @@ class StoreBookingRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if ($this->has('rooms') && is_array($this->rooms)) {
+        if ($this->has('room_lines') && is_array($this->room_lines)) {
             $this->merge([
-                'rooms' => collect($this->rooms)
-                    ->map(fn ($room) => is_array($room) ? ($room['id'] ?? $room[0] ?? null) : $room)
+                'room_lines' => collect($this->room_lines)
+                    ->map(function ($line) {
+                        if (! is_array($line)) {
+                            return null;
+                        }
+
+                        return [
+                            'room_type' => $line['room_type'] ?? null,
+                            'inventory_group_key' => $line['inventory_group_key'] ?? null,
+                            'quantity' => isset($line['quantity']) ? (int) $line['quantity'] : null,
+                            'unit_price' => isset($line['unit_price']) ? (float) $line['unit_price'] : null,
+                        ];
+                    })
                     ->filter()
                     ->values()
                     ->all(),
@@ -30,8 +41,11 @@ class StoreBookingRequest extends FormRequest
     {
         return [
             'reference_number' => 'nullable|string',
-            'rooms' => 'nullable|array',
-            'rooms.*' => ['integer', 'distinct', Rule::exists('rooms', 'id')],
+            'room_lines' => 'nullable|array|max:32',
+            'room_lines.*.room_type' => ['required', 'string', Rule::in(['standard', 'family', 'deluxe'])],
+            'room_lines.*.inventory_group_key' => 'required|string|max:512',
+            'room_lines.*.quantity' => 'required|integer|min:1|max:50',
+            'room_lines.*.unit_price' => 'required|numeric|min:0',
             'venues' => 'nullable|array',
             'venues.*' => ['required_with:venues', 'integer', 'distinct', Rule::exists('venues', 'id')],
             'venue_event_type' => [
@@ -54,8 +68,6 @@ class StoreBookingRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'rooms.*.exists' => 'Selected room :input does not exist.',
-            'rooms.*.distinct' => 'Duplicate room selection is not allowed.',
             'venues.*.exists' => 'Selected venue :input does not exist.',
         ];
     }

@@ -43,7 +43,7 @@ class BookingResource extends Resource
         return parent::getEloquentQuery()
             ->with([
                 'guest:id,first_name,middle_name,last_name,email',
-                'rooms:id,name',
+                'rooms' => fn ($q) => $q->with(['bedSpecifications', 'bedModifiers']),
                 'venues:id,name',
             ]);
     }
@@ -53,6 +53,7 @@ class BookingResource extends Resource
         return [
             ReviewsRelationManager::class,
             \App\Filament\Resources\Bookings\RelationManagers\PaymentsRelationManager::class,
+            \App\Filament\Resources\Bookings\RelationManagers\RoomLinesRelationManager::class,
         ];
     }
 

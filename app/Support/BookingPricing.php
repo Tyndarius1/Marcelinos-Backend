@@ -63,6 +63,26 @@ class BookingPricing
         return ($roomsTotal + $venuesTotal) * $days;
     }
 
+    /**
+     * @param  iterable<array{quantity: int, unit_price_per_night: float|string}|object>  $roomLines
+     * @param  iterable<Venue>  $venues
+     */
+    public static function expectedTotalFromRoomLines(int $days, iterable $roomLines, iterable $venues, ?string $venueEventType): float
+    {
+        $days = max(1, $days);
+        $roomsTotal = 0.0;
+        foreach ($roomLines as $line) {
+            $qty = is_array($line) ? (int) ($line['quantity'] ?? 0) : (int) ($line->quantity ?? 0);
+            $unit = is_array($line)
+                ? (float) ($line['unit_price_per_night'] ?? $line['unit_price'] ?? 0)
+                : (float) ($line->unit_price_per_night ?? 0);
+            $roomsTotal += $qty * $unit;
+        }
+        $venuesTotal = self::sumVenueLine($venues, $venueEventType);
+
+        return ($roomsTotal + $venuesTotal) * $days;
+    }
+
     public static function totalsMatch(float $expected, float $submitted, float $epsilon = 0.02): bool
     {
         return abs($expected - $submitted) <= $epsilon;

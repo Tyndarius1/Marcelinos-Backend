@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Bookings\Tables;
 
 use App\Filament\Exports\BookingExporter;
 use App\Models\Booking;
+use App\Models\Room;
 use App\Support\BookingPricing;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -82,7 +83,16 @@ class BookingsTable
 
                 TextColumn::make('rooms.name')
                     ->label('Rooms')
-                    ->formatStateUsing(fn ($record) => $record->rooms?->pluck('name')->filter()->implode(', ') ?: '—')
+                    ->formatStateUsing(function ($record) {
+                        $rooms = $record->rooms;
+                        if (! $rooms || $rooms->isEmpty()) {
+                            return '—';
+                        }
+
+                        return $rooms
+                            ->map(fn (Room $room) => $room->adminSelectLabel())
+                            ->implode(', ');
+                    })
                     ->wrap()
                     ->toggleable(isToggledHiddenByDefault: true),
 
@@ -130,7 +140,12 @@ class BookingsTable
                     ->options(Booking::statusOptions()),
                 SelectFilter::make('room')
                     ->label('Room')
-                    ->relationship('rooms', 'name')
+                    ->relationship(
+                        'rooms',
+                        'name',
+                        modifyQueryUsing: fn ($query) => $query->with(['bedSpecifications', 'bedModifiers']),
+                    )
+                    ->getOptionLabelFromRecordUsing(fn (Room $record) => $record->adminSelectLabel())
                     ->multiple()
                     ->preload()
                     ->searchable(),

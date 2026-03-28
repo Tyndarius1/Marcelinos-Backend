@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Mail\BookingCreated;
+use App\Support\RoomInventoryGroupKey;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,6 +11,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class Booking extends Model
@@ -87,6 +89,65 @@ class Booking extends Model
     public function rooms()
     {
         return $this->belongsToMany(Room::class, 'booking_room')->withTimestamps();
+    }
+
+    /**
+     * Guest-selected room type + bed-spec lines (no specific room until staff assigns).
+     */
+    public function roomLines()
+    {
+        return $this->hasMany(BookingRoomLine::class);
+    }
+
+    /**
+     * Ensures assigned physical rooms exactly fulfill each requested type + bed-spec line (billing statement).
+     *
+     * @param  array<int|string>  $roomIds
+     *
+     * @throws ValidationException
+     */
+    public static function validateAssignedRoomsFulfillRoomLines(Booking $booking, array $roomIds): void
+    {
+        $booking->loadMissing('roomLines');
+        if ($booking->roomLines->isEmpty()) {
+            return;
+        }
+
+        $roomIds = array_values(array_unique(array_filter(array_map('intval', $roomIds))));
+        $expectedTotal = (int) $booking->roomLines->sum('quantity');
+
+        $rooms = Room::query()
+            ->whereIn('id', $roomIds)
+            ->with(['bedSpecifications', 'bedModifiers'])
+            ->get();
+
+        if (count($rooms) !== count($roomIds)) {
+            throw ValidationException::withMessages([
+                'rooms' => ['One or more selected rooms are invalid or missing.'],
+            ]);
+        }
+
+        if (count($rooms) !== $expectedTotal) {
+            throw ValidationException::withMessages([
+                'rooms' => ["Assign exactly {$expectedTotal} physical room(s) to match the guest billing ({$expectedTotal} slot(s) requested)."],
+            ]);
+        }
+
+        foreach ($booking->roomLines->groupBy(fn (BookingRoomLine $l) => $l->room_type."\0".$l->inventory_group_key) as $group) {
+            $line = $group->first();
+            $need = (int) $group->sum('quantity');
+            $have = $rooms->filter(function (Room $room) use ($line) {
+                return $room->type === $line->room_type
+                    && RoomInventoryGroupKey::forRoom($room) === $line->inventory_group_key;
+            })->count();
+
+            if ($have !== $need) {
+                $label = $line->displayLabel();
+                throw ValidationException::withMessages([
+                    'rooms' => ["Guest requested {$need} × {$label}. You assigned {$have} matching room(s)."],
+                ]);
+            }
+        }
     }
 
     public function venues()
