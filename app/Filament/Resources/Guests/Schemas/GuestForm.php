@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Guests\Schemas;
 
+use App\Filament\Forms\Components\PhAddressFields;
 use App\Models\Guest;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -12,7 +13,7 @@ use Filament\Schemas\Schema;
 
 class GuestForm
 {
-     public static function configure(Schema $schema): Schema
+    public static function configure(Schema $schema): Schema
     {
         return $schema
             ->components([
@@ -34,6 +35,11 @@ class GuestForm
                     ->live()
                     ->afterStateUpdated(function (Set $set, $state): void {
                         if ($state) {
+                            $set('ph_region_code', null);
+                            $set('ph_province_code', null);
+                            $set('ph_municipality_code', null);
+                            $set('ph_barangay_code', null);
+                            $set('region', null);
                             $set('province', null);
                             $set('municipality', null);
                             $set('barangay', null);
@@ -45,14 +51,7 @@ class GuestForm
                     ->default('Philippines')
                     ->required(fn (Get $get) => (bool) $get('is_international'))
                     ->visible(fn (Get $get) => (bool) $get('is_international')),
-                    TextInput::make('region')
-                        ->visible(fn (Get $get) => ! $get('is_international')),
-                TextInput::make('province')
-                    ->visible(fn (Get $get) => ! $get('is_international')),
-                TextInput::make('municipality')
-                    ->visible(fn (Get $get) => ! $get('is_international')),
-                TextInput::make('barangay')
-                    ->visible(fn (Get $get) => ! $get('is_international')),
+                ...PhAddressFields::make(),
             ]);
     }
 }

@@ -9,6 +9,7 @@ use App\Filament\Resources\Staff\Pages\ListStaff;
 use App\Filament\Resources\Venues\Pages\ListVenues;
 use App\Http\Responses\LoginResponse;
 use App\Http\Responses\LogoutResponse;
+use App\Listeners\RecordBookingWizardInitialPayment;
 use App\Models\ActivityLog;
 use App\Models\Amenity;
 use App\Models\BlockedDate;
@@ -32,6 +33,7 @@ use App\Observers\VenueObserver;
 use App\Support\ActivityLogger;
 use Filament\Auth\Http\Responses\Contracts\LoginResponse as LoginResponseContract;
 use Filament\Auth\Http\Responses\Contracts\LogoutResponse as LogoutResponseContract;
+use Filament\Resources\Events\RecordCreated;
 use Filament\Support\Facades\FilamentView;
 use Filament\Tables\View\TablesRenderHook;
 use Illuminate\Auth\Events\Login;
@@ -83,6 +85,8 @@ class AppServiceProvider extends ServiceProvider
 
         $this->registerAuthActivityListeners();
         $this->registerModelActivityListeners();
+
+        Event::listen(RecordCreated::class, RecordBookingWizardInitialPayment::class);
     }
 
     protected function registerTableTotalsHooks(): void

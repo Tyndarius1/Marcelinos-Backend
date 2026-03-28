@@ -196,7 +196,7 @@ class BookingForm
         }
     }
 
-    private static function hasRoomConflicts($roomIds, $checkIn, $checkOut, ?Booking $record): bool
+    public static function hasRoomConflicts($roomIds, $checkIn, $checkOut, ?Booking $record): bool
     {
         $roomIds = is_array($roomIds) ? $roomIds : [$roomIds];
         $roomIds = array_filter($roomIds);
