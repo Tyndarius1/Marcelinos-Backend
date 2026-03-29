@@ -98,7 +98,7 @@
 
     {{-- Main interactive dashboard --}}
     <div id="mainDashboard">
-        <div class="no-print mb-6" x-data="{ preset: @entangle('overviewPreset') }">
+        <div class="no-print mb-6">
             <x-filament::section icon="heroicon-m-printer" icon-color="success">
                 <x-slot name="heading">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-2">
@@ -145,20 +145,26 @@
                             @endphp
                             @foreach ($presets as $value => $label)
                                 <button type="button"
-                                    @click="preset = '{{ $value }}'"
-                                    :class="preset === '{{ $value }}'
+                                    wire:click="selectOverviewPreset('{{ $value }}')"
+                                    @if ($overviewPreset !== $value)
+                                        wire:loading.attr="disabled"
+                                        wire:target="selectOverviewPreset"
+                                    @endif
+                                    class="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide transition {{ $overviewPreset === $value
                                         ? 'bg-emerald-500 text-white shadow-sm'
-                                        : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700'"
-                                    class="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide transition">
-                                    {{ $label }}
+                                        : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700' }}">
+                                    <span wire:loading.remove wire:target="selectOverviewPreset">{{ $label }}</span>
+                                    <span wire:loading wire:target="selectOverviewPreset">UPDATING...</span>
                                 </button>
                             @endforeach
                         </div>
                     </div>
 
-                    <div x-show="preset === 'custom'" x-cloak>
-                        {{ $this->form }}
-                    </div>
+                    @if ($overviewPreset === 'custom')
+                        <div>
+                            {{ $this->form }}
+                        </div>
+                    @endif
 
                     <div>
                         <label class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -166,11 +172,20 @@
                         </label>
                         <div
                             class="mt-1 inline-flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-xs font-bold text-black-700 dark:bg-gray-800/60 dark:text-black-200">
-                            <span class="truncate">{{ $overviewLabel }}</span>
+                            <div class="min-w-0">
+                                <span class="block truncate">{{ $overviewLabel }}</span>
+                                <span class="mt-0.5 block truncate text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    {{ $overviewRange }}
+                                </span>
+                            </div>
                             <span
                                 class="inline-flex shrink-0 items-center rounded-full bg-success-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success-700 dark:bg-success-500/15 dark:text-success-300">
                                 Selected
                             </span>
+                        </div>
+                        <div wire:loading wire:target="selectOverviewPreset,overviewStart,overviewEnd"
+                            class="mt-2 text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                            Refreshing demographics...
                         </div>
                     </div>
                 </div>

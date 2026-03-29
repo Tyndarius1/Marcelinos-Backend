@@ -3,7 +3,7 @@ Print Report Partial Template — Tourism Edition
 Variables:
 $title (string)
 $subtitle (string)
-$localData (Collection: region, province, municipality, total)
+$localData (Collection: region, province, municipality, barangay, total)
 $foreignData (Collection: country, total)
 --}}
 
@@ -146,6 +146,9 @@ $foreignData (Collection: country, total)
                             style="padding: 9px 12px; text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; border-right: 1px solid #16a34a;">
                             MUNICIPALITY / CITY</th>
                         <th
+                            style="padding: 9px 12px; text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; border-right: 1px solid #16a34a;">
+                            BARANGAY</th>
+                        <th
                             style="padding: 9px 12px; text-align: center; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; width: 80px;">
                             BOOKINGS</th>
                     </tr>
@@ -181,6 +184,8 @@ $foreignData (Collection: country, total)
                                 {{ $stat->province ?: '—' }}</td>
                             <td style="padding: 8px 12px; border: 1px solid #e2e8f0; color: #4b5563;">
                                 {{ $stat->municipality ?: '—' }}</td>
+                            <td style="padding: 8px 12px; border: 1px solid #e2e8f0; color: #4b5563;">
+                                {{ $stat->barangay ?: '—' }}</td>
                             <td
                                 style="padding: 8px 12px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; font-size: {{ $isTop ? '15px' : '13px' }}; color: {{ $isTop ? '#15803d' : '#1f2937' }};">
                                 {{ $stat->total }}
@@ -189,7 +194,7 @@ $foreignData (Collection: country, total)
                     @endforeach
                     {{-- Grand Total Row --}}
                     <tr style="background: #15803d; color: white; font-weight: 800;">
-                        <td colspan="4"
+                        <td colspan="5"
                             style="padding: 9px 12px; text-align: right; font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; border: 1px solid #166534;">
                             Grand Total (Domestic)
                         </td>

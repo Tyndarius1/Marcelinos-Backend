@@ -3,7 +3,6 @@
 namespace App\Filament\Pages;
 
 use Filament\Pages\Page;
-use App\Models\ActivityLog;
 use App\Models\Booking;
 use App\Support\ActivityLogger;
 use Illuminate\Support\Facades\DB;
@@ -36,6 +35,22 @@ class GuestDemographics extends Page
     public function updatedOverviewPreset(string $value): void
     {
         $this->setOverviewPresetDefaults($value);
+    }
+
+    public function selectOverviewPreset(string $preset): void
+    {
+        $this->overviewPreset = $preset;
+        $this->setOverviewPresetDefaults($preset);
+    }
+
+    public function updatedOverviewStart(): void
+    {
+        $this->overviewPreset = 'custom';
+    }
+
+    public function updatedOverviewEnd(): void
+    {
+        $this->overviewPreset = 'custom';
     }
 
     public function defaultForm(Schema $schema): Schema
@@ -82,21 +97,10 @@ class GuestDemographics extends Page
         $overviewForeignDemographics = $overviewDemographics->where('is_international', true);
 
         $overviewLabel = $this->overviewLabel($overviewStart, $overviewEnd);
+        $overviewRange = $overviewStart->format('M d, Y') . ' to ' . $overviewEnd->format('M d, Y');
 
         $startOfMonth = Carbon::now()->startOfMonth();
         $endOfMonth = Carbon::now()->endOfMonth();
-        $startOfYear = Carbon::now()->startOfYear();
-        $endOfYear = Carbon::now()->endOfYear();
-
-        // Existing monthly breakdown (current month)
-        $monthlyDemographics = $this->getHierarchicalData($successStatuses, $startOfMonth, $endOfMonth);
-        $localDemographics = $monthlyDemographics->where('is_international', false);
-        $foreignDemographics = $monthlyDemographics->where('is_international', true);
-
-        // Existing yearly breakdown (current year)
-        $yearlyDemographics = $this->getHierarchicalData($successStatuses, $startOfYear, $endOfYear);
-        $yearlyLocalDemographics = $yearlyDemographics->where('is_international', false);
-        $yearlyForeignDemographics = $yearlyDemographics->where('is_international', true);
 
         return [
             'unpaid' => [
@@ -130,25 +134,10 @@ class GuestDemographics extends Page
                 ]
             ],
 
-            'localDemographics' => $localDemographics,
-            'foreignDemographics' => $foreignDemographics,
-            'yearlyLocalDemographics' => $yearlyLocalDemographics,
-            'yearlyForeignDemographics' => $yearlyForeignDemographics,
-            'reportMonth' => Carbon::now()->format('F Y'),
-            'reportYear' => Carbon::now()->format('Y'),
-
-            // New: calendar-driven overview (use this for "Print report" buttons)
             'overviewLocalDemographics' => $overviewLocalDemographics,
             'overviewForeignDemographics' => $overviewForeignDemographics,
             'overviewLabel' => $overviewLabel,
-
-            // Recent activity stream shown below reports.
-            'activityLogs' => ActivityLog::query()
-                ->with('user:id,name')
-                ->whereIn('category', ['auth', 'booking', 'review', 'resource', 'report'])
-                ->latest('created_at')
-                ->limit(30)
-                ->get(),
+            'overviewRange' => $overviewRange,
         ];
     }
 
@@ -179,12 +168,13 @@ class GuestDemographics extends Page
             'guests.region',
             'guests.province',
             'guests.municipality',
+            'guests.barangay',
             DB::raw('count(*) as total')
         )
             ->join('guests', 'bookings.guest_id', '=', 'guests.id')
             ->whereIn('bookings.status', $statusGroup)
             ->whereBetween('bookings.check_in', [$startDate->startOfDay(), $endDate->endOfDay()])
-            ->groupBy('guests.is_international', 'guests.country', 'guests.region', 'guests.province', 'guests.municipality')
+            ->groupBy('guests.is_international', 'guests.country', 'guests.region', 'guests.province', 'guests.municipality', 'guests.barangay')
             ->orderByRaw("guests.is_international ASC, total DESC, guests.region ASC")
             ->get();
     }

@@ -108,12 +108,13 @@ class GuestDemographicsExportController extends Controller
             'guests.region',
             'guests.province',
             'guests.municipality',
+            'guests.barangay',
             DB::raw('count(*) as total')
         )
             ->join('guests', 'bookings.guest_id', '=', 'guests.id')
             ->whereIn('bookings.status', $statusGroup)
             ->whereBetween('bookings.check_in', [$startDate->copy()->startOfDay(), $endDate->copy()->endOfDay()])
-            ->groupBy('guests.is_international', 'guests.country', 'guests.region', 'guests.province', 'guests.municipality')
+            ->groupBy('guests.is_international', 'guests.country', 'guests.region', 'guests.province', 'guests.municipality', 'guests.barangay')
             ->orderByRaw('guests.is_international ASC, total DESC, guests.region ASC')
             ->get();
     }
