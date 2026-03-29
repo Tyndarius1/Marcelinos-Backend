@@ -26,6 +26,53 @@
     }
 }
 
+/* Bookings (table filters): full-width panel on small screens, tap-friendly month pills, sticky Apply */
+@media (max-width: 639px) {
+    .fi-ta-filters-dropdown .fi-dropdown-panel {
+        width: calc(100vw - 1rem) !important;
+        max-width: calc(100vw - 1rem) !important;
+    }
+
+    .fi-ta-filters {
+        padding-inline: 0.125rem;
+    }
+
+    .fi-ta-filters .fi-fo-toggle-buttons:not(.fi-inline) {
+        gap: 0.375rem;
+    }
+
+    .fi-ta-filters .fi-fo-toggle-buttons .fi-btn {
+        min-height: 2.75rem;
+        padding-inline: 0.375rem;
+        font-size: 0.8125rem;
+    }
+
+    .fi-ta-filters .fi-ta-filters-actions-ctn {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        margin-top: 0.75rem;
+        margin-inline: -0.25rem;
+        padding: 0.75rem 0.25rem 0.25rem;
+        border-top: 1px solid rgba(15, 23, 42, 0.08);
+        background: linear-gradient(
+            to bottom,
+            rgba(255, 255, 255, 0.92) 0%,
+            rgba(255, 255, 255, 1) 35%
+        );
+        backdrop-filter: blur(6px);
+    }
+
+    .dark .fi-ta-filters .fi-ta-filters-actions-ctn {
+        border-top-color: rgba(255, 255, 255, 0.1);
+        background: linear-gradient(
+            to bottom,
+            rgba(17, 24, 39, 0.92) 0%,
+            rgb(17, 24, 39) 35%
+        );
+    }
+}
+
 /* Reduce padding on chart widgets so doughnuts fit without overlapping */
 .fi-wi-chart .fi-section-content {
     padding: 5px !important;

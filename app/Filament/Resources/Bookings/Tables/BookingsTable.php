@@ -16,9 +16,12 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ExportAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -33,6 +36,12 @@ class BookingsTable
         return $table
             ->recordAction('view')
             ->poll('10s')
+            ->filtersFormColumns([
+                'default' => 1,
+                'sm' => 2,
+            ])
+            ->filtersFormWidth(Width::TwoExtraLarge)
+            ->filtersFormMaxHeight('min(75dvh, 32rem)')
             ->columns([
                 TextColumn::make('reference_number')
                     ->searchable()
@@ -154,39 +163,56 @@ class BookingsTable
                     ->relationship('venues', 'name')
                     ->multiple()
                     ->preload()
-                    ->searchable(),
+                    ->searchable()
+                    ->columnSpanFull(),
                 Filter::make('booking_dates')
                     ->label('Filter by Dates')
-                    ->form([
-                        ToggleButtons::make('preset')
-                            ->label('Quick dates')
-                            ->options([
-                                'today' => 'Today',
-                                'next_7' => 'Next 7 days',
-                                'next_30' => 'Next 30 days',
-                                'this_month' => 'This month',
-                                'last_month' => 'Last month',
-                                'last_30' => 'Last 30 days',
-                                'last_year' => 'Last year',
-                                'last_2_years' => 'Last 2 years',
-                                'this_year' => 'This year',
+                    ->columnSpanFull()
+                    ->schema([
+                        Grid::make([
+                            'default' => 1,
+                            'sm' => 2,
+                        ])
+                            ->schema([
+                                Select::make('year')
+                                    ->label('Year')
+                                    ->options(fn (): array => collect(range(2000, 2031))
+                                        ->mapWithKeys(fn (int $y): array => [$y => (string) $y])
+                                        ->all())
+                                    ->default((int) now()->format('Y'))
+                                    ->live()
+                                    ->helperText('2000–2031 · full month or custom From/To below.')
+                                    ->visible(fn (Get $get) => ! (bool) $get('use_custom')),
+                                Toggle::make('use_custom')
+                                    ->label('Use custom dates')
+                                    ->helperText('From / To pickers')
+                                    ->default(false)
+                                    ->live(),
+                            ]),
+                        ToggleButtons::make('month')
+                            ->label(fn (Get $get): string => 'Months ('.($get('year') ?? now()->year).')')
+                            ->options(self::monthButtonLabels())
+                            ->default(now()->format('m'))
+                            ->inline(false)
+                            ->columns([
+                                'default' => 3,
+                                'sm' => 4,
+                                'md' => 6,
                             ])
-                            ->default('today')
-                            ->inline()
                             ->visible(fn (Get $get) => ! (bool) $get('use_custom')),
-                        Toggle::make('use_custom')
-                            ->label('Use custom dates')
-                            ->helperText('Turn this on to pick your own From/To dates.')
-                            ->default(false)
-                            ->live(),
-                        DatePicker::make('start')
-                            ->label('From')
-                            ->native(false)
-                            ->visible(fn (Get $get) => (bool) $get('use_custom')),
-                        DatePicker::make('end')
-                            ->label('To')
-                            ->native(false)
-                            ->visible(fn (Get $get) => (bool) $get('use_custom')),
+                        Grid::make([
+                            'default' => 1,
+                            'sm' => 2,
+                        ])
+                            ->visible(fn (Get $get) => (bool) $get('use_custom'))
+                            ->schema([
+                                DatePicker::make('start')
+                                    ->label('From')
+                                    ->native(false),
+                                DatePicker::make('end')
+                                    ->label('To')
+                                    ->native(false),
+                            ]),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         [$start, $end] = self::resolveDateRange($data);
@@ -214,6 +240,16 @@ class BookingsTable
 
                         if (! $start && ! $end) {
                             return [];
+                        }
+
+                        if (! (bool) ($data['use_custom'] ?? false)) {
+                            $year = $data['year'] ?? null;
+                            $month = $data['month'] ?? null;
+                            if ($year !== null && $year !== '' && $month !== null && $month !== '') {
+                                $label = Carbon::createFromDate((int) $year, (int) $month, 1)->format('F Y');
+
+                                return ["Month: {$label}"];
+                            }
                         }
 
                         $startText = $start?->toDateString() ?? 'Any';
@@ -282,24 +318,42 @@ class BookingsTable
             ]);
     }
 
+    /**
+     * @return array<string, string> keys 01–12, short labels for compact grid
+     */
+    private static function monthButtonLabels(): array
+    {
+        return [
+            '01' => 'Jan',
+            '02' => 'Feb',
+            '03' => 'Mar',
+            '04' => 'Apr',
+            '05' => 'May',
+            '06' => 'Jun',
+            '07' => 'Jul',
+            '08' => 'Aug',
+            '09' => 'Sep',
+            '10' => 'Oct',
+            '11' => 'Nov',
+            '12' => 'Dec',
+        ];
+    }
+
     private static function resolveDateRange(array $data): array
     {
         $useCustom = (bool) ($data['use_custom'] ?? false);
-        $preset = $useCustom ? null : ($data['preset'] ?? null);
 
-        if ($preset) {
-            return match ($preset) {
-                'today' => [now()->startOfDay(), now()->endOfDay()],
-                'next_7' => [now()->startOfDay(), now()->addDays(7)->endOfDay()],
-                'next_30' => [now()->startOfDay(), now()->addDays(30)->endOfDay()],
-                'this_month' => [now()->startOfMonth(), now()->endOfMonth()],
-                'last_month' => [now()->subMonthNoOverflow()->startOfMonth(), now()->subMonthNoOverflow()->endOfMonth()],
-                'last_30' => [now()->subDays(30)->startOfDay(), now()->endOfDay()],
-                'last_year' => [now()->subYear()->startOfYear(), now()->subYear()->endOfYear()],
-                'last_2_years' => [now()->subYears(2)->startOfYear(), now()->subYear()->endOfYear()],
-                'this_year' => [now()->startOfYear(), now()->endOfYear()],
-                default => [null, null],
-            };
+        if (! $useCustom) {
+            $year = $data['year'] ?? null;
+            $month = $data['month'] ?? null;
+
+            if ($year !== null && $year !== '' && $month !== null && $month !== '') {
+                $carbon = Carbon::createFromDate((int) $year, (int) $month, 1)->startOfMonth();
+
+                return [$carbon->copy(), $carbon->copy()->endOfMonth()];
+            }
+
+            return [null, null];
         }
 
         $start = $useCustom && isset($data['start']) && $data['start']
