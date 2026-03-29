@@ -57,7 +57,7 @@ $foreignData (Collection: country, total)
     {{-- ===== REPORT HEADER WITH LOGO ===== --}}
     <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 3px solid #15803d;">
         <div style="flex-shrink: 0;">
-            <img src="{{ asset('brand-logo.webp') }}" alt="Marcelinos Resort and Hotel" style="height: 64px; width: auto; display: block;" />
+            <img src="{{ $logoSrc ?? asset('brand-logo.webp') }}" alt="Marcelinos Resort and Hotel" style="height: 64px; width: auto; display: block;" />
         </div>
         <div style="flex: 1; min-width: 0;">
             <div style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; color: #15803d; text-transform: uppercase; margin-bottom: 2px;">Tourism Demographics Report</div>
@@ -75,7 +75,7 @@ $foreignData (Collection: country, total)
                     style="flex: 1; background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 5px solid #16a34a; border-radius: 6px; padding: 12px 16px;">
                     <div
                         style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #16a34a; margin-bottom: 4px;">
-                        🏆 Top Domestic Region</div>
+                        Top Domestic Region</div>
                     <div style="font-size: 18px; font-weight: 800; color: #14532d;">{{ $topLocal->region ?: 'N/A' }}</div>
                     <div style="font-size: 12px; color: #22c55e; margin-top: 2px;">
                         {{ $topLocal->province ?: '' }}{{ $topLocal->province ? ' — ' : '' }}{{ $topLocal->municipality ?: '' }}
@@ -89,7 +89,7 @@ $foreignData (Collection: country, total)
                     style="flex: 1; background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 5px solid #16a34a; border-radius: 6px; padding: 12px 16px;">
                     <div
                         style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #16a34a; margin-bottom: 4px;">
-                        🌐 Top International</div>
+                        Top International</div>
                     <div style="font-size: 18px; font-weight: 800; color: #14532d;">{{ $topForeign->country ?: 'N/A' }}</div>
                     <div style="font-size: 12px; color: #22c55e; margin-top: 2px;">Country of Origin</div>
                     <div style="font-size: 11px; color: #64748b; margin-top: 4px; font-weight: 600;">{{ $topForeign->total }}
@@ -115,7 +115,7 @@ $foreignData (Collection: country, total)
             style="display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #15803d; padding-bottom: 6px; margin-bottom: 12px;">
             <h2
                 style="font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #14532d; margin: 0;">
-                🗺&nbsp; Domestic Tourists
+                Domestic Tourists
             </h2>
             <span
                 style="font-size: 12px; font-weight: 700; background: #dcfce7; color: #15803d; padding: 3px 12px; border-radius: 20px;">
@@ -165,7 +165,7 @@ $foreignData (Collection: country, total)
                             <td
                                 style="padding: 8px 10px; text-align: center; border: 1px solid #e2e8f0; border-right: 2px solid #bbf7d0; color: {{ $isTop ? '#15803d' : '#94a3b8' }}; font-weight: bold; font-size: 11px;">
                                 @if($isNewRegion)
-                                    @if($isTop) 🥇 @elseif($regionRank === 2) 🥈 @elseif($regionRank === 3) 🥉 @else {{ $regionRank }} @endif
+                                    @if($isTop) #1 @elseif($regionRank === 2) #2 @elseif($regionRank === 3) #3 @else {{ $regionRank }} @endif
                                 @endif
                             </td>
                             <td
@@ -208,7 +208,7 @@ $foreignData (Collection: country, total)
             style="display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #16a34a; padding-bottom: 6px; margin-bottom: 12px;">
             <h2
                 style="font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #14532d; margin: 0;">
-                🌐&nbsp; International Tourists
+                International Tourists
             </h2>
             <span
                 style="font-size: 12px; font-weight: 700; background: #dcfce7; color: #16a34a; padding: 3px 12px; border-radius: 20px;">
@@ -250,7 +250,7 @@ $foreignData (Collection: country, total)
                             <td
                                 style="padding: 8px 10px; text-align: center; border: 1px solid #e2e8f0; border-right: 2px solid #bbf7d0; color: {{ $iTop ? '#16a34a' : '#94a3b8' }}; font-weight: bold; font-size: 11px;">
                                 @if($isNewCountry)
-                                    @if($iTop) 🥇 @elseif($countryRank === 2) 🥈 @elseif($countryRank === 3) 🥉 @else {{ $countryRank }} @endif
+                                    @if($iTop) #1 @elseif($countryRank === 2) #2 @elseif($countryRank === 3) #3 @else {{ $countryRank }} @endif
                                 @endif
                             </td>
                             <td
@@ -286,7 +286,7 @@ $foreignData (Collection: country, total)
     <div
         style="margin-top: 32px; padding-top: 12px; border-top: 2px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: #64748b;">
         <div style="display: flex; align-items: center; gap: 10px;">
-            <img src="{{ asset('brand-logo.webp') }}" alt="" style="height: 28px; width: auto;" aria-hidden="true" />
+            <img src="{{ $logoSrc ?? asset('brand-logo.webp') }}" alt="" style="height: 28px; width: auto;" aria-hidden="true" />
             <span><strong style="color: #0f172a;">Marcelinos Resort and Hotel</strong> · Confidential</span>
         </div>
         <div style="text-align: right;">

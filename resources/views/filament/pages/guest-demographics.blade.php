@@ -110,12 +110,20 @@
                                 Choose a month, year, or custom dates to generate a printable tourism report.
                             </p>
                         </div>
-                        <button
-                            onclick="logAndPrint('overview_selected', 'null')"
-                            class="inline-flex w-fit self-start sm:self-auto px-3 py-1.5 rounded-lg text-xs font-bold bg-success-500 text-white hover:bg-success-600 transition-colors items-center gap-1.5">
-                            <x-filament::icon icon="heroicon-m-printer" class="w-4 h-4" />
-                            <span class="uppercase tracking-wide text-[11px]">PRINT SELECTED</span>
-                        </button>
+                        <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                            <button
+                                onclick="logAndPrint('overview_selected', 'null')"
+                                class="inline-flex w-fit px-3 py-1.5 rounded-lg text-xs font-bold bg-success-500 text-white hover:bg-success-600 transition-colors items-center gap-1.5">
+                                <x-filament::icon icon="heroicon-m-printer" class="w-4 h-4" />
+                                <span class="uppercase tracking-wide text-[11px]">PRINT SELECTED</span>
+                            </button>
+                            <button
+                                onclick="logAndDownloadPdf('overview_selected', 'null')"
+                                class="inline-flex w-fit px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-white/10 dark:text-gray-100 dark:hover:bg-white/15 transition-colors items-center gap-1.5">
+                                <x-filament::icon icon="heroicon-m-arrow-down-tray" class="w-4 h-4" />
+                                <span class="uppercase tracking-wide text-[11px]">DOWNLOAD PDF</span>
+                            </button>
+                        </div>
                     </div>
                 </x-slot>
 
@@ -175,11 +183,18 @@
                 <x-slot name="heading">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-2">
                         <span>Highest Unpaid Bookings (Pending)</span>
-                        <button onclick="logAndPrint('unpaid', 'all')"
-                            class="no-print px-3 py-1.5 rounded-lg text-sm font-bold bg-primary-50 text-primary-700 hover:bg-primary-100 transition-colors flex items-center gap-1.5 w-fit">
-                            <x-filament::icon icon="heroicon-m-printer" class="w-4 h-4" />
-                            Print All Pending
-                        </button>
+                        <div class="no-print flex flex-wrap items-center gap-2">
+                            <button onclick="logAndPrint('unpaid', 'all')"
+                                class="px-3 py-1.5 rounded-lg text-sm font-bold bg-primary-50 text-primary-700 hover:bg-primary-100 transition-colors flex items-center gap-1.5 w-fit">
+                                <x-filament::icon icon="heroicon-m-printer" class="w-4 h-4" />
+                                Print All Pending
+                            </button>
+                            <button onclick="logAndDownloadPdf('unpaid', 'all')"
+                                class="px-3 py-1.5 rounded-lg text-sm font-bold bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-white/10 dark:text-gray-100 dark:hover:bg-white/15 transition-colors flex items-center gap-1.5 w-fit">
+                                <x-filament::icon icon="heroicon-m-arrow-down-tray" class="w-4 h-4" />
+                                Download PDF
+                            </button>
+                        </div>
                     </div>
                 </x-slot>
 
@@ -247,6 +262,12 @@
                                     onclick="event.stopPropagation(); logAndPrint('unpaid','{{ $key }}')">
                                     <x-filament::icon icon="heroicon-m-printer" class="w-4 h-4" />
                                 </button>
+                                <button
+                                    class="no-print p-1.5 rounded-md text-gray-400 hover:text-primary-700 hover:bg-primary-100 dark:hover:bg-white/10 transition"
+                                    title="Download PDF {{ $label }}"
+                                    onclick="event.stopPropagation(); logAndDownloadPdf('unpaid','{{ $key }}')">
+                                    <x-filament::icon icon="heroicon-m-arrow-down-tray" class="w-4 h-4" />
+                                </button>
                             </div>
                         </div>
                     @endforeach
@@ -258,11 +279,18 @@
                 <x-slot name="heading">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-2">
                         <span>Highest Successful Bookings (Paid/Confirmed)</span>
-                        <button onclick="logAndPrint('successful', 'all')"
-                            class="no-print px-3 py-1.5 rounded-lg text-sm font-bold bg-success-50 text-success-700 hover:bg-success-100 transition-colors flex items-center gap-1.5 w-fit">
-                            <x-filament::icon icon="heroicon-m-printer" class="w-4 h-4" />
-                            Print All Confirmed
-                        </button>
+                        <div class="no-print flex flex-wrap items-center gap-2">
+                            <button onclick="logAndPrint('successful', 'all')"
+                                class="px-3 py-1.5 rounded-lg text-sm font-bold bg-success-50 text-success-700 hover:bg-success-100 transition-colors flex items-center gap-1.5 w-fit">
+                                <x-filament::icon icon="heroicon-m-printer" class="w-4 h-4" />
+                                Print All Confirmed
+                            </button>
+                            <button onclick="logAndDownloadPdf('successful', 'all')"
+                                class="px-3 py-1.5 rounded-lg text-sm font-bold bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-white/10 dark:text-gray-100 dark:hover:bg-white/15 transition-colors flex items-center gap-1.5 w-fit">
+                                <x-filament::icon icon="heroicon-m-arrow-down-tray" class="w-4 h-4" />
+                                Download PDF
+                            </button>
+                        </div>
                     </div>
                 </x-slot>
 
@@ -329,6 +357,12 @@
                                     onclick="event.stopPropagation(); logAndPrint('successful','{{ $key }}')">
                                     <x-filament::icon icon="heroicon-m-printer" class="w-4 h-4" />
                                 </button>
+                                <button
+                                    class="no-print p-1.5 rounded-md text-gray-400 hover:text-success-700 hover:bg-success-100 dark:hover:bg-white/10 transition"
+                                    title="Download PDF {{ $label }}"
+                                    onclick="event.stopPropagation(); logAndDownloadPdf('successful','{{ $key }}')">
+                                    <x-filament::icon icon="heroicon-m-arrow-down-tray" class="w-4 h-4" />
+                                </button>
                             </div>
                         </div>
                     @endforeach
@@ -370,6 +404,7 @@
     <script>
         var _printTarget = null;
         const guestDemographicsComponentId = @js($this->getId());
+        const guestDemographicsPdfUrl = @js(route('reports.guest-demographics.pdf'));
 
         window.addEventListener('beforeprint', function () {
             if (_printTarget) {
@@ -402,6 +437,26 @@
             }
 
             triggerPrint(type, period);
+        }
+
+        function logAndDownloadPdf(type, period) {
+            const component = window.Livewire?.find(guestDemographicsComponentId);
+            if (component) {
+                component.call('logReportDownload', type, period);
+            }
+
+            const params = new URLSearchParams();
+            params.set('type', type);
+            params.set('period', period);
+
+            if (type === 'overview_selected') {
+                const start = component?.get?.('overviewStart');
+                const end = component?.get?.('overviewEnd');
+                if (start) params.set('start', start);
+                if (end) params.set('end', end);
+            }
+
+            window.location.href = guestDemographicsPdfUrl + '?' + params.toString();
         }
     </script>
 </x-filament-panels::page>

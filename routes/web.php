@@ -1,6 +1,7 @@
 <?php
 
 use App\Filament\Pages\AdminDashboard;
+use App\Http\Controllers\Reports\GuestDemographicsExportController;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
@@ -58,3 +59,8 @@ if ($adminPanel = Filament::getPanel('admin')) {
             ->name('login');
     });
 }
+
+Route::middleware(['web', 'auth'])->group(function (): void {
+    Route::get('/reports/guest-demographics/pdf', [GuestDemographicsExportController::class, 'pdf'])
+        ->name('reports.guest-demographics.pdf');
+});
