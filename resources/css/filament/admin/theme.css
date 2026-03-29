@@ -2,6 +2,8 @@
 
 @source '../../../../app/Filament/**/*';
 @source '../../../../resources/views/filament/**/*';
+/* Shared Blade components (e.g. room-type-badge) live outside resources/views/filament — include so Tailwind generates their utilities */
+@source '../../../../resources/views/components/**/*.blade.php';
 
 @tailwind components;
 
@@ -152,4 +154,83 @@
 .dark .fi-fo-date-time-picker-calendar-day.fi-disabled {
     background-color: rgba(127, 29, 29, 0.55) !important;
     color: #fecaca !important;
+}
+
+/* Room calendar: horizontal scroll hint on touch / small viewports */
+.room-calendar-scroll {
+    scrollbar-gutter: stable;
+}
+
+.room-calendar-scroll::-webkit-scrollbar {
+    height: 7px;
+}
+
+.room-calendar-scroll::-webkit-scrollbar-track {
+    border-radius: 9999px;
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.room-calendar-scroll::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: rgba(0, 0, 0, 0.18);
+}
+
+.dark .room-calendar-scroll::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.dark .room-calendar-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+/* Room type badges: periodic gloss sweep */
+.room-type-badge {
+    position: relative;
+    overflow: hidden;
+}
+
+.room-type-badge::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    border-radius: inherit;
+    background: linear-gradient(
+        105deg,
+        transparent 0%,
+        transparent 40%,
+        rgba(255, 255, 255, 0.33) 50%,
+        transparent 60%,
+        transparent 100%
+    );
+    width: 55%;
+    height: 200%;
+    top: -50%;
+    left: -15%;
+    transform: translateX(-130%) skewX(-18deg);
+    animation: room-badge-shine 3.4s ease-in-out infinite;
+    opacity: 0.9;
+}
+
+.room-type-badge--muted::after {
+    opacity: 0.42;
+    animation-duration: 4.2s;
+}
+
+@keyframes room-badge-shine {
+    0% {
+        transform: translateX(-130%) skewX(-18deg);
+    }
+
+    100% {
+        transform: translateX(220%) skewX(-18deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .room-type-badge::after {
+        animation: none;
+        opacity: 0;
+    }
 }

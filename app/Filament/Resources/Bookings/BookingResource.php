@@ -2,28 +2,34 @@
 
 namespace App\Filament\Resources\Bookings;
 
-use App\Filament\Resources\Bookings\RelationManagers\ReviewsRelationManager;
 use App\Filament\Resources\Bookings\Pages\CreateBooking;
 use App\Filament\Resources\Bookings\Pages\EditBooking;
 use App\Filament\Resources\Bookings\Pages\ListBookings;
+use App\Filament\Resources\Bookings\Pages\RoomCalendar;
 use App\Filament\Resources\Bookings\Pages\ViewBooking;
+use App\Filament\Resources\Bookings\RelationManagers\PaymentsRelationManager;
+use App\Filament\Resources\Bookings\RelationManagers\ReviewsRelationManager;
+use App\Filament\Resources\Bookings\RelationManagers\RoomLinesRelationManager;
 use App\Filament\Resources\Bookings\Schemas\BookingForm;
 use App\Filament\Resources\Bookings\Tables\BookingsTable;
 use App\Filament\Widgets\BookingStatsOverview;
 use App\Models\Booking;
 use BackedEnum;
-use Illuminate\Database\Eloquent\Builder;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class BookingResource extends Resource
 {
-     protected static ?string $model = Booking::class;
+    protected static ?string $model = Booking::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calendar';
+
     protected static string|\UnitEnum|null $navigationGroup = 'Operations';
+
     protected static ?int $navigationSort = 1;
+
     protected static ?string $navigationLabel = 'Bookings';
 
     protected static ?string $recordTitleAttribute = 'reference_number';
@@ -52,8 +58,8 @@ class BookingResource extends Resource
     {
         return [
             ReviewsRelationManager::class,
-            \App\Filament\Resources\Bookings\RelationManagers\PaymentsRelationManager::class,
-            \App\Filament\Resources\Bookings\RelationManagers\RoomLinesRelationManager::class,
+            PaymentsRelationManager::class,
+            RoomLinesRelationManager::class,
         ];
     }
 
@@ -68,10 +74,10 @@ class BookingResource extends Resource
     {
         return [
             'index' => ListBookings::route('/'),
+            'roomCalendar' => RoomCalendar::route('/room-calendar'),
             'create' => CreateBooking::route('/create'),
             'edit' => EditBooking::route('/{record}/edit'),
             'view' => ViewBooking::route('/{record}'),
         ];
     }
-
 }
