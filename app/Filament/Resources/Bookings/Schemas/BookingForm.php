@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources\Bookings\Schemas;
 
+use App\Models\BlockedDate;
 use App\Models\Booking;
 use App\Models\Guest;
 use App\Models\Room;
+use App\Models\RoomBlockedDate;
 use App\Models\Venue;
 use App\Support\BookingPricing;
 use App\Support\RoomInventoryGroupKey;
@@ -23,6 +25,35 @@ use Illuminate\Validation\ValidationException;
 
 class BookingForm
 {
+    /**
+     * Calendar days to disable in Filament date pickers (Y-m-d): resort-wide blocks plus
+     * staff blocks on the selected room(s), so blocked days show as unavailable (styled in theme).
+     *
+     * @param  array<int|string|null>  $roomIds
+     * @return array<int, string>
+     */
+    public static function disabledCalendarDateStringsForWizard(array $roomIds): array
+    {
+        $dates = collect();
+
+        foreach (BlockedDate::query()->get(['date']) as $row) {
+            $d = $row->date;
+            $dates->push($d instanceof \Carbon\CarbonInterface ? $d->format('Y-m-d') : Carbon::parse($d)->format('Y-m-d'));
+        }
+
+        $roomIds = array_values(array_filter(array_map('intval', $roomIds)));
+        if ($roomIds !== []) {
+            RoomBlockedDate::query()
+                ->whereIn('room_id', $roomIds)
+                ->get(['blocked_on'])
+                ->each(function ($row) use ($dates): void {
+                    $dates->push(Carbon::parse($row->blocked_on)->format('Y-m-d'));
+                });
+        }
+
+        return $dates->unique()->sort()->values()->all();
+    }
+
     /**
      * Distinct row backgrounds for “type + bed spec” groups (Tailwind must see full class strings).
      *
@@ -255,7 +286,6 @@ class BookingForm
                 ->options(Booking::statusOptions())
                 ->descriptions([
                     Booking::STATUS_UNPAID => 'Awaiting payment.',
-                    Booking::STATUS_CONFIRMED => 'Booking confirmed.',
                     Booking::STATUS_PAID => 'Payment received.',
                     Booking::STATUS_OCCUPIED => 'Guest checked in.',
                     Booking::STATUS_COMPLETED => 'Stay completed.',
@@ -356,6 +386,10 @@ class BookingForm
             return false;
         }
 
+        if (BlockedDate::overlapsRange($start, $end)) {
+            return true;
+        }
+
         if (Booking::query()
             ->when($record, fn ($query) => $query->where('id', '!=', $record->id))
             ->whereNotIn('status', [Booking::STATUS_CANCELLED, Booking::STATUS_COMPLETED])
@@ -391,6 +425,10 @@ class BookingForm
 
         if ($end->lessThanOrEqualTo($start)) {
             return false;
+        }
+
+        if (BlockedDate::overlapsRange($start, $end)) {
+            return true;
         }
 
         return Booking::query()

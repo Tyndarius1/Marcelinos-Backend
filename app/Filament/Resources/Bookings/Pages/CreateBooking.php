@@ -27,7 +27,7 @@ class CreateBooking extends CreateRecord
 
     protected function hasSkippableSteps(): bool
     {
-        return true;
+        return false;
     }
 
     /**
@@ -101,7 +101,7 @@ class CreateBooking extends CreateRecord
         } elseif ($this->pendingPaymentAmount >= $totalInt && $totalInt > 0) {
             $data['status'] = Booking::STATUS_PAID;
         } elseif ($this->pendingPaymentAmount > 0) {
-            $data['status'] = Booking::STATUS_CONFIRMED;
+            $data['status'] = Booking::STATUS_UNPAID;
         } else {
             $data['status'] = Booking::STATUS_UNPAID;
         }

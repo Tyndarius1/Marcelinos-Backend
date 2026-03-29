@@ -122,6 +122,10 @@ class Venue extends Model implements HasMedia
      */
     public function scopeAvailableBetween($query, $checkIn, $checkOut, $excludeBookingId = null)
     {
+        if (BlockedDate::overlapsRange($checkIn, $checkOut)) {
+            return $query->whereRaw('0 = 1');
+        }
+
         return $query->where('status', '!=', self::STATUS_MAINTENANCE)
             ->whereDoesntHave('bookings', function ($q) use ($checkIn, $checkOut, $excludeBookingId) {
                 $q->where('bookings.status', '!=', Booking::STATUS_CANCELLED)

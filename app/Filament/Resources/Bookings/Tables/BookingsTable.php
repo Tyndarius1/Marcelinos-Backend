@@ -251,19 +251,12 @@ class BookingsTable
                             ]);
                             $record->update(['status' => Booking::STATUS_PAID]);
                         }),
-                    Action::make('confirm')
-                        ->label('Confirm')
-                        ->icon('heroicon-o-check-circle')
-                        ->color('success')
-                        ->requiresConfirmation()
-                        ->visible(fn (Booking $record) => $record->status === Booking::STATUS_UNPAID)
-                        ->action(fn (Booking $record) => $record->update(['status' => Booking::STATUS_CONFIRMED])),
                     Action::make('checkIn')
                         ->label('Check-in')
                         ->icon('heroicon-o-arrow-right-circle')
                         ->color('warning')
                         ->requiresConfirmation()
-                        ->visible(fn (Booking $record) => in_array($record->status, [Booking::STATUS_CONFIRMED, Booking::STATUS_PAID], true))
+                        ->visible(fn (Booking $record) => $record->status === Booking::STATUS_PAID)
                         ->action(fn (Booking $record) => $record->update(['status' => Booking::STATUS_OCCUPIED])),
                     Action::make('complete')
                         ->label('Complete')

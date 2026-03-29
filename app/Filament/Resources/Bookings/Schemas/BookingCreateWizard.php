@@ -19,7 +19,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Support\Enums\FontWeight;
-use Illuminate\Validation\Rule;
+use Filament\Support\Enums\TextSize;
 
 class BookingCreateWizard
 {
@@ -38,6 +38,10 @@ class BookingCreateWizard
                         ->native(false)
                         ->live()
                         ->seconds(false)
+                        ->disabledDates(fn (Get $get): array => BookingForm::disabledCalendarDateStringsForWizard(
+                            array_filter((array) ($get('rooms') ?? [])),
+                        ))
+                        ->helperText('Blocked days (maintenance / closed) show in red on the calendar and cannot be picked.')
                         ->rules([
                             fn (Get $get) => self::roomAvailabilityRuleForCheckIn($get),
                         ])
@@ -49,6 +53,10 @@ class BookingCreateWizard
                         ->native(false)
                         ->live()
                         ->seconds(false)
+                        ->disabledDates(fn (Get $get): array => BookingForm::disabledCalendarDateStringsForWizard(
+                            array_filter((array) ($get('rooms') ?? [])),
+                        ))
+                        ->helperText('Same blocked days as check-in; range must avoid all blocked nights.')
                         ->minDate(fn (Get $get) => filled($get('check_in')) ? Carbon::parse($get('check_in'))->addMinute() : null)
                         ->rules([
                             fn (Get $get) => function (string $attribute, $value, $fail) use ($get): void {
@@ -132,9 +140,8 @@ class BookingCreateWizard
                     TextInput::make('email')
                         ->email()
                         ->required()
-                        ->helperText('Will be used to send booking confirmation and other notifications.')
-                        ->maxLength(255)
-                        ->rules([Rule::unique('guests', 'email')]),
+                        ->helperText('Will be used to send booking confirmation and other notifications. You may reuse an email from a previous guest (same person or family).')
+                        ->maxLength(255),
                     Toggle::make('is_international')
                         ->label('Foreign / international address')
                         ->default(false)
@@ -161,27 +168,46 @@ class BookingCreateWizard
                     ...PhAddressFields::make(),
                 ]),
             Step::make('Review')
-                ->description('Confirm stay and guest details. Use the step tabs above to go back and edit or change room selection.')
+                ->description('Confirm stay and guest details before payment. Use the step tabs above to go back and edit.')
                 ->schema([
-                    Section::make('Selected stay')
+                    Section::make('Review summary')
+                        ->icon('heroicon-o-clipboard-document-check')
+                        ->iconColor('primary')
+                        ->description('Check dates, rooms, and guest contact — this is what you are about to book.')
                         ->schema([
-                            Text::make(fn (Get $get): string => self::formatCheckInOut($get))
-                                ->weight(FontWeight::SemiBold),
-                            Text::make(fn (Get $get): string => self::formatRoomsLine($get)),
-                            Text::make(fn (Get $get): string => self::formatNightsAndTotal($get)),
-                        ]),
-                    Section::make('Guest')
-                        ->schema([
-                            Text::make(fn (Get $get): string => self::formatGuestName($get))
-                                ->weight(FontWeight::SemiBold),
-                            Text::make(function (Get $get): string {
-                                $g = (string) $get('gender');
+                            Text::make('Please confirm the details below')
+                                ->weight(FontWeight::Bold)
+                                ->size(TextSize::Large)
+                                ->color('primary'),
+                            Section::make('Stay')
+                                ->icon('heroicon-o-home')
+                                ->iconColor('primary')
+                                ->compact()
+                                ->schema([
+                                    Text::make(fn (Get $get): string => self::formatCheckInOut($get))
+                                        ->weight(FontWeight::SemiBold)
+                                        ->size(TextSize::Medium),
+                                    Text::make(fn (Get $get): string => self::formatRoomsLine($get)),
+                                    Text::make(fn (Get $get): string => self::formatNightsAndTotal($get))
+                                        ->weight(FontWeight::SemiBold),
+                                ]),
+                            Section::make('Guest')
+                                ->icon('heroicon-o-user')
+                                ->iconColor('primary')
+                                ->compact()
+                                ->schema([
+                                    Text::make(fn (Get $get): string => self::formatGuestName($get))
+                                        ->weight(FontWeight::SemiBold)
+                                        ->size(TextSize::Medium),
+                                    Text::make(function (Get $get): string {
+                                        $g = (string) $get('gender');
 
-                                return 'Gender: '.(Guest::genderOptions()[$g] ?? '—');
-                            }),
-                            Text::make(fn (Get $get): string => 'Phone: '.($get('contact_num') ?: '—')),
-                            Text::make(fn (Get $get): string => 'Email: '.($get('email') ?: '—')),
-                            Text::make(fn (Get $get): string => self::formatAddress($get)),
+                                        return 'Gender: '.(Guest::genderOptions()[$g] ?? '—');
+                                    }),
+                                    Text::make(fn (Get $get): string => 'Phone: '.($get('contact_num') ?: '—')),
+                                    Text::make(fn (Get $get): string => 'Email: '.($get('email') ?: '—')),
+                                    Text::make(fn (Get $get): string => self::formatAddress($get)),
+                                ]),
                         ]),
                 ]),
             Step::make('Payment')

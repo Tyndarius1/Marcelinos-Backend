@@ -31,45 +31,81 @@ class ExportRevenue extends Page
 
     public ?string $dateTo = null;
 
-    public string $datePreset = 'this_month';
+    public string $datePreset = 'year';
+
+    /**
+     * Calendar year used for the year dropdown and for January–December quick ranges.
+     */
+    public int $revenueYear;
 
     public function mount(): void
     {
-        $this->dateFrom = now()->startOfMonth()->toDateString();
-        $this->dateTo = now()->endOfMonth()->toDateString();
+        $this->revenueYear = (int) now()->year;
+        $this->applyFullYearRange();
+    }
+
+    /**
+     * Upper bound for the year dropdown (current year + planning horizon).
+     */
+    public function maxSelectableRevenueYear(): int
+    {
+        return (int) now()->year + 5;
+    }
+
+    /**
+     * When the year dropdown changes, reset the range to that full calendar year.
+     */
+    public function updatedRevenueYear(mixed $value): void
+    {
+        $maxYear = $this->maxSelectableRevenueYear();
+        $y = (int) $value;
+        $y = max(2000, min($y, $maxYear));
+        $this->revenueYear = $y;
+        $this->applyFullYearRange();
+    }
+
+    public function setDatePreset(string $preset): void
+    {
+        $this->datePreset = $preset;
+
+        $monthPresets = [
+            'jan' => 1,
+            'feb' => 2,
+            'mar' => 3,
+            'apr' => 4,
+            'may' => 5,
+            'jun' => 6,
+            'jul' => 7,
+            'aug' => 8,
+            'sep' => 9,
+            'oct' => 10,
+            'nov' => 11,
+            'dec' => 12,
+        ];
+
+        if (isset($monthPresets[$preset])) {
+            $month = $monthPresets[$preset];
+            $year = $this->revenueYear;
+            $start = Carbon::createFromDate($year, $month, 1)->startOfMonth();
+            $end = Carbon::createFromDate($year, $month, 1)->endOfMonth();
+            $range = [$start->toDateString(), $end->toDateString()];
+        } else {
+            $range = [$this->dateFrom, $this->dateTo];
+        }
+
+        [$this->dateFrom, $this->dateTo] = $range;
         $this->form->fill([
             'dateFrom' => $this->dateFrom,
             'dateTo' => $this->dateTo,
         ]);
     }
 
-    public function setDatePreset(string $preset): void
+    protected function applyFullYearRange(): void
     {
-        $this->datePreset = $preset;
-        $now = Carbon::now();
-        $today = $now->copy()->startOfDay();
-        $yesterday = $now->copy()->subDay()->startOfDay();
-
-        $range = match ($preset) {
-            'today' => [$today->toDateString(), $today->toDateString()],
-            'yesterday' => [$yesterday->toDateString(), $yesterday->toDateString()],
-            'this_week' => [$now->copy()->startOfWeek()->toDateString(), $today->toDateString()],
-            'last_7_days' => [$now->copy()->subDays(6)->startOfDay()->toDateString(), $today->toDateString()],
-            'this_month' => [$now->copy()->startOfMonth()->toDateString(), $now->copy()->endOfMonth()->toDateString()],
-            'last_month' => [
-                $now->copy()->subMonthNoOverflow()->startOfMonth()->toDateString(),
-                $now->copy()->subMonthNoOverflow()->endOfMonth()->toDateString(),
-            ],
-            'last_30_days' => [$now->copy()->subDays(29)->startOfDay()->toDateString(), $today->toDateString()],
-            'this_year' => [$now->copy()->startOfYear()->toDateString(), $now->copy()->endOfYear()->toDateString()],
-            'last_year' => [
-                $now->copy()->subYear()->startOfYear()->toDateString(),
-                $now->copy()->subYear()->endOfYear()->toDateString(),
-            ],
-            default => [$this->dateFrom, $this->dateTo],
-        };
-
-        [$this->dateFrom, $this->dateTo] = $range;
+        $this->datePreset = 'year';
+        $year = $this->revenueYear;
+        $this->dateFrom = Carbon::createFromDate($year, 1, 1)->toDateString();
+        $this->dateTo = Carbon::createFromDate($year, 12, 31)->toDateString();
         $this->form->fill([
             'dateFrom' => $this->dateFrom,
             'dateTo' => $this->dateTo,

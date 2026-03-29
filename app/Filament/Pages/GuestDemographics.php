@@ -71,9 +71,8 @@ class GuestDemographics extends Page
         $unpaidStatuses = [Booking::STATUS_UNPAID];
         $successStatuses = [
             Booking::STATUS_PAID,
-            Booking::STATUS_CONFIRMED,
             Booking::STATUS_COMPLETED,
-            Booking::STATUS_OCCUPIED
+            Booking::STATUS_OCCUPIED,
         ];
 
         // Overview report (calendar/presets)
@@ -238,7 +237,7 @@ class GuestDemographics extends Page
 
                 $statuses = $type === 'unpaid'
                     ? [Booking::STATUS_UNPAID]
-                    : [Booking::STATUS_PAID, Booking::STATUS_CONFIRMED, Booking::STATUS_COMPLETED, Booking::STATUS_OCCUPIED];
+                    : [Booking::STATUS_PAID, Booking::STATUS_COMPLETED, Booking::STATUS_OCCUPIED];
 
                 $dates = $this->getDateRangeForPeriod($period);
 

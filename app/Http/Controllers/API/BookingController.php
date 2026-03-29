@@ -41,7 +41,7 @@ class BookingController extends Controller
         if ($purpose === BookingActionOtpService::PURPOSE_CANCEL) {
             $allowedStatuses = [
                 Booking::STATUS_UNPAID,
-                Booking::STATUS_CONFIRMED,
+                Booking::STATUS_PAID,
             ];
 
             if (defined(Booking::class.'::STATUS_RESCHEDULED')) {
@@ -414,7 +414,6 @@ class BookingController extends Controller
                 'status' => 'sometimes|string|in:'.implode(',', [
                     Booking::STATUS_UNPAID,
                     Booking::STATUS_PAID,
-                    Booking::STATUS_CONFIRMED,
                     Booking::STATUS_COMPLETED,
                     Booking::STATUS_OCCUPIED,
                     Booking::STATUS_CANCELLED,
@@ -479,7 +478,7 @@ class BookingController extends Controller
         try {
             $allowedStatuses = [
                 Booking::STATUS_UNPAID,
-                Booking::STATUS_CONFIRMED,
+                Booking::STATUS_PAID,
             ];
 
             if (defined(Booking::class.'::STATUS_RESCHEDULED')) {

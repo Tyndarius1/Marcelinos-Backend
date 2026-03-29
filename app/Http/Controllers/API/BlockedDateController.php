@@ -49,7 +49,7 @@ class BlockedDateController extends Controller
     }
 
     /**
-     * Get all dates blocked by confirmed or occupied bookings
+     * Get all dates blocked by paid or occupied bookings (capacity fully used)
      * where all rooms and/or all venues are booked.
      */
     private function getBookingBlockedDates(): array
@@ -61,7 +61,7 @@ class BlockedDateController extends Controller
 
         $bookings = Booking::with(['rooms', 'venues'])
             ->whereIn('status', [
-                Booking::STATUS_CONFIRMED,
+                Booking::STATUS_PAID,
                 Booking::STATUS_OCCUPIED,
             ])
             ->get();

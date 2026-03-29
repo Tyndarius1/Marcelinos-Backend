@@ -4,21 +4,48 @@
             Choose a date range below. You’ll see the revenue summary for <strong>paid</strong> and <strong>completed</strong> bookings in that period, then use <strong>Export Revenue</strong> in the header to download a CSV (reference, guest, check-in/out, rooms, venues, revenue, status).
         </p>
 
-        <div class="flex flex-wrap items-center gap-2">
-            <span class="mr-1 text-sm font-medium text-gray-700 dark:text-gray-300">Quick range:</span>
-            @foreach (['today' => 'Today', 'yesterday' => 'Yesterday', 'this_week' => 'This week', 'last_7_days' => 'Last 7 days', 'this_month' => 'This month', 'last_month' => 'Last month', 'last_30_days' => 'Last 30 days', 'this_year' => 'This year', 'last_year' => 'Last year'] as $preset => $label)
-                <button
-                    type="button"
-                    wire:click="setDatePreset('{{ $preset }}')"
-                    @class([
-                        'inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm font-medium transition',
-                        'bg-primary-600 text-white shadow hover:bg-primary-500 dark:bg-primary-500 dark:hover:bg-primary-400' => $datePreset === $preset,
-                        'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10' => $datePreset !== $preset,
-                    ])
+        <div class="flex flex-col gap-3">
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Year</span>
+                <select
+                    wire:model.live="revenueYear"
+                    class="fi-input block min-w-[7rem] rounded-lg border border-gray-300 bg-white py-1.5 ps-3 pe-8 text-sm text-gray-950 shadow-sm transition duration-75 focus:border-primary-600 focus:ring-2 focus:ring-primary-600/20 disabled:bg-gray-50 disabled:text-gray-500 disabled:opacity-70 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-primary-500 dark:focus:ring-primary-500/20"
                 >
-                    {{ $label }}
-                </button>
-            @endforeach
+                    @for ($y = 2000; $y <= $this->maxSelectableRevenueYear(); $y++)
+                        <option value="{{ $y }}">{{ $y }}</option>
+                    @endfor
+                </select>
+                <span class="text-xs text-gray-500 dark:text-gray-400">2000 through {{ $this->maxSelectableRevenueYear() }} (includes a few future years for planning). Full year = Jan 1–Dec 31.</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="mr-1 text-sm font-medium text-gray-700 dark:text-gray-300">Months ({{ $revenueYear }})</span>
+                @foreach ([
+                    'jan' => 'January',
+                    'feb' => 'February',
+                    'mar' => 'March',
+                    'apr' => 'April',
+                    'may' => 'May',
+                    'jun' => 'June',
+                    'jul' => 'July',
+                    'aug' => 'August',
+                    'sep' => 'September',
+                    'oct' => 'October',
+                    'nov' => 'November',
+                    'dec' => 'December',
+                ] as $preset => $label)
+                    <button
+                        type="button"
+                        wire:click="setDatePreset('{{ $preset }}')"
+                        @class([
+                            'inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm font-medium transition',
+                            'bg-primary-600 text-white shadow hover:bg-primary-500 dark:bg-primary-500 dark:hover:bg-primary-400' => $datePreset === $preset,
+                            'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10' => $datePreset !== $preset,
+                        ])
+                    >
+                        {{ $label }}
+                    </button>
+                @endforeach
+            </div>
         </div>
 
         {{ $this->form }}
