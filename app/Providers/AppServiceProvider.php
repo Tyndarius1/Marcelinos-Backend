@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Filament\Resources\Amenities\Pages\ListAmenities;
+use App\Filament\Resources\Bookings\Pages\ListBookings;
 use App\Filament\Resources\Guests\Pages\ListGuests;
 use App\Filament\Resources\Rooms\Pages\ListRooms;
 use App\Filament\Resources\Staff\Pages\ListStaff;
@@ -39,6 +40,7 @@ use Filament\Tables\View\TablesRenderHook;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
@@ -73,6 +75,7 @@ class AppServiceProvider extends ServiceProvider
 
         $this->configureRateLimiting();
         $this->registerTableTotalsHooks();
+        $this->registerRoomCalendarToolbarButton();
 
         Booking::observe(BookingObserver::class);
         Room::observe(RoomObserver::class);
@@ -119,6 +122,15 @@ class AppServiceProvider extends ServiceProvider
             TablesRenderHook::TOOLBAR_START,
             fn (): string => '<div class="text-sm font-medium">Total Amenities: '.Amenity::query()->count().'</div>',
             scopes: [ListAmenities::class],
+        );
+    }
+
+    protected function registerRoomCalendarToolbarButton(): void
+    {
+        FilamentView::registerRenderHook(
+            TablesRenderHook::TOOLBAR_COLUMN_MANAGER_TRIGGER_BEFORE,
+            fn (): View => view('filament.bookings.room-calendar-toolbar-button'),
+            scopes: [ListBookings::class],
         );
     }
 
