@@ -33,7 +33,7 @@ final class RoomInventoryGroupKey
         if ($base === '') {
             return null;
         }
-        $mods = $room->bedModifiers->pluck('modifier')->filter()->values()->all();
+        $mods = $room->bedModifiers->pluck('name')->filter()->values()->all();
         if ($mods !== []) {
             return $base.' ('.implode(', ', $mods).')';
         }

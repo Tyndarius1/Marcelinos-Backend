@@ -48,7 +48,7 @@
                                 {{ __('Room calendar') }}
                             </h1>
                             <p class="text-sm text-gray-600 dark:text-gray-400">
-                                {{ __('Overlapping bookings by assigned room type — cancelled reservations are excluded.') }}
+                                {{ __('Overlapping stays by room category (assigned rooms, or guest selection until rooms are assigned). Cancelled reservations are excluded.') }}
                             </p>
                         </div>
                     </div>

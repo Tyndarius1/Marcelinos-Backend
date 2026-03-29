@@ -30,9 +30,5 @@ class DatabaseSeeder extends Seeder
             'password' => bcrypt('staff123'),
             'role' => 'staff',
         ]);
-        $this->call(RoomSeeder::class);
-        $this->call(BedSpecificationSeeder::class);
-        $this->call(BedModifierSeeder::class);
-        $this->call(BlockedDateSeeder::class);
     }
 }

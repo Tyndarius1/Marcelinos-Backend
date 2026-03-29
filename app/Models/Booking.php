@@ -222,6 +222,20 @@ class Booking extends Model
     }
 
     /**
+     * Scope: bookings that occupy the lodging night for a calendar date (checkout day excluded).
+     * Matches the room calendar: check-in Mar 29, check-out Mar 30 morning counts only Mar 29.
+     */
+    public function scopeOverlappingLodgingNight($query, $date): Builder
+    {
+        $d = Carbon::parse($date)->toDateString();
+
+        return $query
+            ->whereNotIn('status', [self::STATUS_CANCELLED])
+            ->whereDate('check_in', '<=', $d)
+            ->whereDate('check_out', '>', $d);
+    }
+
+    /**
      * Get bookings overlapping a date, with guest and assignable names for display.
      * Used by blocked-dates flow to show "contact customer first" info.
      *

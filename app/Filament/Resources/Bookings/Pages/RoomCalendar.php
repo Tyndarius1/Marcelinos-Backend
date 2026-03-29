@@ -77,6 +77,32 @@ class RoomCalendar extends Page
     }
 
     /**
+     * Counts per room category for one booking. Prefers assigned physical rooms; otherwise uses
+     * guest room lines (frontend bookings before staff assigns specific rooms).
+     *
+     * @return array<string, int>
+     */
+    protected function roomTypeIncrementsForCalendar(Booking $booking): array
+    {
+        if ($booking->rooms->isNotEmpty()) {
+            $increments = [];
+            foreach ($booking->rooms->pluck('type')->unique()->filter() as $type) {
+                $increments[$type] = ($increments[$type] ?? 0) + 1;
+            }
+
+            return $increments;
+        }
+
+        $increments = [];
+        foreach ($booking->roomLines as $line) {
+            $type = $line->room_type;
+            $increments[$type] = ($increments[$type] ?? 0) + max(1, (int) $line->quantity);
+        }
+
+        return $increments;
+    }
+
+    /**
      * @return array<string, array<string, int>>
      */
     protected function bookingsCountByDateAndType(): array
@@ -88,28 +114,33 @@ class RoomCalendar extends Page
             ->whereNotIn('status', [Booking::STATUS_CANCELLED])
             ->where('check_in', '<=', $monthEnd)
             ->where('check_out', '>', $monthStart)
-            ->with(['rooms:id,type'])
+            ->with(['rooms:id,type', 'roomLines'])
             ->get();
 
         $map = [];
 
         foreach ($bookings as $booking) {
-            $roomTypes = $booking->rooms->pluck('type')->unique()->filter();
-            if ($roomTypes->isEmpty()) {
+            $incrementsPerType = $this->roomTypeIncrementsForCalendar($booking);
+            if ($incrementsPerType === []) {
                 continue;
             }
 
-            $from = $booking->check_in->copy()->startOfDay()->max($monthStart);
-            $until = $booking->check_out->copy()->endOfDay()->min($monthEnd);
-            $day = $from->copy();
-            $endDay = $until->copy()->startOfDay();
+            $firstNight = $booking->check_in->copy()->startOfDay();
+            $lastNight = $booking->check_out->copy()->startOfDay()->subDay();
+            if ($lastNight->lt($firstNight)) {
+                continue;
+            }
 
+            $from = $firstNight->max($monthStart);
+            $endDay = $lastNight->min($monthStart->copy()->endOfMonth()->startOfDay());
+
+            $day = $from->copy();
             while ($day->lte($endDay)) {
                 if ($day->month === $this->month && $day->year === $this->year) {
                     $key = $day->toDateString();
-                    foreach ($roomTypes as $type) {
+                    foreach ($incrementsPerType as $type => $n) {
                         $map[$key] ??= [];
-                        $map[$key][$type] = ($map[$key][$type] ?? 0) + 1;
+                        $map[$key][$type] = ($map[$key][$type] ?? 0) + $n;
                     }
                 }
                 $day->addDay();
@@ -166,9 +197,13 @@ class RoomCalendar extends Page
         $date = Carbon::parse($this->modalDate);
 
         return Booking::query()
-            ->overlappingDate($date)
-            ->whereHas('rooms', fn ($q) => $q->where('type', $this->modalType))
-            ->with(['guest', 'rooms'])
+            ->overlappingLodgingNight($date)
+            ->where(function ($q) {
+                $type = $this->modalType;
+                $q->whereHas('rooms', fn ($q2) => $q2->where('type', $type))
+                    ->orWhereHas('roomLines', fn ($q2) => $q2->where('room_type', $type));
+            })
+            ->with(['guest', 'rooms', 'roomLines'])
             ->orderBy('check_in')
             ->get()
             ->map(function (Booking $b) {

@@ -2,15 +2,13 @@
 
 namespace App\Filament\Resources\Rooms\Schemas;
 
-use App\Models\Amenity;
 use App\Models\Room;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
-use Filament\Schemas\Schema;
-
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Schema;
 
 class RoomForm
 {
@@ -43,35 +41,36 @@ class RoomForm
                     })
                     ->helperText(function ($state) {
                         $count = count(array_filter(explode(' ', trim($state ?? ''))));
+
                         return "{$count}/50 words";
                     })
                     ->rules([
                         function ($attribute, $value, $fail) {
-                            if (blank($value))
+                            if (blank($value)) {
                                 return;
+                            }
 
                             $words = array_filter(explode(' ', trim($value)));
                             if (count($words) > 50) {
                                 $fail('Description must not exceed 50 words.');
                             }
-                        }
+                        },
                     ]),
                 TextInput::make('capacity')->required()->numeric(),
-                Select::make('bedSpecifications') // matches the relationship name 
-                    ->label('Bed Specifications') 
-                    ->relationship('bedSpecifications', 'specification') 
-                    ->multiple() // allows multiple selection 
-                    ->searchable() 
-                    ->preload() 
-                    ->required() 
-                    ->helperText('Select all bed specifications for this room.'),
-                Select::make('bedModifiers') 
-                    ->label('Bed Modifiers') 
-                    ->relationship('bedModifiers', 'name') 
-                    ->multiple() // allow multiple modifiers 
-                    ->searchable() 
-                    ->preload() 
-                    ->helperText('Optional: select modifiers like w/Living Room or w/Balcony'),
+                Select::make('bedSpecifications') // matches the relationship name
+                    ->label('Bed Specifications')
+                    ->relationship('bedSpecifications', 'specification')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->helperText('Optional. Add options under Bed specifications & modifiers → Specifications, or leave empty and rely on description for display.'),
+                Select::make('bedModifiers')
+                    ->label('Bed Modifiers')
+                    ->relationship('bedModifiers', 'name')
+                    ->multiple() // allow multiple modifiers
+                    ->searchable()
+                    ->preload()
+                    ->helperText('Optional. Create labels under Bed specifications & modifiers → Modifiers, then select them here.'),
                 Select::make('type')
                     ->options(Room::typeOptions())
                     ->required(),
@@ -86,7 +85,7 @@ class RoomForm
                     ->disk('public')
                     ->image()
                     ->imagePreviewHeight('200')
-                    ->required(fn($record) => $record === null),
+                    ->required(fn ($record) => $record === null),
                 SpatieMediaLibraryFileUpload::make('gallery_images')
                     ->collection('gallery')
                     ->multiple()
