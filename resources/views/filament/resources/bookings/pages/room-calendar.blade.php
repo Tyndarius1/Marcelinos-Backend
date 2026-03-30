@@ -179,19 +179,18 @@
                         class="w-full space-y-1.5 sm:space-y-2"
                     >
                         {{-- Weekday strip --}}
-                        <div class="grid grid-cols-7 gap-0.5 sm:gap-2">
+                        <div class="hidden sm:grid grid-cols-7 gap-2">
                             @foreach ([['short' => 'S', 'full' => 'Sun'], ['short' => 'M', 'full' => 'Mon'], ['short' => 'T', 'full' => 'Tue'], ['short' => 'W', 'full' => 'Wed'], ['short' => 'T', 'full' => 'Thu'], ['short' => 'F', 'full' => 'Fri'], ['short' => 'S', 'full' => 'Sat']] as $dow)
                                 <div
-                                    class="rounded-md bg-gray-100 py-1.5 text-center text-[9px] font-semibold uppercase tracking-wide text-gray-500 sm:rounded-lg sm:py-2.5 sm:text-[11px] sm:tracking-wider dark:bg-white/5 dark:text-gray-400"
+                                    class="rounded-md bg-gray-100 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 sm:rounded-lg dark:bg-white/5 dark:text-gray-400"
                                 >
-                                    <span class="sm:hidden">{{ $dow['short'] }}</span>
-                                    <span class="hidden sm:inline">{{ $dow['full'] }}</span>
+                                    <span>{{ $dow['full'] }}</span>
                                 </div>
                             @endforeach
                         </div>
 
                         {{-- Days --}}
-                        <div class="grid grid-cols-7 gap-0.5 sm:gap-2">
+                        <div class="grid grid-cols-1 gap-2 sm:grid-cols-7">
                     @foreach ($this->calendarWeeks as $week)
                         @foreach ($week as $cell)
                             @php
@@ -202,7 +201,8 @@
                             @endphp
                             <div
                                 @class([
-                                    'flex min-h-[5.1rem] flex-col rounded-md border p-1 transition-colors sm:min-h-[8.5rem] sm:rounded-xl sm:p-2.5',
+                                    'hidden sm:flex' => ! $cell['inMonth'],
+                                    'flex min-h-[5.5rem] flex-col rounded-xl border p-2.5 transition-colors sm:min-h-[8.5rem]',
                                     'border-transparent bg-gray-100/40 dark:bg-white/[0.02]' => ! $cell['inMonth'],
                                     'border-gray-200/90 bg-white shadow-sm dark:border-white/10 dark:bg-gray-950/40' => $cell['inMonth'] && ! $isWeekend,
                                     'border-gray-200/90 bg-slate-50/90 shadow-sm dark:border-white/10 dark:bg-slate-950/35' => $cell['inMonth'] && $isWeekend,
@@ -210,18 +210,23 @@
                                 ])
                             >
                                 @if ($cell['inMonth'])
-                                    <div class="mb-1 flex items-start justify-between gap-0.5 sm:mb-1.5 sm:gap-1">
-                                        <span
-                                            @class([
-                                                'flex h-5 min-w-[1.25rem] items-center justify-center rounded-md text-[10px] font-semibold tabular-nums sm:h-7 sm:min-w-[1.75rem] sm:rounded-lg sm:text-sm',
-                                                'bg-primary-600 text-white shadow-sm dark:bg-primary-500' => $isToday,
-                                                'text-gray-900 dark:text-gray-100' => ! $isToday,
-                                            ])
-                                        >
-                                            {{ $cell['day'] }}
-                                        </span>
+                                    <div class="mb-2 flex items-center justify-between gap-2 sm:mb-1.5 sm:items-start sm:gap-1">
+                                        <div class="flex items-center gap-2">
+                                            <span
+                                                @class([
+                                                    'flex h-6 min-w-[1.5rem] items-center justify-center rounded-md text-xs font-bold tabular-nums sm:h-7 sm:min-w-[1.75rem] sm:rounded-lg sm:text-sm',
+                                                    'bg-primary-600 text-white shadow-sm dark:bg-primary-500' => $isToday,
+                                                    'text-gray-900 dark:text-gray-100' => ! $isToday,
+                                                ])
+                                            >
+                                                {{ $cell['day'] }}
+                                            </span>
+                                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:hidden">
+                                                {{ \Carbon\Carbon::parse($cell['dateStr'])->format('l') }}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div class="flex min-h-0 flex-1 flex-col gap-0.5 sm:gap-1">
+                                    <div class="grid grid-cols-3 gap-1.5 sm:flex sm:min-h-0 sm:flex-1 sm:flex-col sm:gap-1">
                                         @foreach ($typeOrder as $type)
                                             @php $cnt = $cell['typeCounts'][$type] ?? 0; @endphp
                                             <button
@@ -235,7 +240,6 @@
                                                     :muted="$cnt === 0"
                                                     :count="$cnt"
                                                     compact
-                                                    hide-label-on-mobile
                                                 />
                                             </button>
                                         @endforeach
