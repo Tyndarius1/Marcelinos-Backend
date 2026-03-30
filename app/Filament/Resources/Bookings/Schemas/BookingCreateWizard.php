@@ -38,9 +38,11 @@ class BookingCreateWizard
                         ->native(false)
                         ->live()
                         ->seconds(false)
-                        ->disabledDates(fn (Get $get): array => BookingForm::disabledCalendarDateStringsForWizard(
-                            array_filter((array) ($get('rooms') ?? [])),
-                        ))
+                        ->minDate(now()->startOfDay())
+                        ->disabledDates(fn (Get $get): array => array_values(array_unique(array_merge(
+                            BookingForm::pastCalendarDateStrings(),
+                            BookingForm::disabledCalendarDateStringsForWizard(array_filter((array) ($get('rooms') ?? []))),
+                        ))))
                         ->helperText('Blocked days (maintenance / closed) show in red on the calendar and cannot be picked.')
                         ->rules([
                             fn (Get $get) => self::roomAvailabilityRuleForCheckIn($get),
@@ -53,11 +55,27 @@ class BookingCreateWizard
                         ->native(false)
                         ->live()
                         ->seconds(false)
-                        ->disabledDates(fn (Get $get): array => BookingForm::disabledCalendarDateStringsForWizard(
-                            array_filter((array) ($get('rooms') ?? [])),
-                        ))
+                        ->disabledDates(function (Get $get): array {
+                            $disabled = array_merge(
+                                BookingForm::pastCalendarDateStrings(),
+                                BookingForm::disabledCalendarDateStringsForWizard(array_filter((array) ($get('rooms') ?? []))),
+                            );
+
+                            $checkIn = $get('check_in');
+                            if (filled($checkIn)) {
+                                try {
+                                    $disabled[] = Carbon::parse($checkIn)->format('Y-m-d');
+                                } catch (\Exception $e) {
+                                    // ignore invalid date
+                                }
+                            }
+
+                            return array_values(array_unique($disabled));
+                        })
                         ->helperText('Same blocked days as check-in; range must avoid all blocked nights.')
-                        ->minDate(fn (Get $get) => filled($get('check_in')) ? Carbon::parse($get('check_in'))->addMinute() : null)
+                        ->minDate(fn (Get $get) => filled($get('check_in'))
+                            ? Carbon::parse($get('check_in'))->startOfDay()->addDay()
+                            : now())
                         ->rules([
                             fn (Get $get) => function (string $attribute, $value, $fail) use ($get): void {
                                 $checkIn = $get('check_in');
@@ -70,8 +88,8 @@ class BookingCreateWizard
                                 } catch (\Exception $e) {
                                     return;
                                 }
-                                if ($end->lessThanOrEqualTo($start)) {
-                                    $fail('Check-out must be after check-in.');
+                                if ($end->lessThanOrEqualTo($start) || $end->isSameDay($start)) {
+                                    $fail('Check-out must be at least the next day after check-in.');
                                 }
                             },
                             fn (Get $get) => self::roomAvailabilityRuleForCheckOut($get),

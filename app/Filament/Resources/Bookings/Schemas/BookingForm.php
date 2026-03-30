@@ -55,6 +55,27 @@ class BookingForm
     }
 
     /**
+     * @return array<int, string> Y-m-d dates for days before today
+     */
+    public static function pastCalendarDateStrings(int $daysBack = 3650): array
+    {
+        $today = now()->startOfDay();
+        $start = $today->copy()->subDays(max(0, $daysBack));
+        $end = $today->copy()->subDay();
+
+        if ($end->lessThan($start)) {
+            return [];
+        }
+
+        $dates = [];
+        for ($d = $start->copy(); $d->lessThanOrEqualTo($end); $d->addDay()) {
+            $dates[] = $d->format('Y-m-d');
+        }
+
+        return $dates;
+    }
+
+    /**
      * Distinct row backgrounds for “type + bed spec” groups (Tailwind must see full class strings).
      *
      * @var array<int, string>
@@ -235,6 +256,11 @@ class BookingForm
                 ->native(false)
                 ->live()
                 ->seconds(false)
+                ->minDate(now()->startOfDay())
+                ->disabledDates(fn (Get $get): array => array_values(array_unique(array_merge(
+                    self::pastCalendarDateStrings(),
+                    self::disabledCalendarDateStringsForWizard(array_filter((array) ($get('rooms') ?? []))),
+                ))))
                 ->helperText('Check-in date & time. Used for availability and pricing.')
                 ->afterStateUpdated(fn (Get $get, Set $set) => self::updatePricing($get, $set)),
 
@@ -243,7 +269,26 @@ class BookingForm
                 ->native(false)
                 ->live()
                 ->seconds(false)
-                ->minDate(fn (Get $get) => filled($get('check_in')) ? Carbon::parse($get('check_in'))->addMinute() : null)
+                ->minDate(fn (Get $get) => filled($get('check_in'))
+                    ? Carbon::parse($get('check_in'))->startOfDay()->addDay()
+                    : now())
+                ->disabledDates(function (Get $get): array {
+                    $disabled = array_merge(
+                        self::pastCalendarDateStrings(),
+                        self::disabledCalendarDateStringsForWizard(array_filter((array) ($get('rooms') ?? []))),
+                    );
+
+                    $checkIn = $get('check_in');
+                    if (filled($checkIn)) {
+                        try {
+                            $disabled[] = Carbon::parse($checkIn)->format('Y-m-d');
+                        } catch (\Exception $e) {
+                            // ignore invalid date
+                        }
+                    }
+
+                    return array_values(array_unique($disabled));
+                })
                 ->helperText('Must be after check-in.')
                 ->rules([
                     fn (Get $get) => function (string $attribute, $value, $fail) use ($get): void {
@@ -259,8 +304,8 @@ class BookingForm
                             return;
                         }
 
-                        if ($end->lessThanOrEqualTo($start)) {
-                            $fail('Check-out must be after check-in.');
+                        if ($end->lessThanOrEqualTo($start) || $end->isSameDay($start)) {
+                            $fail('Check-out must be at least the next day after check-in.');
                         }
                     },
                 ])
