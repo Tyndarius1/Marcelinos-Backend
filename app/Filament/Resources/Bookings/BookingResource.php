@@ -6,6 +6,7 @@ use App\Filament\Resources\Bookings\Pages\CreateBooking;
 use App\Filament\Resources\Bookings\Pages\EditBooking;
 use App\Filament\Resources\Bookings\Pages\ListBookings;
 use App\Filament\Resources\Bookings\Pages\RoomCalendar;
+use App\Filament\Resources\Bookings\Pages\VenueCalendar;
 use App\Filament\Resources\Bookings\Pages\ViewBooking;
 use App\Filament\Resources\Bookings\RelationManagers\PaymentsRelationManager;
 use App\Filament\Resources\Bookings\RelationManagers\ReviewsRelationManager;
@@ -75,6 +76,7 @@ class BookingResource extends Resource
         return [
             'index' => RoomCalendar::route('/'),
             'roomCalendar' => RoomCalendar::route('/room-calendar'),
+            'venueCalendar' => VenueCalendar::route('/venue-calendar'),
             'list' => ListBookings::route('/list'),
             'create' => CreateBooking::route('/create'),
             'edit' => EditBooking::route('/{record}/edit'),

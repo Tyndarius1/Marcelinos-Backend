@@ -4,7 +4,7 @@ namespace App\Filament\Resources\Bookings\Pages;
 
 use App\Filament\Resources\Bookings\BookingResource;
 use App\Models\Booking;
-use App\Models\Room;
+use App\Models\Venue;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -14,24 +14,24 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
 use JeffersonGoncalves\Filament\QrCodeField\Forms\Components\QrCodeInput;
 
-class RoomCalendar extends Page
+class VenueCalendar extends Page
 {
     protected static string $resource = BookingResource::class;
 
-    protected static ?string $title = 'Booking Calendar';
+    protected static ?string $title = 'Venue Calendar';
 
-    protected static ?string $breadcrumb = 'Booking Calendar';
+    protected static ?string $breadcrumb = 'Venue Calendar';
 
-    protected string $view = 'filament.resources.bookings.pages.room-calendar';
+    protected string $view = 'filament.resources.bookings.pages.venue-calendar';
 
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('venueCalendar')
-                ->label('Venue calendar')
+            Action::make('roomCalendar')
+                ->label('Room calendar')
                 ->icon('heroicon-o-calendar')
                 ->color('info')
-                ->url(BookingResource::getUrl('venueCalendar')),
+                ->url(BookingResource::getUrl('roomCalendar')),
             Action::make('listView')
                 ->label('List view')
                 ->icon('heroicon-o-table-cells')
@@ -107,7 +107,13 @@ class RoomCalendar extends Page
 
     public ?string $modalDate = null;
 
-    public ?string $modalType = null;
+    public ?int $modalVenueId = null;
+
+    #[Computed]
+    public function venues()
+    {
+        return Venue::query()->where('status', '!=', Venue::STATUS_MAINTENANCE)->get();
+    }
 
     public function mount(): void
     {
@@ -133,48 +139,22 @@ class RoomCalendar extends Page
         $this->year = (int) $d->year;
     }
 
-    public function openDayType(string $date, string $type): void
+    public function openDayType(string $date, int $venueId): void
     {
         $this->modalDate = $date;
-        $this->modalType = $type;
+        $this->modalVenueId = $venueId;
     }
 
     public function closeModal(): void
     {
         $this->modalDate = null;
-        $this->modalType = null;
+        $this->modalVenueId = null;
     }
 
     /**
-     * Counts per room category for one booking. Prefers assigned physical rooms; otherwise uses
-     * guest room lines (frontend bookings before staff assigns specific rooms).
-     *
-     * @return array<string, int>
+     * @return array<string, array<int, int>>
      */
-    protected function roomTypeIncrementsForCalendar(Booking $booking): array
-    {
-        if ($booking->rooms->isNotEmpty()) {
-            $increments = [];
-            foreach ($booking->rooms->pluck('type')->unique()->filter() as $type) {
-                $increments[$type] = ($increments[$type] ?? 0) + 1;
-            }
-
-            return $increments;
-        }
-
-        $increments = [];
-        foreach ($booking->roomLines as $line) {
-            $type = $line->room_type;
-            $increments[$type] = ($increments[$type] ?? 0) + max(1, (int) $line->quantity);
-        }
-
-        return $increments;
-    }
-
-    /**
-     * @return array<string, array<string, int>>
-     */
-    protected function bookingsCountByDateAndType(): array
+    protected function bookingsCountByDateAndVenue(): array
     {
         $monthStart = Carbon::create(year: $this->year, month: $this->month, day: 1)->startOfDay();
         $monthEnd = $monthStart->copy()->endOfMonth()->endOfDay();
@@ -183,14 +163,13 @@ class RoomCalendar extends Page
             ->whereNotIn('status', [Booking::STATUS_CANCELLED])
             ->where('check_in', '<=', $monthEnd)
             ->where('check_out', '>', $monthStart)
-            ->with(['rooms:id,type', 'roomLines'])
+            ->with(['venues:id,name'])
             ->get();
 
         $map = [];
 
         foreach ($bookings as $booking) {
-            $incrementsPerType = $this->roomTypeIncrementsForCalendar($booking);
-            if ($incrementsPerType === []) {
+            if ($booking->venues->isEmpty()) {
                 continue;
             }
 
@@ -207,9 +186,9 @@ class RoomCalendar extends Page
             while ($day->lte($endDay)) {
                 if ($day->month === $this->month && $day->year === $this->year) {
                     $key = $day->toDateString();
-                    foreach ($incrementsPerType as $type => $n) {
+                    foreach ($booking->venues as $venue) {
                         $map[$key] ??= [];
-                        $map[$key][$type] = ($map[$key][$type] ?? 0) + $n;
+                        $map[$key][$venue->id] = ($map[$key][$venue->id] ?? 0) + 1;
                     }
                 }
                 $day->addDay();
@@ -220,12 +199,12 @@ class RoomCalendar extends Page
     }
 
     /**
-     * @return list<list<array{day: int|null, dateStr: string|null, inMonth: bool, typeCounts: array<string, int>}>>
+     * @return list<list<array{day: int|null, dateStr: string|null, inMonth: bool, venueCounts: array<int, int>}>>
      */
     #[Computed]
     public function calendarWeeks(): array
     {
-        $counts = $this->bookingsCountByDateAndType();
+        $counts = $this->bookingsCountByDateAndVenue();
         $monthStart = Carbon::create(year: $this->year, month: $this->month, day: 1);
         $gridStart = $monthStart->copy()->startOfWeek(Carbon::SUNDAY);
         $monthEnd = $monthStart->copy()->endOfMonth();
@@ -243,7 +222,7 @@ class RoomCalendar extends Page
                     'day' => $inMonth ? $cursor->day : null,
                     'dateStr' => $inMonth ? $dateStr : null,
                     'inMonth' => $inMonth,
-                    'typeCounts' => $inMonth ? ($counts[$dateStr] ?? []) : [],
+                    'venueCounts' => $inMonth ? ($counts[$dateStr] ?? []) : [],
                 ];
                 $cursor->addDay();
             }
@@ -254,12 +233,12 @@ class RoomCalendar extends Page
     }
 
     /**
-     * @return list<array{id: int, reference_number: string, guest_name: string, check_in: string, check_out: string, rooms: string, status: string}>
+     * @return list<array{id: int, reference_number: string, guest_name: string, check_in: string, check_out: string, venues: string, status: string}>
      */
     #[Computed]
     public function modalBookingRows(): array
     {
-        if (! $this->modalDate || ! $this->modalType) {
+        if (! $this->modalDate || ! $this->modalVenueId) {
             return [];
         }
 
@@ -267,12 +246,8 @@ class RoomCalendar extends Page
 
         return Booking::query()
             ->overlappingLodgingNight($date)
-            ->where(function ($q) {
-                $type = $this->modalType;
-                $q->whereHas('rooms', fn ($q2) => $q2->where('type', $type))
-                    ->orWhereHas('roomLines', fn ($q2) => $q2->where('room_type', $type));
-            })
-            ->with(['guest', 'rooms', 'roomLines'])
+            ->whereHas('venues', fn ($q) => $q->where('venues.id', $this->modalVenueId))
+            ->with(['guest', 'venues'])
             ->orderBy('check_in')
             ->get()
             ->map(function (Booking $b) {
@@ -282,7 +257,7 @@ class RoomCalendar extends Page
                     'guest_name' => $b->guest?->full_name ?? '—',
                     'check_in' => $b->check_in?->format('M j, Y g:i A') ?? '—',
                     'check_out' => $b->check_out?->format('M j, Y g:i A') ?? '—',
-                    'rooms' => $b->rooms->pluck('name')->filter()->implode(', ') ?: '—',
+                    'venues' => $b->venues->pluck('name')->filter()->implode(', ') ?: '—',
                     'status' => $b->status,
                 ];
             })
@@ -299,13 +274,21 @@ class RoomCalendar extends Page
         return Carbon::parse($this->modalDate)->format('l, F j, Y');
     }
 
-    public function modalTypeLabel(): string
+    public function modalVenueLabel(): string
     {
-        if (! $this->modalType) {
+        if (! $this->modalVenueId) {
             return '';
         }
 
-        return Room::typeOptions()[$this->modalType] ?? ucfirst($this->modalType);
+        return Venue::query()->find($this->modalVenueId)?->name ?? 'Venue';
+    }
+
+    public function modalVenue(): ?Venue
+    {
+        if (! $this->modalVenueId) {
+            return null;
+        }
+        return Venue::query()->find($this->modalVenueId);
     }
 
     /**
