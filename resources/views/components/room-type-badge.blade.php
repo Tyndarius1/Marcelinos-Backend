@@ -3,6 +3,7 @@
     'muted' => false,
     'count' => null,
     'compact' => false,
+    'hideLabelOnMobile' => false,
 ])
 
 @php
@@ -109,8 +110,9 @@
     >
         <span
             @class([
-                'truncate font-bold uppercase tracking-wide text-white',
+                'room-type-badge-label truncate font-bold uppercase tracking-wide text-white',
                 $compact ? 'text-[8px] leading-tight sm:text-[9px]' : 'text-[10px] sm:text-xs',
+                $hideLabelOnMobile ? 'hidden sm:inline' : '',
             ])
         >
             {{ $label }}

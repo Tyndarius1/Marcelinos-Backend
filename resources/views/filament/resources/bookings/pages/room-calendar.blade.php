@@ -15,7 +15,7 @@
 
 <x-filament-panels::page>
     <div
-        class="mx-auto max-w-6xl space-y-6 px-0 sm:space-y-8 sm:px-0 pb-8 sm:pb-10 transition-opacity duration-200"
+        class="mx-auto max-w-6xl space-y-5 px-1 pb-8 transition-opacity duration-200 sm:space-y-8 sm:px-0 sm:pb-10"
         wire:loading.class="pointer-events-none opacity-60"
         wire:target="previousMonth,nextMonth,month,year"
     >
@@ -82,11 +82,9 @@
         >
             <div class="space-y-6">
                 {{-- Toolbar: prev/next aligned with select controls (bottom edge) --}}
-                <div
-                    class="flex flex-wrap items-end gap-x-3 gap-y-3"
-                >
+                <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-x-3 sm:gap-y-3">
                     <div
-                        class="inline-flex shrink-0 items-center gap-0.5 self-end rounded-xl border border-gray-200 bg-white px-0.5 py-0.5 shadow-sm dark:border-white/10 dark:bg-gray-950"
+                        class="inline-flex w-full shrink-0 items-center justify-center gap-1 self-start rounded-xl border border-gray-200 bg-white px-1 py-1 shadow-sm dark:border-white/10 dark:bg-gray-950 sm:w-auto sm:justify-start sm:gap-0.5 sm:self-end sm:px-0.5 sm:py-0.5"
                     >
                         <x-filament::icon-button
                             color="gray"
@@ -108,9 +106,7 @@
                         />
                     </div>
 
-                    <div
-                        class="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-initial sm:gap-3"
-                    >
+                    <div class="grid min-w-0 w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-initial sm:gap-3">
                         <div class="min-w-0 sm:w-[10.5rem]">
                             <label
                                 class="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400"
@@ -176,30 +172,29 @@
                 </div>
 
                 {{-- Calendar grid: horizontal scroll on small screens so cells stay readable --}}
-                <p
-                    class="mb-1 text-center text-[11px] leading-snug text-gray-500 dark:text-gray-400 sm:hidden"
-                >
+                <p class="mb-1 px-1 text-center text-[11px] leading-snug text-gray-500 dark:text-gray-400 sm:hidden">
                     {{ __('Swipe sideways to see all days.') }}
                 </p>
                 <div
-                    class="room-calendar-scroll overflow-x-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch] sm:overflow-x-visible sm:pb-0"
+                    class="room-calendar-scroll -mx-1 overflow-x-auto overscroll-x-contain px-1 pb-1 [-webkit-overflow-scrolling:touch] sm:mx-0 sm:px-0 sm:overflow-x-visible sm:pb-0"
                 >
                     <div
-                        class="min-w-[34rem] space-y-1.5 sm:min-w-0 sm:w-full sm:space-y-2"
+                        class="min-w-[30rem] space-y-1.5 sm:min-w-0 sm:w-full sm:space-y-2"
                     >
                         {{-- Weekday strip --}}
-                        <div class="grid grid-cols-7 gap-1 sm:gap-2">
-                            @foreach (['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $dow)
+                        <div class="grid grid-cols-7 gap-0.5 sm:gap-2">
+                            @foreach ([['short' => 'S', 'full' => 'Sun'], ['short' => 'M', 'full' => 'Mon'], ['short' => 'T', 'full' => 'Tue'], ['short' => 'W', 'full' => 'Wed'], ['short' => 'T', 'full' => 'Thu'], ['short' => 'F', 'full' => 'Fri'], ['short' => 'S', 'full' => 'Sat']] as $dow)
                                 <div
-                                    class="rounded-md bg-gray-100 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500 sm:rounded-lg sm:py-2.5 sm:text-[11px] dark:bg-white/5 dark:text-gray-400"
+                                    class="rounded-md bg-gray-100 py-1.5 text-center text-[9px] font-semibold uppercase tracking-wide text-gray-500 sm:rounded-lg sm:py-2.5 sm:text-[11px] sm:tracking-wider dark:bg-white/5 dark:text-gray-400"
                                 >
-                                    {{ $dow }}
+                                    <span class="sm:hidden">{{ $dow['short'] }}</span>
+                                    <span class="hidden sm:inline">{{ $dow['full'] }}</span>
                                 </div>
                             @endforeach
                         </div>
 
                         {{-- Days --}}
-                        <div class="grid grid-cols-7 gap-1 sm:gap-2">
+                        <div class="grid grid-cols-7 gap-0.5 sm:gap-2">
                     @foreach ($this->calendarWeeks as $week)
                         @foreach ($week as $cell)
                             @php
@@ -210,7 +205,7 @@
                             @endphp
                             <div
                                 @class([
-                                    'flex min-h-[6.5rem] flex-col rounded-lg border p-1.5 transition-colors sm:min-h-[8.5rem] sm:rounded-xl sm:p-2.5',
+                                    'flex min-h-[5.1rem] flex-col rounded-md border p-1 transition-colors sm:min-h-[8.5rem] sm:rounded-xl sm:p-2.5',
                                     'border-transparent bg-gray-100/40 dark:bg-white/[0.02]' => ! $cell['inMonth'],
                                     'border-gray-200/90 bg-white shadow-sm dark:border-white/10 dark:bg-gray-950/40' => $cell['inMonth'] && ! $isWeekend,
                                     'border-gray-200/90 bg-slate-50/90 shadow-sm dark:border-white/10 dark:bg-slate-950/35' => $cell['inMonth'] && $isWeekend,
@@ -221,7 +216,7 @@
                                     <div class="mb-1 flex items-start justify-between gap-0.5 sm:mb-1.5 sm:gap-1">
                                         <span
                                             @class([
-                                                'flex h-6 min-w-[1.5rem] items-center justify-center rounded-md text-xs font-semibold tabular-nums sm:h-7 sm:min-w-[1.75rem] sm:rounded-lg sm:text-sm',
+                                                'flex h-5 min-w-[1.25rem] items-center justify-center rounded-md text-[10px] font-semibold tabular-nums sm:h-7 sm:min-w-[1.75rem] sm:rounded-lg sm:text-sm',
                                                 'bg-primary-600 text-white shadow-sm dark:bg-primary-500' => $isToday,
                                                 'text-gray-900 dark:text-gray-100' => ! $isToday,
                                             ])
@@ -243,6 +238,7 @@
                                                     :muted="$cnt === 0"
                                                     :count="$cnt"
                                                     compact
+                                                    hide-label-on-mobile
                                                 />
                                             </button>
                                         @endforeach
@@ -268,7 +264,7 @@
             role="presentation"
         >
             <div
-                class="relative flex max-h-[min(90vh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-gray-200/90 bg-white shadow-2xl ring-1 ring-gray-950/5 dark:border-white/10 dark:bg-gray-900 dark:ring-white/10 sm:rounded-2xl"
+                class="relative flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-gray-200/90 bg-white shadow-2xl ring-1 ring-gray-950/5 dark:border-white/10 dark:bg-gray-900 dark:ring-white/10 sm:max-h-[85vh] sm:rounded-2xl"
                 wire:click.stop
                 role="dialog"
                 aria-modal="true"
@@ -308,7 +304,7 @@
                     </div>
                 </div>
 
-                <div class="flex-1 space-y-5 overflow-y-auto px-5 py-5">
+                <div class="space-y-5 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
                     @php
                         $count = count($this->modalBookingRows);
                     @endphp
@@ -354,35 +350,125 @@
                         <ul class="space-y-3">
                             @foreach ($this->modalBookingRows as $row)
                                 <li
-                                    class="overflow-hidden rounded-xl border border-gray-200/90 bg-white shadow-sm ring-1 ring-gray-950/[0.04] dark:border-white/10 dark:bg-gray-950/50 dark:ring-white/[0.06]"
+                                    class="overflow-visible rounded-xl border border-gray-200/90 bg-white shadow-sm ring-1 ring-gray-950/[0.04] dark:border-white/10 dark:bg-gray-950/50 dark:ring-white/[0.06]"
                                 >
                                     <div
-                                        class="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-white/5"
+                                        class="flex flex-col gap-3 border-b border-gray-100 px-3 py-3 dark:border-white/5 sm:flex-row sm:items-start sm:justify-between sm:px-4"
                                     >
                                         <div class="min-w-0">
                                             <a
                                                 href="{{ \App\Filament\Resources\Bookings\BookingResource::getUrl('view', ['record' => $row['id']]) }}"
-                                                class="font-mono text-sm font-semibold text-primary-600 hover:text-primary-700 hover:underline dark:text-primary-400 dark:hover:text-primary-300"
+                                                class="break-all font-mono text-sm font-semibold text-primary-600 hover:text-primary-700 hover:underline dark:text-primary-400 dark:hover:text-primary-300"
                                             >
                                                 {{ $row['reference_number'] }}
                                             </a>
-                                            <p class="mt-0.5 truncate text-sm text-gray-700 dark:text-gray-200">
+                                            <p class="mt-0.5 break-words text-sm text-gray-700 dark:text-gray-200">
                                                 {{ $row['guest_name'] }}
                                             </p>
                                         </div>
-                                        @php
-                                            $pill = $statusPill[$row['status']] ?? 'bg-gray-100 text-gray-800 ring-1 ring-inset ring-gray-600/15 dark:bg-white/10 dark:text-gray-200';
-                                        @endphp
-                                        <span
-                                            @class([
-                                                'shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
-                                                $pill,
-                                            ])
-                                        >
-                                            {{ Booking::statusOptions()[$row['status']] ?? $row['status'] }}
-                                        </span>
+                                        <div class="flex shrink-0 items-start justify-between gap-2 sm:justify-start">
+                                            @php
+                                                $pill = $statusPill[$row['status']] ?? 'bg-gray-100 text-gray-800 ring-1 ring-inset ring-gray-600/15 dark:bg-white/10 dark:text-gray-200';
+                                            @endphp
+                                            <span
+                                                @class([
+                                                    'rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                                                    $pill,
+                                                ])
+                                            >
+                                                {{ Booking::statusOptions()[$row['status']] ?? $row['status'] }}
+                                            </span>
+
+                                            <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                                                <button
+                                                    type="button"
+                                                    class="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:text-gray-300 dark:hover:bg-white/10 dark:hover:text-white"
+                                                    aria-label="Booking actions"
+                                                    @click="open = ! open"
+                                                >
+                                                    <x-filament::icon icon="heroicon-m-ellipsis-vertical" class="h-4 w-4" />
+                                                </button>
+
+                                                <div
+                                                    x-cloak
+                                                    x-show="open"
+                                                    x-transition.origin.top.right
+                                                    class="absolute right-0 top-full z-30 mt-1 w-40 overflow-hidden rounded-md border border-gray-300 bg-white py-1 shadow-md dark:border-white/15 dark:bg-gray-900"
+                                                >
+                                                    <a
+                                                        href="{{ \App\Filament\Resources\Bookings\BookingResource::getUrl('view', ['record' => $row['id']]) }}"
+                                                        @click="open = false"
+                                                        class="block whitespace-nowrap px-3 py-1.5 text-[13px] font-medium leading-5 text-gray-800 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
+                                                    >
+                                                        View
+                                                    </a>
+                                                    <a
+                                                        href="{{ \App\Filament\Resources\Bookings\BookingResource::getUrl('edit', ['record' => $row['id']]) }}"
+                                                        @click="open = false"
+                                                        class="block whitespace-nowrap px-3 py-1.5 text-[13px] font-medium leading-5 text-gray-800 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
+                                                    >
+                                                        Edit
+                                                    </a>
+
+                                                    @if (($row['status'] ?? null) !== Booking::STATUS_CANCELLED)
+                                                        <button
+                                                            type="button"
+                                                            wire:click="payBalance({{ $row['id'] }})"
+                                                            @click="open = false"
+                                                            class="block w-full whitespace-nowrap px-3 py-1.5 text-left text-[13px] font-medium leading-5 text-sky-700 hover:bg-sky-50 dark:text-sky-300 dark:hover:bg-sky-500/10"
+                                                        >
+                                                            Pay Balance
+                                                        </button>
+                                                    @endif
+
+                                                    @if (($row['status'] ?? null) === Booking::STATUS_PAID)
+                                                        <button
+                                                            type="button"
+                                                            wire:click="checkInBooking({{ $row['id'] }})"
+                                                            @click="open = false"
+                                                            class="block w-full whitespace-nowrap px-3 py-1.5 text-left text-[13px] font-medium leading-5 text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-500/10"
+                                                        >
+                                                            Check-in
+                                                        </button>
+                                                    @endif
+
+                                                    @if (($row['status'] ?? null) === Booking::STATUS_OCCUPIED)
+                                                        <button
+                                                            type="button"
+                                                            wire:click="completeBooking({{ $row['id'] }})"
+                                                            @click="open = false"
+                                                            class="block w-full whitespace-nowrap px-3 py-1.5 text-left text-[13px] font-medium leading-5 text-gray-800 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
+                                                        >
+                                                            Complete
+                                                        </button>
+                                                    @endif
+
+                                                    @if (! in_array(($row['status'] ?? null), [Booking::STATUS_CANCELLED, Booking::STATUS_COMPLETED], true))
+                                                        <button
+                                                            type="button"
+                                                            wire:click="cancelBooking({{ $row['id'] }})"
+                                                            @click="open = false"
+                                                            onclick="return confirm('Cancel this booking?')"
+                                                            class="block w-full whitespace-nowrap px-3 py-1.5 text-left text-[13px] font-medium leading-5 text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    @endif
+
+                                                    <button
+                                                        type="button"
+                                                        wire:click="deleteBooking({{ $row['id'] }})"
+                                                        @click="open = false"
+                                                        onclick="return confirm('Delete this booking permanently?')"
+                                                        class="block w-full whitespace-nowrap px-3 py-1.5 text-left text-[13px] font-medium leading-5 text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="space-y-2 px-4 py-3 text-xs text-gray-600 dark:text-gray-400">
+                                    <div class="space-y-2 px-3 py-3 text-xs text-gray-600 dark:text-gray-400 sm:px-4">
                                         <div class="flex gap-2">
                                             <x-filament::icon
                                                 icon="heroicon-m-arrow-right-circle"

@@ -6,9 +6,13 @@ use App\Filament\Resources\Bookings\BookingResource;
 use App\Models\Booking;
 use App\Models\Room;
 use Carbon\Carbon;
+use Filament\Actions\Action;
+use Filament\Actions\CreateAction;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
+use JeffersonGoncalves\Filament\QrCodeField\Forms\Components\QrCodeInput;
 
 class RoomCalendar extends Page
 {
@@ -19,6 +23,66 @@ class RoomCalendar extends Page
     protected static ?string $breadcrumb = 'Room calendar';
 
     protected string $view = 'filament.resources.bookings.pages.room-calendar';
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('listView')
+                ->label('List view')
+                ->icon('heroicon-o-table-cells')
+                ->color('gray')
+                ->url(BookingResource::getUrl('list')),
+            CreateAction::make(),
+            Action::make('scanQr')
+                ->label('Scan QR')
+                ->icon('heroicon-o-qr-code')
+                ->color('primary')
+                ->modalHeading('Scan Booking QR Code')
+                ->modalDescription('Open your camera and hold the guest\'s booking QR code within the frame to look up their reservation instantly.')
+                ->modalWidth('md')
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Close')
+                ->form([
+                    QrCodeInput::make('qr_payload')
+                        ->hiddenLabel()
+                        ->required()
+                        ->live()
+                        ->afterStateUpdated(function (?string $state, $livewire): void {
+                            $payload = $state;
+
+                            if (! $payload) {
+                                Notification::make()
+                                    ->title('No QR code data found.')
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            $decoded = json_decode($payload, true);
+                            $reference = is_array($decoded) ? ($decoded['reference'] ?? null) : null;
+                            $reference = $reference ?: trim($payload);
+
+                            $booking = Booking::query()
+                                ->where('reference_number', $reference)
+                                ->first();
+
+                            if (! $booking) {
+                                Notification::make()
+                                    ->title('Booking not found.')
+                                    ->body('The scanned QR code did not match any booking. Please try again.')
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            $livewire->redirect(BookingResource::getUrl('view', ['record' => $booking]));
+                        }),
+                ])
+                ->action(fn () => null),
+        ];
+    }
 
     public function getHeading(): ?string
     {
@@ -252,5 +316,94 @@ class RoomCalendar extends Page
     public function currentPeriodLabel(): string
     {
         return Carbon::create(year: $this->year, month: $this->month, day: 1)->format('F Y');
+    }
+
+    public function payBalance(int $bookingId): void
+    {
+        $booking = Booking::query()->find($bookingId);
+
+        if (! $booking) {
+            return;
+        }
+
+        if ($booking->balance <= 0 || $booking->status === Booking::STATUS_CANCELLED) {
+            return;
+        }
+
+        $booking->payments()->create([
+            'total_amount' => $booking->total_price,
+            'partial_amount' => $booking->balance,
+            'is_fullypaid' => true,
+        ]);
+        $booking->update(['status' => Booking::STATUS_PAID]);
+
+        Notification::make()
+            ->title('Balance paid successfully.')
+            ->success()
+            ->send();
+    }
+
+    public function checkInBooking(int $bookingId): void
+    {
+        $booking = Booking::query()->find($bookingId);
+
+        if (! $booking || $booking->status !== Booking::STATUS_PAID) {
+            return;
+        }
+
+        $booking->update(['status' => Booking::STATUS_OCCUPIED]);
+
+        Notification::make()
+            ->title('Booking checked in.')
+            ->success()
+            ->send();
+    }
+
+    public function completeBooking(int $bookingId): void
+    {
+        $booking = Booking::query()->find($bookingId);
+
+        if (! $booking || $booking->status !== Booking::STATUS_OCCUPIED) {
+            return;
+        }
+
+        $booking->update(['status' => Booking::STATUS_COMPLETED]);
+
+        Notification::make()
+            ->title('Booking marked as completed.')
+            ->success()
+            ->send();
+    }
+
+    public function cancelBooking(int $bookingId): void
+    {
+        $booking = Booking::query()->find($bookingId);
+
+        if (! $booking || in_array($booking->status, [Booking::STATUS_CANCELLED, Booking::STATUS_COMPLETED], true)) {
+            return;
+        }
+
+        $booking->update(['status' => Booking::STATUS_CANCELLED]);
+
+        Notification::make()
+            ->title('Booking cancelled.')
+            ->success()
+            ->send();
+    }
+
+    public function deleteBooking(int $bookingId): void
+    {
+        $booking = Booking::query()->find($bookingId);
+
+        if (! $booking) {
+            return;
+        }
+
+        $booking->delete();
+
+        Notification::make()
+            ->title('Booking deleted.')
+            ->success()
+            ->send();
     }
 }
