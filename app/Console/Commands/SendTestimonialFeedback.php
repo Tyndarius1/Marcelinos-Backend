@@ -33,7 +33,7 @@ class SendTestimonialFeedback extends Command
      */
     public function handle(): int
     {
-        // Scheduler runs daily (see routes/console.php) so "date" is treated as the scheduler day.
+        // Invoked after each complete-checkouts batch (see routes/console.php); --date treats that as "as of".
         // We want a true 24-hour delay after guests become eligible, so we use `subDay()` (no endOfDay boundary).
         $timezone = config('app.timezone', 'Asia/Manila');
 
