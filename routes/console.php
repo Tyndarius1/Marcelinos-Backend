@@ -10,37 +10,47 @@ Artisan::command('inspire', function () {
 
 /*
 |--------------------------------------------------------------------------
-| Booking status scheduled tasks
+| Booking scheduled tasks (Asia/Manila)
 |--------------------------------------------------------------------------
-| All times are in Asia/Manila (UTC+8).
-// Commands use the Booking model so model events run.
-|
-| Cron entry required on the server (run every minute):
-|   * * * * * cd /path-to-your-project && php artisan schedule:run >> /dev/null 2>&1
+| Server cron (every minute): php artisan schedule:run
 */
 
-// Free rooms: mark occupied bookings that checked out today as complete.
+$manila = 'Asia/Manila';
+$afterCheckoutSendTestimonial = fn () => Artisan::call('testimonials:send-feedback');
+
+/**
+ * Complete check-outs: occupied → completed when check_out has passed.
+ * Runs every 10 minutes 10:00–10:50 and once at 11:00. After each run, send testimonial
+ * feedback for eligible completed bookings (see testimonials:send-feedback).
+ */
 Schedule::command('bookings:complete-checkouts')
-    ->everyMinute()
-    ->timezone('Asia/Manila');
+    ->cron('0,10,20,30,40,50 10 * * *')
+    ->timezone($manila)
+    ->withoutOverlapping()
+    ->after($afterCheckoutSendTestimonial);
 
-// Send Testimonial Feedback: send testimonial feedback email to guests 1 day after their booking is completed.
-Schedule::command('testimonials:send-feedback')
-    ->dailyAt('12:00')
-    ->timezone('Asia/Manila')
-    ->withoutOverlapping();
+Schedule::command('bookings:complete-checkouts')
+    ->dailyAt('11:00')
+    ->timezone($manila)
+    ->withoutOverlapping()
+    ->after($afterCheckoutSendTestimonial);
 
-// Activate stays: mark paid bookings that check in today as occupied.
-Schedule::command('bookings:activate-checkins')
-    ->dailyAt('12:00')
-    ->timezone('Asia/Manila');
-
-// Cancel no-shows: cancel unpaid bookings that were due to check in today.
-Schedule::command('bookings:cancel-unpaid')
-    ->dailyAt('12:00')
-    ->timezone('Asia/Manila');
-
-Schedule::command('bookings:send-reminders')
-    ->dailyAt('12:00')
-    ->timezone('Asia/Manila')
-    ->withoutOverlapping();
+/*
+|--------------------------------------------------------------------------
+| Daily at 12:00 — Manila
+|--------------------------------------------------------------------------
+| bookings:cancel-unpaid      — unpaid, due to check in today → cancelled
+| bookings:send-reminders     — reminder email one day before check-in
+*/
+foreach ([
+    // 'bookings:activate-checkins' => false,
+    'bookings:cancel-unpaid' => false,
+    'bookings:send-reminders' => true,
+] as $signature => $withoutOverlapping) {
+    $event = Schedule::command($signature)
+        ->dailyAt('12:00')
+        ->timezone($manila);
+    if ($withoutOverlapping) {
+        $event->withoutOverlapping();
+    }
+}
