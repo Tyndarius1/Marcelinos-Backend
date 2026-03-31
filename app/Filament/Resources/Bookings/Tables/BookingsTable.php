@@ -110,7 +110,24 @@ class BookingsTable
                     })
                     ->wrap()
                     ->limit(70)
-                    ->tooltip(fn (TextColumn $column): ?string => $column->getState())
+                    ->tooltip(function (TextColumn $column): ?string {
+                        $state = $column->getState();
+
+                        if (is_iterable($state)) {
+                            $state = collect($state)
+                                ->map(fn ($value): string => is_scalar($value) ? (string) $value : '')
+                                ->filter()
+                                ->implode(', ');
+                        }
+
+                        if (! is_scalar($state)) {
+                            return null;
+                        }
+
+                        $state = trim((string) $state);
+
+                        return $state !== '' ? $state : null;
+                    })
                     ->toggleable(),
 
                 TextColumn::make('venues.name')

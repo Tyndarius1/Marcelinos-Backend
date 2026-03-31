@@ -7,8 +7,8 @@ use App\Events\BookingStatusUpdated;
 use App\Models\Booking;
 use App\Models\User;
 use App\Support\ActivityLogger;
-use Filament\Notifications\Notification;
 use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use App\Filament\Resources\Bookings\BookingResource;
 use Illuminate\Support\Facades\Log;
 
@@ -41,7 +41,6 @@ class BookingObserver
                     ->body("{$bookedByName} created a booking.")
                     ->icon('heroicon-o-calendar-days')
                     ->color('success')
-                    ->url($bookingViewUrl)
                     ->actions([
                         Action::make('view')
                             ->label('View Booking')
