@@ -34,9 +34,8 @@ class RoomsTable
                     ->numeric()
                     ->sortable(),
 
-                TextColumn::make('type')
-                    ->badge()
-                    ->formatStateUsing(fn (string $state): string => Room::typeOptions()[$state] ?? $state),
+                \Filament\Tables\Columns\ViewColumn::make('type')
+                    ->view('filament.tables.columns.room-type-badge-column'),
 
                 TextColumn::make('price')
                     ->money('PHP', true)
