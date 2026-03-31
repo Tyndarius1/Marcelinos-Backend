@@ -31,17 +31,22 @@ class BookingObserver
         ]);
 
         if ($users->isNotEmpty()) {
+            $booking->loadMissing('guest');
+            $bookedByName = trim((string) ($booking->guest?->full_name ?? '')) ?: 'a guest';
+            $bookingViewUrl = BookingResource::getUrl('view', ['record' => $booking]);
+
             foreach ($users as $user) {
                 Notification::make()
                     ->title('New Booking Created')
-                    ->body("Booking {$booking->reference_number} was created.")
+                    ->body("{$bookedByName} created a booking.")
                     ->icon('heroicon-o-calendar-days')
                     ->color('success')
+                    ->url($bookingViewUrl)
                     ->actions([
                         Action::make('view')
                             ->label('View Booking')
                             ->button()
-                            ->url(BookingResource::getUrl('view', ['record' => $booking]))
+                            ->url($bookingViewUrl)
                     ])
                     ->sendToDatabase($user)
                     ->broadcast($user);
