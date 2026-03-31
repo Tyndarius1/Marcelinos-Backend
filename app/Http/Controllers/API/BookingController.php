@@ -12,6 +12,7 @@ use App\Models\Room;
 use App\Models\Venue;
 use App\Services\BookingActionOtpService;
 use App\Support\BookingPricing;
+use App\Support\RoomInventoryGroupAvailability;
 use App\Support\RoomInventoryGroupKey;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -298,14 +299,14 @@ class BookingController extends Controller
     }
 
     /**
-     * Ensure enough unassigned inventory exists for each requested line and unit prices match catalogue.
+     * Validate each room line against catalogue (type + spec key + rate) and remaining capacity
+     * for the stay window (room_lines + assigned rooms on other bookings). Staff still pick concrete rooms.
      */
     private function validateGuestRoomLines(array $roomLines, Carbon $checkIn, Carbon $checkOut, ?int $excludeBookingId): ?\Illuminate\Http\JsonResponse
     {
         foreach ($roomLines as $line) {
             $type = $line['room_type'];
             $key = $line['inventory_group_key'];
-            $qty = (int) $line['quantity'];
             $submittedUnit = (float) $line['unit_price'];
 
             $candidates = Room::query()
@@ -329,23 +330,29 @@ class BookingController extends Controller
                     'error' => 'price_mismatch',
                 ], 422);
             }
+        }
 
-            $ids = $candidates->pluck('id')->all();
-            $availableCount = Room::whereIn('id', $ids)
-                ->availableBetween($checkIn, $checkOut, $excludeBookingId)
-                ->count();
+        $remainingMap = RoomInventoryGroupAvailability::remainingForRangeMap($checkIn, $checkOut, $excludeBookingId);
+        $requestedTotals = [];
+        foreach ($roomLines as $line) {
+            $c = RoomInventoryGroupAvailability::compositeKey($line['room_type'], $line['inventory_group_key']);
+            $requestedTotals[$c] = ($requestedTotals[$c] ?? 0) + (int) $line['quantity'];
+        }
+        foreach ($requestedTotals as $composite => $qty) {
+            $rem = $remainingMap[$composite] ?? 0;
+            if ($qty > $rem) {
+                [$type, $invKey] = explode("\0", $composite, 2);
 
-            if ($availableCount < $qty) {
                 return response()->json([
-                    'message' => 'Booking conflict: not enough rooms available for one of your selected room types for these dates.',
+                    'message' => 'Not enough units left for one of your selected room types for these dates.',
                     'error' => 'date_range_conflict',
                     'conflicts' => [
                         'room_lines' => [
                             [
                                 'room_type' => $type,
-                                'inventory_group_key' => $key,
+                                'inventory_group_key' => $invKey,
                                 'requested' => $qty,
-                                'available' => $availableCount,
+                                'available' => $rem,
                             ],
                         ],
                     ],
