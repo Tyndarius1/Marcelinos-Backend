@@ -7,6 +7,7 @@ use App\Http\Resources\API\RoomResource;
 use App\Models\Booking;
 use App\Models\Room;
 use App\Models\RoomBlockedDate;
+use App\Support\RoomInventoryGroupAvailability;
 use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
@@ -105,9 +106,14 @@ class RoomController extends Controller
                 return $item;
             }, $data);
 
+            $inventoryGroupAvailability = $isAll
+                ? null
+                : RoomInventoryGroupAvailability::rowsForRange($checkIn, $checkOut, null);
+
             return response()->json([
                 'success' => true,
                 'data' => $data,
+                'inventory_group_availability' => $inventoryGroupAvailability,
             ], 200);
         } catch (ValidationException $e) {
             return response()->json([
