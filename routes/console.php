@@ -43,8 +43,8 @@ Schedule::command('bookings:complete-checkouts')
 | bookings:send-reminders     — reminder email one day before check-in
 */
 foreach ([
-    // 'bookings:activate-checkins' => false,
-    'bookings:cancel-unpaid' => false,
+    'bookings:activate-checkins' => true,
+    'bookings:cancel-unpaid' => true,
     'bookings:send-reminders' => true,
 ] as $signature => $withoutOverlapping) {
     $event = Schedule::command($signature)

@@ -21,7 +21,7 @@ class ActivateCheckinBookings extends Command
      *
      * @var string
      */
-    protected $description = 'Mark bookings with check-in date today and status paid as occupied';
+    protected $description = 'Mark bookings with check-in date today and status paid/partial as occupied';
 
     /**
      * Execute the console command.
@@ -29,13 +29,19 @@ class ActivateCheckinBookings extends Command
      */
     public function handle(): int
     {
-        $date = $this->option('date')
-            ? Carbon::parse($this->option('date'))->toDateString()
-            : Carbon::today()->toDateString();
+        try {
+            $date = $this->option('date')
+                ? Carbon::parse($this->option('date'))->toDateString()
+                : Carbon::today()->toDateString();
+        } catch (\Throwable $e) {
+            $this->error('Invalid --date value. Use format Y-m-d.');
+
+            return self::FAILURE;
+        }
 
         $bookings = Booking::query()
             ->whereDate('check_in', $date)
-            ->where('status', Booking::STATUS_PAID)
+            ->whereIn('status', [Booking::STATUS_PAID, Booking::STATUS_PARTIAL])
             ->get();
 
         $count = 0;
@@ -47,7 +53,7 @@ class ActivateCheckinBookings extends Command
         if ($count > 0) {
             $this->info("Marked {$count} booking(s) as occupied for check-in date {$date}.");
         } else {
-            $this->comment("No paid bookings with check-in on {$date}.");
+            $this->comment("No paid/partial bookings with check-in on {$date}.");
         }
 
         return self::SUCCESS;
