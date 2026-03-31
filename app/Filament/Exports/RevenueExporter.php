@@ -82,7 +82,6 @@ class RevenueExporter extends Exporter
                     try {
                         $record->loadMissing([
                             'rooms.bedSpecifications',
-                            'rooms.bedModifiers',
                         ]);
                         $rooms = $record->rooms;
                         if (! $rooms || $rooms->isEmpty()) {
@@ -146,7 +145,7 @@ class RevenueExporter extends Exporter
             ->whereIn('status', [Booking::STATUS_PAID, Booking::STATUS_COMPLETED])
             ->with([
                 'guest:id,first_name,middle_name,last_name,email',
-                'rooms' => fn ($q) => $q->with(['bedSpecifications', 'bedModifiers']),
+                'rooms' => fn ($q) => $q->with(['bedSpecifications']),
                 'venues:id,name',
             ]);
     }

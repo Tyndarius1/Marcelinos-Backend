@@ -50,7 +50,7 @@ class Room extends Model implements HasMedia
      */
     public function typeDashBedSummary(): string
     {
-        $this->loadMissing(['bedSpecifications', 'bedModifiers']);
+        $this->loadMissing(['bedSpecifications']);
         $typeLabel = $this->typeDisplayLabel();
         $bed = RoomInventoryGroupKey::bedSpecificationLine($this);
         if ($bed !== null) {
@@ -89,7 +89,7 @@ class Room extends Model implements HasMedia
         return static::query()
             ->where('status', '!=', self::STATUS_MAINTENANCE)
             ->whereIn('type', $types)
-            ->with(['bedSpecifications', 'bedModifiers'])
+            ->with(['bedSpecifications'])
             ->get()
             ->filter(function (Room $room) use ($lines) {
                 $key = RoomInventoryGroupKey::forRoom($room);
@@ -255,8 +255,4 @@ class Room extends Model implements HasMedia
         return $this->belongsToMany(\App\Models\BedSpecification::class, 'bed_specification_room');
     }
 
-    public function bedModifiers()
-    {
-        return $this->belongsToMany(\App\Models\BedModifier::class, 'bed_modifier_room');
-    }
 }

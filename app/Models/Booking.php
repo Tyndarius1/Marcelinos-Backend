@@ -119,7 +119,7 @@ class Booking extends Model
 
         $rooms = Room::query()
             ->whereIn('id', $roomIds)
-            ->with(['bedSpecifications', 'bedModifiers'])
+            ->with(['bedSpecifications'])
             ->get();
 
         if (count($rooms) !== count($roomIds)) {

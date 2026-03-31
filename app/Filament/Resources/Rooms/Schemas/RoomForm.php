@@ -66,13 +66,6 @@ class RoomForm
                     ->searchable()
                     ->preload()
                     ->helperText('Required. Add options under Bed specifications & modifiers -> Specifications.'),
-                Select::make('bedModifiers')
-                    ->label('Bed Modifiers')
-                    ->relationship('bedModifiers', 'name')
-                    ->multiple() // allow multiple modifiers
-                    ->searchable()
-                    ->preload()
-                    ->helperText('Optional. Create labels under Bed specifications & modifiers → Modifiers, then select them here.'),
                 Select::make('type')
                     ->options(Room::typeOptions())
                     ->required(),

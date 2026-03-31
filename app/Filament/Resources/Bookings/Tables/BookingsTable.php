@@ -180,7 +180,7 @@ class BookingsTable
                     ->relationship(
                         'rooms',
                         'name',
-                        modifyQueryUsing: fn ($query) => $query->with(['bedSpecifications', 'bedModifiers']),
+                        modifyQueryUsing: fn ($query) => $query->with(['bedSpecifications']),
                     )
                     ->getOptionLabelFromRecordUsing(fn (Room $record) => $record->adminSelectLabel())
                     ->multiple()

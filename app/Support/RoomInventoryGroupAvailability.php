@@ -22,7 +22,7 @@ final class RoomInventoryGroupAvailability
         $out = [];
         $rooms = Room::query()
             ->where('status', '!=', Room::STATUS_MAINTENANCE)
-            ->with(['bedSpecifications', 'bedModifiers'])
+            ->with(['bedSpecifications'])
             ->get();
 
         foreach ($rooms as $room) {
@@ -55,7 +55,7 @@ final class RoomInventoryGroupAvailability
             })
             ->with([
                 'roomLines',
-                'rooms' => fn ($q) => $q->with(['bedSpecifications', 'bedModifiers']),
+                'rooms' => fn ($q) => $q->with(['bedSpecifications']),
             ]);
 
         if ($excludeBookingId !== null) {

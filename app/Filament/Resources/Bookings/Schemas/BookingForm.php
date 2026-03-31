@@ -140,7 +140,7 @@ class BookingForm
                                 } else {
                                     $query->whereIn($roomTableKey, $eligible);
                                 }
-                                $query->with(['bedSpecifications', 'bedModifiers']);
+                                $query->with(['bedSpecifications']);
                                 $typeCol = $query->getModel()->qualifyColumn('type');
                                 $nameCol = $query->getModel()->qualifyColumn('name');
                                 $query->orderBy($typeCol)->orderBy($nameCol);
@@ -149,7 +149,7 @@ class BookingForm
                             }
                         }
                         $query->where($roomStatusCol, '!=', Room::STATUS_MAINTENANCE)
-                            ->with(['bedSpecifications', 'bedModifiers']);
+                            ->with(['bedSpecifications']);
                         $typeCol = $query->getModel()->qualifyColumn('type');
                         $nameCol = $query->getModel()->qualifyColumn('name');
                         $query->orderBy($typeCol)->orderBy($nameCol);
@@ -492,7 +492,7 @@ class BookingForm
      */
     private static function assignedRoomOptionHtml(Room $room, ?Booking $booking): string
     {
-        $room->loadMissing(['bedSpecifications', 'bedModifiers']);
+        $room->loadMissing(['bedSpecifications']);
         $igk = RoomInventoryGroupKey::forRoom($room);
         $palette = self::ROOM_ASSIGNMENT_GROUP_BG_CLASSES;
         $n = count($palette);
@@ -549,7 +549,7 @@ class BookingForm
 
         $rooms = Room::query()
             ->whereIn('id', $roomIds)
-            ->with(['bedSpecifications', 'bedModifiers'])
+            ->with(['bedSpecifications'])
             ->get()
             ->keyBy('id');
 

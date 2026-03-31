@@ -82,7 +82,6 @@ class BookingExporter extends Exporter
                     try {
                         $record->loadMissing([
                             'rooms.bedSpecifications',
-                            'rooms.bedModifiers',
                         ]);
                         $rooms = $record->rooms;
                         if (! $rooms || $rooms->isEmpty()) {
@@ -144,7 +143,7 @@ class BookingExporter extends Exporter
     {
         return $query->with([
             'guest:id,first_name,middle_name,last_name,email',
-            'rooms' => fn ($q) => $q->with(['bedSpecifications', 'bedModifiers']),
+            'rooms' => fn ($q) => $q->with(['bedSpecifications']),
             'venues:id,name',
         ]);
     }

@@ -50,7 +50,7 @@ class BookingResource extends Resource
         return parent::getEloquentQuery()
             ->with([
                 'guest:id,first_name,middle_name,last_name,email',
-                'rooms' => fn ($q) => $q->with(['bedSpecifications', 'bedModifiers']),
+                'rooms' => fn ($q) => $q->with(['bedSpecifications']),
                 'venues:id,name',
             ]);
     }

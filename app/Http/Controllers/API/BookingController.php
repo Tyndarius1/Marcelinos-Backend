@@ -312,7 +312,7 @@ class BookingController extends Controller
             $candidates = Room::query()
                 ->where('type', $type)
                 ->where('status', '!=', Room::STATUS_MAINTENANCE)
-                ->with(['bedSpecifications', 'bedModifiers'])
+                ->with(['bedSpecifications'])
                 ->get()
                 ->filter(fn (Room $r) => RoomInventoryGroupKey::forRoom($r) === $key);
 

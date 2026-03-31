@@ -11,7 +11,7 @@ final class RoomInventoryGroupKey
 {
     public static function forRoom(Room $room): string
     {
-        $room->loadMissing(['bedSpecifications', 'bedModifiers']);
+        $room->loadMissing(['bedSpecifications']);
 
         $bedLine = self::bedSpecificationLine($room);
         if ($bedLine !== null) {
@@ -33,11 +33,6 @@ final class RoomInventoryGroupKey
         if ($base === '') {
             return null;
         }
-        $mods = $room->bedModifiers->pluck('name')->filter()->values()->all();
-        if ($mods !== []) {
-            return $base.' ('.implode(', ', $mods).')';
-        }
-
         return $base;
     }
 }
