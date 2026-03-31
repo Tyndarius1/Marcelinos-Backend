@@ -29,7 +29,8 @@ class BlockedDateController extends Controller
             ->whereDate('date', '>=', $today)
             ->get()
             ->map(fn($d) => [
-                'date' => $d->date,
+                // Always Y-m-d so clients match calendar day keys (not ISO datetimes).
+                'date' => Carbon::parse($d->date)->toDateString(),
                 'reason' => $d->reason,
             ]);
         $blockedDates = $blockedDates->merge($manualBlockedDates);
