@@ -15,6 +15,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ExportAction;
 use Filament\Actions\ViewAction;
+use Filament\Notifications\Notification;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
@@ -305,8 +306,37 @@ class BookingsTable
                         ->icon('heroicon-o-banknotes')
                         ->color('info')
                         ->requiresConfirmation()
-                        ->visible(fn (Booking $record) => $record->balance > 0 && ! in_array($record->status, [Booking::STATUS_CANCELLED]))
+                        ->modalHeading('Mark booking as fully paid?')
+                        ->modalDescription('This records the remaining balance as payment and updates status to Paid.')
+                        ->modalSubmitActionLabel('Yes, mark as paid')
+                        ->successNotificationTitle('Remaining balance recorded. Booking is now paid.')
+                        ->visible(function (Booking $record): bool {
+                            $balance = (float) $record->balance;
+
+                            return $balance > 0.009
+                                && $record->status !== Booking::STATUS_PAID
+                                && $record->status !== Booking::STATUS_CANCELLED
+                                && $record->rooms()->exists();
+                        })
                         ->action(function (Booking $record) {
+                            if (! $record->rooms()->exists()) {
+                                Notification::make()
+                                    ->title('Cannot mark as paid')
+                                    ->body('Assign at least one room before recording full balance payment.')
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            if (in_array($record->status, [Booking::STATUS_PAID, Booking::STATUS_CANCELLED], true)) {
+                                return;
+                            }
+
+                            if ((float) $record->balance <= 0.009) {
+                                return;
+                            }
+
                             $record->payments()->create([
                                 'total_amount' => $record->total_price,
                                 'partial_amount' => $record->balance,

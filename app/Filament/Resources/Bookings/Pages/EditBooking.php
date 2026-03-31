@@ -41,10 +41,19 @@ class EditBooking extends EditRecord
 
         $record = $this->record;
         if ($record instanceof Booking) {
-            Booking::validateAssignedRoomsFulfillRoomLines(
-                $record,
-                is_array($data['rooms'] ?? null) ? $data['rooms'] : [],
-            );
+            $nextStatus = (string) ($data['status'] ?? $record->status);
+            $rooms = is_array($data['rooms'] ?? null) ? $data['rooms'] : [];
+            $requiresAssignedRooms = in_array($nextStatus, [
+                Booking::STATUS_OCCUPIED,
+                Booking::STATUS_COMPLETED,
+            ], true);
+
+            // Allow status/payment updates on frontend-created bookings that do not
+            // yet have physical room assignment. Enforce assignment once operation
+            // moves to occupied/completed.
+            if ($requiresAssignedRooms || $rooms !== []) {
+                Booking::validateAssignedRoomsFulfillRoomLines($record, $rooms);
+            }
         }
 
         return $data;
