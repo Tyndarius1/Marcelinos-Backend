@@ -184,6 +184,13 @@ class Booking extends Model
 
     const UNPAID_EXPIRY_DAYS = 3;
 
+    /**
+     * Show the billing-statement 3-day down payment notice only when check-in is
+     * at least this many calendar days after the booking date (day granularity).
+     * Same-day / next-day / short-lead bookings use other payment arrangements.
+     */
+    const DOWN_PAYMENT_NOTICE_MIN_LEAD_DAYS = 4;
+
     public static function statusOptions(): array
     {
         return [
@@ -206,7 +213,32 @@ class Booking extends Model
             return null;
         }
 
-        return $this->created_at->copy()->addDays($days ?? self::UNPAID_EXPIRY_DAYS);
+        return $this->created_at
+            ->copy()
+            ->addDays($days ?? self::UNPAID_EXPIRY_DAYS)
+            ->setTime(12, 0, 0);
+    }
+
+    /**
+     * Whether the receipt should show the 3-day down payment policy
+     * (advance bookings only — not instant or next-day stays).
+     */
+    public function downPaymentNoticeApplies(): bool
+    {
+        if (! $this->check_in || ! $this->created_at) {
+            return false;
+        }
+
+        $checkInDay = $this->check_in->copy()->startOfDay();
+        $createdDay = $this->created_at->copy()->startOfDay();
+
+        if ($checkInDay->lt($createdDay)) {
+            return false;
+        }
+
+        $leadDays = $createdDay->diffInDays($checkInDay);
+
+        return $leadDays >= self::DOWN_PAYMENT_NOTICE_MIN_LEAD_DAYS;
     }
 
     /**

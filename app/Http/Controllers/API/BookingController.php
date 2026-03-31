@@ -120,8 +120,14 @@ class BookingController extends Controller
 
             $filename = $booking->qr_code ? basename($booking->qr_code) : null;
 
+            $bookingPayload = $booking->fresh(['guest', 'rooms', 'venues', 'roomLines']);
+
             return response()->json([
-                'booking' => $booking->fresh(['guest', 'rooms', 'venues', 'roomLines']),
+                'booking' => $bookingPayload,
+                'unpaid_expires_at' => $bookingPayload->unpaidExpiresAt()?->toIso8601String(),
+                'unpaid_expiry_days' => Booking::UNPAID_EXPIRY_DAYS,
+                'down_payment_notice_applies' => $bookingPayload->downPaymentNoticeApplies(),
+                'down_payment_notice_min_lead_days' => Booking::DOWN_PAYMENT_NOTICE_MIN_LEAD_DAYS,
                 'qr_code_url' => $filename ? url("/qr-image/{$filename}") : null,
                 'has_testimonial' => $hasTestimonial,
             ], 200);
