@@ -266,9 +266,28 @@
         x-data="{
             html5QrcodeScanner: null,
             isStarting: false,
+            shouldScan: false,
+            startTimer: null,
             scanStatus: 'idle',
 
+            clearStartTimer() {
+                if (this.startTimer !== null) {
+                    clearTimeout(this.startTimer);
+                    this.startTimer = null;
+                }
+            },
+
+            queueStart(delay = 120) {
+                this.clearStartTimer();
+                this.startTimer = setTimeout(() => {
+                    this.startCameraWhenReady();
+                }, delay);
+            },
+
             stopScanning() {
+                this.shouldScan = false;
+                this.clearStartTimer();
+
                 if (!this.html5QrcodeScanner) return;
                 const scanner = this.html5QrcodeScanner;
                 this.html5QrcodeScanner = null;
@@ -298,21 +317,39 @@
             },
 
             startCameraWhenReady() {
-                if (this.html5QrcodeScanner || this.isStarting || {{ $isDisabled ? 'true' : 'false' }}) {
+                if ({{ $isDisabled ? 'true' : 'false' }}) {
                     return;
                 }
+
+                if (!this.shouldScan) {
+                    this.shouldScan = true;
+                }
+
+                if (this.html5QrcodeScanner || this.isStarting) {
+                    return;
+                }
+
                 this.isStarting = true;
                 this.scanStatus = 'scanning';
 
                 const tryStart = () => {
+                    if (!this.shouldScan) {
+                        this.isStarting = false;
+                        this.scanStatus = 'idle';
+                        return;
+                    }
+
                     if (typeof Html5Qrcode === 'undefined') {
-                        setTimeout(tryStart, 150);
+                        this.startTimer = setTimeout(tryStart, 150);
                         return;
                     }
 
                     const readerId = 'reader-{{ $getName() }}';
                     const el = document.getElementById(readerId);
-                    if (!el) { setTimeout(tryStart, 150); return; }
+                    if (!el || !el.offsetParent) {
+                        this.startTimer = setTimeout(tryStart, 150);
+                        return;
+                    }
 
                     this.html5QrcodeScanner = new Html5Qrcode(readerId);
 
@@ -330,16 +367,24 @@
                         this.onScanSuccess.bind(this),
                         () => {}
                     ).then(() => {
+                        this.clearStartTimer();
                         this.isStarting = false;
                     }).catch(err => {
                         console.error('Scanner start error:', err);
+                        this.clearStartTimer();
+                        this.html5QrcodeScanner = null;
                         this.isStarting = false;
                         this.scanStatus = 'idle';
+
+                        if (this.shouldScan) {
+                            // Permission prompts and modal transitions can race; retry briefly.
+                            this.queueStart(300);
+                        }
                     });
                 };
                 tryStart();
             }
-        }" x-init="startCameraWhenReady()">
+        }" x-init="shouldScan = true; queueStart(120)">
 
         <div class="qr-scan-root" {{ prepare_inherited_attributes($extraAttributeBag)->class([]) }}>
             <div class="qr-scan-container">
