@@ -14,7 +14,9 @@ use Illuminate\Validation\ValidationException;
 
 class CreateBooking extends CreateRecord
 {
-    use HasWizard;
+    use HasWizard {
+        getWizardComponent as traitGetWizardComponent;
+    }
 
     protected static string $resource = BookingResource::class;
 
@@ -23,6 +25,12 @@ class CreateBooking extends CreateRecord
     protected function getSteps(): array
     {
         return BookingCreateWizard::steps();
+    }
+
+    public function getWizardComponent(): \Filament\Schemas\Components\Component
+    {
+        return $this->traitGetWizardComponent()
+            ->persistStepInQueryString('step');
     }
 
     protected function hasSkippableSteps(): bool
