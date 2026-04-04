@@ -37,6 +37,7 @@ use Filament\Auth\Http\Responses\Contracts\LogoutResponse as LogoutResponseContr
 use Filament\Resources\Events\RecordCreated;
 use Filament\Support\Facades\FilamentView;
 use Filament\Tables\View\TablesRenderHook;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -76,6 +77,7 @@ class AppServiceProvider extends ServiceProvider
         $this->configureRateLimiting();
         $this->registerTableTotalsHooks();
         $this->registerRoomCalendarToolbarButton();
+        $this->registerFilamentNotificationSoundHook();
 
         Booking::observe(BookingObserver::class);
         Room::observe(RoomObserver::class);
@@ -131,6 +133,14 @@ class AppServiceProvider extends ServiceProvider
             TablesRenderHook::TOOLBAR_COLUMN_MANAGER_TRIGGER_BEFORE,
             fn (): View => view('filament.bookings.room-calendar-toolbar-button'),
             scopes: [ListBookings::class],
+        );
+    }
+
+    protected function registerFilamentNotificationSoundHook(): void
+    {
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::BODY_END,
+            fn (): string => view('filament.hooks.notification-sound')->render(),
         );
     }
 

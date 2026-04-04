@@ -4,12 +4,13 @@ namespace App\Observers;
 
 use App\Events\AdminDashboardNotification;
 use App\Events\BookingStatusUpdated;
+use App\Events\FilamentNotificationSound;
+use App\Filament\Resources\Bookings\BookingResource;
 use App\Models\Booking;
 use App\Models\User;
 use App\Support\ActivityLogger;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
-use App\Filament\Resources\Bookings\BookingResource;
 use Illuminate\Support\Facades\Log;
 
 class BookingObserver
@@ -47,11 +48,13 @@ class BookingObserver
                             ->button()->size('sm')
                             ->color('success')
                             ->markAsRead()
-                            ->url(BookingResource::getUrl('view', ['record' => $booking]))
-                            
+                            ->url(BookingResource::getUrl('view', ['record' => $booking])),
+
                     ])
                     ->sendToDatabase($user)
                     ->broadcast($user);
+
+                $this->dispatchNotificationSound($user);
             }
         }
 
@@ -77,23 +80,23 @@ class BookingObserver
     {
         if ($booking->wasChanged('status')) {
 
-$statusConfig = [
+            $statusConfig = [
                 'cancelled' => [
                     'title' => 'Booking Cancelled',
-                    'body'  => "Booking {$booking->reference_number} has been cancelled.",
-                    'icon'  => 'heroicon-o-x-circle',
+                    'body' => "Booking {$booking->reference_number} has been cancelled.",
+                    'icon' => 'heroicon-o-x-circle',
                     'color' => 'danger',
                 ],
                 'completed' => [
                     'title' => 'Booking Completed',
-                    'body'  => "Booking {$booking->reference_number} has been completed.",
-                    'icon'  => 'heroicon-o-check-circle',
+                    'body' => "Booking {$booking->reference_number} has been completed.",
+                    'icon' => 'heroicon-o-check-circle',
                     'color' => 'success',
                 ],
                 'rescheduled' => [
                     'title' => 'Booking Rescheduled',
-                    'body'  => "Booking {$booking->reference_number} has been rescheduled.",
-                    'icon'  => 'heroicon-o-arrow-path',
+                    'body' => "Booking {$booking->reference_number} has been rescheduled.",
+                    'icon' => 'heroicon-o-arrow-path',
                     'color' => 'warning',
                 ],
             ];
@@ -117,11 +120,13 @@ $statusConfig = [
                                 ->button()->size('sm')
                                 ->color($config['color'])
                                 ->markAsRead()
-                                ->url(BookingResource::getUrl('view', ['record' => $booking]))
-                                
+                                ->url(BookingResource::getUrl('view', ['record' => $booking])),
+
                         ])
                         ->sendToDatabase($user)
                         ->broadcast($user);
+
+                    $this->dispatchNotificationSound($user);
                 }
             }
 
@@ -158,7 +163,7 @@ $statusConfig = [
 
     public function deleted(Booking $booking): void
     {
-         $this->safeBroadcast(
+        $this->safeBroadcast(
             fn () => BookingStatusUpdated::dispatch($booking),
             'BookingStatusUpdated',
             $booking,
@@ -190,5 +195,17 @@ $statusConfig = [
         }
 
         return $message;
+    }
+
+    private function dispatchNotificationSound(User $user): void
+    {
+        try {
+            event(new FilamentNotificationSound($user));
+        } catch (\Throwable $exception) {
+            Log::debug('FilamentNotificationSound failed', [
+                'user_id' => $user->id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 }

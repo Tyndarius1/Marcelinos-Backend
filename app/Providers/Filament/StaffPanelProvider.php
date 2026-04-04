@@ -2,10 +2,11 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Livewire\DatabaseNotifications as AppDatabaseNotifications;
 use App\Filament\Pages\AdminDashboard;
-use App\Http\Middleware\LogStaffPanelActions;
 use App\Filament\Widgets\SessionsByCountryChart;
 use App\Filament\Widgets\SessionsByDeviceChart;
+use App\Http\Middleware\LogStaffPanelActions;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -29,8 +30,8 @@ class StaffPanelProvider extends PanelProvider
         return $panel
             ->id('staff')
             ->path('staff')
-            ->databaseNotifications()
-            ->databaseNotificationsPolling('30s')
+            ->databaseNotifications(true, AppDatabaseNotifications::class, false)
+            ->databaseNotificationsPolling('1s')
             ->colors([
                 'primary' => Color::Green,
                 'gray' => Color::Slate,
@@ -38,10 +39,9 @@ class StaffPanelProvider extends PanelProvider
             ->font('Inter')
             ->brandName('Marcelinos')
             ->brandLogoHeight('3.5rem')
-            ->brandName(fn () => view('filament.admin.brand'))            
+            ->brandName(fn () => view('filament.admin.brand'))
             ->brandLogoHeight('2.5rem')
             ->sidebarCollapsibleOnDesktop()
-            ->databaseNotifications()
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
