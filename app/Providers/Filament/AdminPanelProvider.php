@@ -2,25 +2,23 @@
 
 namespace App\Providers\Filament;
 
-use App\Http\Middleware\LogStaffPanelActions;
-use App\Http\Middleware\EnsureAdminUser;
 use App\Filament\Pages\AdminDashboard;
-use Filament\Panel;
-use Filament\PanelProvider;
-use Filament\Pages\Dashboard;
-use Filament\Support\Colors\Color;
-use Filament\Widgets\AccountWidget;
-use Filament\Widgets\FilamentInfoWidget;
+use App\Filament\Pages\Auth\Login;
+use App\Http\Middleware\EnsureAdminUser;
+use App\Http\Middleware\LogStaffPanelActions;
 use Filament\Http\Middleware\Authenticate;
-use Illuminate\Session\Middleware\StartSession;
-use Illuminate\Cookie\Middleware\EncryptCookies;
 use Filament\Http\Middleware\AuthenticateSession;
-use Illuminate\Routing\Middleware\SubstituteBindings;
-use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
+use Filament\Panel;
+use Filament\PanelProvider;
+use Filament\Support\Colors\Color;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
+use Illuminate\Cookie\Middleware\EncryptCookies;
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
+use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Session\Middleware\StartSession;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -30,7 +28,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login()
+            ->login(Login::class)
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
             ->colors([
@@ -42,7 +40,7 @@ class AdminPanelProvider extends PanelProvider
                 'info' => Color::Sky,            ])
             ->font('Inter')
             ->brandLogoHeight('3.5rem')
-            ->brandName(fn () => view('filament.admin.brand'))            
+            ->brandName(fn () => view('filament.admin.brand'))
             ->sidebarCollapsibleOnDesktop()
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
@@ -69,6 +67,6 @@ class AdminPanelProvider extends PanelProvider
                 EnsureAdminUser::class,
                 LogStaffPanelActions::class,
             ]);
-            
+
     }
 }
