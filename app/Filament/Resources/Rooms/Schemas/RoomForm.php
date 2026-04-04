@@ -65,7 +65,7 @@ class RoomForm
                     ->minItems(1)
                     ->searchable()
                     ->preload()
-                    ->helperText('Required. Add options under Bed specifications & modifiers -> Specifications.'),
+                    ->helperText('Required. Add options under Properties → Rooms → Specifications.'),
                 Select::make('type')
                     ->options(Room::typeOptions())
                     ->required(),
