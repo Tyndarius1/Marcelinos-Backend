@@ -55,21 +55,13 @@
                 ])
             >
                 @if ($type === Room::TYPE_STANDARD)
-                    {{-- Bed (outline, tabler-style) --}}
-                    <svg
-                        @class([$compact ? 'h-3.5 w-3.5' : 'h-4 w-4', 'text-white'])
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        aria-hidden="true"
-                    >
-                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                        <path d="M7 9m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
-                        <path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16" />
-                    </svg>
+                <x-filament::icon
+                        icon="heroicon-o-building-office"
+                        @class([
+                            'text-white',
+                            $compact ? 'h-3.5 w-3.5' : 'h-4 w-4',
+                        ])
+                    />
                 @elseif ($type === Room::TYPE_FAMILY)
                     <x-filament::icon
                         icon="heroicon-o-users"

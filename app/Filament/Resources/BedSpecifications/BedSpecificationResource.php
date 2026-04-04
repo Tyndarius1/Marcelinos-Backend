@@ -21,9 +21,9 @@ class BedSpecificationResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-moon';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Bed specifications & modifiers';
+    protected static string|\UnitEnum|null $navigationGroup = 'Properties';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 3;
 
     protected static ?string $navigationLabel = 'Specifications';
 
