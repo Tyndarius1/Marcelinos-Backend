@@ -31,8 +31,5 @@ class DatabaseSeeder extends Seeder
             'role' => 'staff',
         ]);
 
-        $this->call([
-            RoomsAndVenuesSeeder::class,
-        ]);
     }
 }
