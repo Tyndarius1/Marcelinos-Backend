@@ -2,14 +2,17 @@
 
 namespace App\Filament\Resources\Venues\Tables;
 
+use App\Filament\Actions\TypedDeleteBulkAction;
+use App\Filament\Actions\TypedForceDeleteBulkAction;
 use App\Filament\Resources\Venues\VenuesResource;
 use App\Models\Venue;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
 
@@ -67,7 +70,7 @@ class VenuesTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                // Add filters here if needed (e.g., SelectFilter for status)
+                TrashedFilter::make(),
             ])
             ->actions([
                 ViewAction::make(),
@@ -75,7 +78,9 @@ class VenuesTable
             ])
             ->bulkActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    TypedDeleteBulkAction::make(),
+                    RestoreBulkAction::make(),
+                    TypedForceDeleteBulkAction::make(),
                 ])
                     ->visible(fn () => Auth::user() && Auth::user()->role === 'admin'),
             ]);

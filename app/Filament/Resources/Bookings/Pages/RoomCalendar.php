@@ -11,15 +11,16 @@ use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
+use JeffersonGoncalves\Filament\QrCodeField\Forms\Components\QrCodeInput;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
-use JeffersonGoncalves\Filament\QrCodeField\Forms\Components\QrCodeInput;
 
 class RoomCalendar extends Page
 {
     public const INVENTORY_ROOMS = 'rooms';
 
     public const INVENTORY_VENUES = 'venues';
+
     protected static string $resource = BookingResource::class;
 
     protected static ?string $title = 'Booking Calendar';
@@ -509,11 +510,20 @@ class RoomCalendar extends Page
             ->send();
     }
 
-    public function deleteBooking(int $bookingId): void
+    public function deleteBooking(int $bookingId, string $confirmation): void
     {
         $booking = Booking::query()->find($bookingId);
 
         if (! $booking) {
+            return;
+        }
+
+        if (trim($confirmation) !== $booking->reference_number) {
+            Notification::make()
+                ->title('Confirmation does not match the booking reference.')
+                ->danger()
+                ->send();
+
             return;
         }
 

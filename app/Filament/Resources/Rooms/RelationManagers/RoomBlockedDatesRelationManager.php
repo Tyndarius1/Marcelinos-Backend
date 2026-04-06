@@ -2,15 +2,20 @@
 
 namespace App\Filament\Resources\Rooms\RelationManagers;
 
+use App\Filament\Actions\TypedDeleteAction;
+use App\Filament\Actions\TypedDeleteBulkAction;
+use App\Filament\Actions\TypedForceDeleteAction;
+use App\Filament\Actions\TypedForceDeleteBulkAction;
 use App\Filament\Forms\Components\BlockedDateConflictsDisplay;
 use App\Models\Booking;
 use App\Models\Room;
 use App\Models\RoomBlockedDate;
+use Carbon\CarbonInterface;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\RestoreAction;
+use Filament\Actions\RestoreBulkAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -19,7 +24,9 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 class RoomBlockedDatesRelationManager extends RelationManager
 {
@@ -29,7 +36,7 @@ class RoomBlockedDatesRelationManager extends RelationManager
 
     protected static ?string $modelLabel = 'blocked date';
 
-    public static function getBadge(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): ?string
+    public static function getBadge(Model $ownerRecord, string $pageClass): ?string
     {
         /** @var Room $ownerRecord */
         return (string) $ownerRecord->roomBlockedDates()->count();
@@ -60,7 +67,7 @@ class RoomBlockedDatesRelationManager extends RelationManager
                                 fn ($q) => $q->whereKeyNot($this->getMountedTableActionRecord()->getKey())
                             )
                             ->pluck('blocked_on')
-                            ->map(fn ($d) => $d instanceof \Carbon\CarbonInterface ? $d->format('Y-m-d') : (string) $d)
+                            ->map(fn ($d) => $d instanceof CarbonInterface ? $d->format('Y-m-d') : (string) $d)
                             ->all();
                     })
                     ->helperText('Guests cannot book this room for stays that include this calendar day.'),
@@ -110,17 +117,24 @@ class RoomBlockedDatesRelationManager extends RelationManager
                     ->wrap(),
             ])
             ->defaultSort('blocked_on', 'desc')
+            ->filters([
+                TrashedFilter::make(),
+            ])
             ->headerActions([
                 CreateAction::make()
                     ->label('Block date'),
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
+                RestoreAction::make(),
+                TypedForceDeleteAction::make(fn (RoomBlockedDate $record): string => $record->blocked_on?->format('Y-m-d') ?? ''),
+                TypedDeleteAction::make(fn (RoomBlockedDate $record): string => $record->blocked_on?->format('Y-m-d') ?? ''),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    TypedDeleteBulkAction::make(),
+                    RestoreBulkAction::make(),
+                    TypedForceDeleteBulkAction::make(),
                 ]),
             ]);
     }

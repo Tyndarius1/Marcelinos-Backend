@@ -2,14 +2,31 @@
 
 namespace App\Filament\Resources\BlogPosts\Pages;
 
+use App\Filament\Actions\TypedDeleteAction;
+use App\Filament\Actions\TypedForceDeleteAction;
 use App\Filament\Resources\BlogPosts\BlogPostResource;
 use App\Models\BlogPost;
+use Filament\Actions\RestoreAction;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Str;
 
 class EditBlogPost extends EditRecord
 {
     protected static string $resource = BlogPostResource::class;
+
+    protected function getHeaderActions(): array
+    {
+        if ($this->record->trashed()) {
+            return [
+                RestoreAction::make(),
+                TypedForceDeleteAction::make(fn (BlogPost $record): string => $record->title),
+            ];
+        }
+
+        return [
+            TypedDeleteAction::make(fn (BlogPost $record): string => $record->title),
+        ];
+    }
 
     protected function mutateFormDataBeforeSave(array $data): array
     {

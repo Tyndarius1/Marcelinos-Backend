@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources\Bookings\Pages;
 
+use App\Filament\Actions\TypedDeleteAction;
+use App\Filament\Actions\TypedForceDeleteAction;
 use App\Filament\Resources\Bookings\BookingResource;
 use App\Models\Booking;
-use Filament\Actions\DeleteAction;
+use Filament\Actions\RestoreAction;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
 
@@ -61,9 +63,17 @@ class EditBooking extends EditRecord
 
     protected function getHeaderActions(): array
     {
+        if ($this->record->trashed()) {
+            return [
+                ViewAction::make(),
+                RestoreAction::make(),
+                TypedForceDeleteAction::make(fn (Booking $record): string => $record->reference_number),
+            ];
+        }
+
         return [
             ViewAction::make(),
-            DeleteAction::make(),
+            TypedDeleteAction::make(fn (Booking $record): string => $record->reference_number),
         ];
     }
 }

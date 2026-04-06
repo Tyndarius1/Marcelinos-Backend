@@ -2,6 +2,10 @@
 
 namespace App\Filament\Resources\Bookings\Tables;
 
+use App\Filament\Actions\TypedDeleteAction;
+use App\Filament\Actions\TypedDeleteBulkAction;
+use App\Filament\Actions\TypedForceDeleteAction;
+use App\Filament\Actions\TypedForceDeleteBulkAction;
 use App\Filament\Exports\BookingExporter;
 use App\Models\Booking;
 use App\Models\Room;
@@ -10,16 +14,16 @@ use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ExportAction;
+use Filament\Actions\RestoreAction;
+use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
-use Filament\Notifications\Notification;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Enums\Width;
@@ -27,6 +31,7 @@ use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -285,6 +290,8 @@ class BookingsTable
 
                         return ["Dates: {$startText} → {$endText}"];
                     }),
+
+                TrashedFilter::make(),
             ])
             ->defaultSort('created_at', 'desc')
             ->headerActions([
@@ -311,6 +318,10 @@ class BookingsTable
                         ->modalSubmitActionLabel('Yes, mark as paid')
                         ->successNotificationTitle('Remaining balance recorded. Booking is now paid.')
                         ->visible(function (Booking $record): bool {
+                            if ($record->trashed()) {
+                                return false;
+                            }
+
                             $balance = (float) $record->balance;
 
                             return $balance > 0.009
@@ -349,28 +360,32 @@ class BookingsTable
                         ->icon('heroicon-o-arrow-right-circle')
                         ->color('warning')
                         ->requiresConfirmation()
-                        ->visible(fn (Booking $record) => $record->status === Booking::STATUS_PAID)
+                        ->visible(fn (Booking $record) => ! $record->trashed() && $record->status === Booking::STATUS_PAID)
                         ->action(fn (Booking $record) => $record->update(['status' => Booking::STATUS_OCCUPIED])),
                     Action::make('complete')
                         ->label('Complete')
                         ->icon('heroicon-o-flag')
                         ->color('secondary')
                         ->requiresConfirmation()
-                        ->visible(fn (Booking $record) => $record->status === Booking::STATUS_OCCUPIED)
+                        ->visible(fn (Booking $record) => ! $record->trashed() && $record->status === Booking::STATUS_OCCUPIED)
                         ->action(fn (Booking $record) => $record->update(['status' => Booking::STATUS_COMPLETED])),
                     Action::make('cancel')
                         ->label('Cancel')
                         ->icon('heroicon-o-x-circle')
                         ->color('danger')
                         ->requiresConfirmation()
-                        ->visible(fn (Booking $record) => ! in_array($record->status, [Booking::STATUS_CANCELLED, Booking::STATUS_COMPLETED], true))
+                        ->visible(fn (Booking $record) => ! $record->trashed() && ! in_array($record->status, [Booking::STATUS_CANCELLED, Booking::STATUS_COMPLETED], true))
                         ->action(fn (Booking $record) => $record->update(['status' => Booking::STATUS_CANCELLED])),
-                    DeleteAction::make(),
+                    RestoreAction::make(),
+                    TypedForceDeleteAction::make(fn (Booking $record): string => $record->reference_number),
+                    TypedDeleteAction::make(fn (Booking $record): string => $record->reference_number),
                 ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    TypedDeleteBulkAction::make(),
+                    RestoreBulkAction::make(),
+                    TypedForceDeleteBulkAction::make(),
                 ]),
             ]);
     }

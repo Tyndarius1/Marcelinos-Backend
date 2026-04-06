@@ -2,15 +2,18 @@
 
 namespace App\Filament\Resources\Staff\Tables;
 
+use App\Filament\Actions\TypedDeleteBulkAction;
+use App\Filament\Actions\TypedForceDeleteBulkAction;
 use App\Models\User;
-use Filament\Tables\Table;
+use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\EditAction;
+use Filament\Actions\RestoreBulkAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
-use Filament\Actions\Action;
-use Filament\Actions\EditAction;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
+use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
 class StaffTable
@@ -41,8 +44,8 @@ class StaffTable
                     ->label('Role')
                     ->badge()
                     ->colors([
-                        'success' => fn($state) => $state === 'staff',
-                        'primary' => fn($state) => $state === 'admin',
+                        'success' => fn ($state) => $state === 'staff',
+                        'primary' => fn ($state) => $state === 'admin',
                     ])
                     ->sortable(),
 
@@ -76,7 +79,7 @@ class StaffTable
                             return 'No privileges';
                         }
 
-                        return (string) count($selectedKeys) . ' selected';
+                        return (string) count($selectedKeys).' selected';
                     })
                     ->badge()
                     ->color(fn (string $state) => $state === 'No privileges' ? 'gray' : 'success'),
@@ -122,36 +125,36 @@ class StaffTable
                     ->label('Active')
                     ->trueLabel('Active')
                     ->falseLabel('Inactive'),
+
+                TrashedFilter::make(),
             ])
             ->recordActions([
                 Action::make('changeStatus')
                     ->label(fn ($record) => $record->is_active ? 'Deactivate' : 'Activate')
-                    ->icon(fn ($record) =>
-                        $record->is_active
+                    ->icon(fn ($record) => $record->is_active
                             ? 'heroicon-o-x-circle'
                             : 'heroicon-o-check-circle'
                     )
                     ->color(fn ($record) => $record->is_active ? 'danger' : 'success')
                     ->requiresConfirmation()
-                    ->modalHeading(fn ($record) =>
-                        $record->is_active ? 'Deactivate Staff' : 'Activate Staff'
+                    ->modalHeading(fn ($record) => $record->is_active ? 'Deactivate Staff' : 'Activate Staff'
                     )
-                    ->modalDescription(fn ($record) =>
-                        $record->is_active
+                    ->modalDescription(fn ($record) => $record->is_active
                             ? 'Are you sure you want to deactivate this staff member? They will no longer be able to log in.'
                             : 'Are you sure you want to activate this staff member? They will regain access to the system.'
                     )
-                    ->modalSubmitActionLabel(fn ($record) =>
-                        $record->is_active ? 'Yes, Deactivate' : 'Yes, Activate'
+                    ->modalSubmitActionLabel(fn ($record) => $record->is_active ? 'Yes, Deactivate' : 'Yes, Activate'
                     )
-                    ->action(fn ($record) =>
-                        $record->update(['is_active' => ! $record->is_active])
+                    ->visible(fn (User $record) => ! $record->trashed())
+                    ->action(fn ($record) => $record->update(['is_active' => ! $record->is_active])
                     ),
-                    EditAction::make(),
+                EditAction::make(),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    TypedDeleteBulkAction::make(),
+                    RestoreBulkAction::make(),
+                    TypedForceDeleteBulkAction::make(),
                 ]),
             ]);
     }

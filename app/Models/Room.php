@@ -2,30 +2,32 @@
 
 namespace App\Models;
 
-use Spatie\MediaLibrary\HasMedia;
-use Illuminate\Database\Eloquent\Model;
-use Spatie\MediaLibrary\InteractsWithMedia;
 use App\Eloquent\Relations\RoomReviewsRelation;
-use App\Models\Review;
 use App\Support\RoomInventoryGroupKey;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class Room extends Model implements HasMedia
 {
-    use HasFactory, InteractsWithMedia;
+    use HasFactory, InteractsWithMedia, SoftDeletes;
 
     protected $appends = [
         'featured_image_url',
         'gallery_urls',
     ];
 
-    protected $fillable = ['name', 'description',  'capacity', 'type', 'price', 'status',];
+    protected $fillable = ['name', 'description',  'capacity', 'type', 'price', 'status'];
 
     /* ================= TYPES ================= */
     const TYPE_STANDARD = 'standard';
+
     const TYPE_FAMILY = 'family';
+
     const TYPE_DELUXE = 'deluxe';
 
     public static function typeOptions(): array
@@ -128,6 +130,7 @@ class Room extends Model implements HasMedia
 
     /* ================= STATUSES ================= */
     const STATUS_AVAILABLE = 'available';
+
     const STATUS_MAINTENANCE = 'maintenance';
 
     public static function statusOptions(): array
@@ -226,7 +229,7 @@ class Room extends Model implements HasMedia
             })
             ->whereDoesntHave('roomBlockedDates', function ($q) use ($checkIn, $checkOut) {
                 $q->overlappingBookingRange($checkIn, $checkOut);
-                
+
                 // if ($excludeBookingId) {
                 //     $q->where('bookings.id', '!=', $excludeBookingId);
                 // }
@@ -252,7 +255,6 @@ class Room extends Model implements HasMedia
 
     public function bedSpecifications()
     {
-        return $this->belongsToMany(\App\Models\BedSpecification::class, 'bed_specification_room');
+        return $this->belongsToMany(BedSpecification::class, 'bed_specification_room');
     }
-
 }

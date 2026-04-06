@@ -2,8 +2,11 @@
 
 namespace App\Filament\Resources\Amenities\Pages;
 
+use App\Filament\Actions\TypedDeleteAction;
+use App\Filament\Actions\TypedForceDeleteAction;
 use App\Filament\Resources\Amenities\AmenityResource;
-use Filament\Actions\DeleteAction;
+use App\Models\Amenity;
+use Filament\Actions\RestoreAction;
 use Filament\Resources\Pages\EditRecord;
 
 class EditAmenity extends EditRecord
@@ -12,8 +15,15 @@ class EditAmenity extends EditRecord
 
     protected function getHeaderActions(): array
     {
+        if ($this->record->trashed()) {
+            return [
+                RestoreAction::make(),
+                TypedForceDeleteAction::make(fn (Amenity $record): string => $record->name),
+            ];
+        }
+
         return [
-            DeleteAction::make(),
+            TypedDeleteAction::make(fn (Amenity $record): string => $record->name),
         ];
     }
 }

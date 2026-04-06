@@ -4,7 +4,6 @@ namespace App\Policies;
 
 use App\Models\User;
 use App\Models\Venue;
-use Illuminate\Auth\Access\Response;
 
 class VenuePolicy
 {
@@ -53,7 +52,7 @@ class VenuePolicy
      */
     public function restore(User $user, Venue $venue): bool
     {
-        return false;
+        return $user->hasPrivilege('manage_venues');
     }
 
     /**
@@ -61,6 +60,6 @@ class VenuePolicy
      */
     public function forceDelete(User $user, Venue $venue): bool
     {
-        return false;
+        return strtolower(trim((string) ($user->role ?? ''))) === 'admin';
     }
 }

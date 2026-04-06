@@ -2,13 +2,18 @@
 
 namespace App\Filament\Resources\Rooms\Tables;
 
+use App\Filament\Actions\TypedDeleteBulkAction;
+use App\Filament\Actions\TypedForceDeleteBulkAction;
+use App\Filament\Resources\Rooms\RoomResource;
 use App\Models\Room;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
-use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ViewColumn;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
 
@@ -18,7 +23,7 @@ class RoomsTable
     {
         return $table
             ->recordAction('view')
-            ->recordUrl(fn ($record) => \App\Filament\Resources\Rooms\RoomResource::getUrl('view', ['record' => $record]))
+            ->recordUrl(fn ($record) => RoomResource::getUrl('view', ['record' => $record]))
             ->columns([
                 // ✅ Featured Image
                 SpatieMediaLibraryImageColumn::make('featured_image')
@@ -34,7 +39,7 @@ class RoomsTable
                     ->numeric()
                     ->sortable(),
 
-                \Filament\Tables\Columns\ViewColumn::make('type')
+                ViewColumn::make('type')
                     ->view('filament.tables.columns.room-type-badge-column'),
 
                 TextColumn::make('price')
@@ -56,7 +61,7 @@ class RoomsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                TrashedFilter::make(),
             ])
             ->recordActions([
                 ViewAction::make(),
@@ -64,9 +69,11 @@ class RoomsTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    TypedDeleteBulkAction::make(),
+                    RestoreBulkAction::make(),
+                    TypedForceDeleteBulkAction::make(),
                 ])
-                ->visible(fn () => Auth::user() && Auth::user()->role === 'admin'),
+                    ->visible(fn () => Auth::user() && Auth::user()->role === 'admin'),
             ]);
     }
 }

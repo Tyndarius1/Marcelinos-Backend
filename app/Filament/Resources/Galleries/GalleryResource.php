@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Galleries;
 
+use App\Filament\Resources\Concerns\ResolvesTrashedRecordRoutes;
 use App\Filament\Resources\Galleries\Pages\CreateGallery;
 use App\Filament\Resources\Galleries\Pages\EditGallery;
 use App\Filament\Resources\Galleries\Pages\ListGalleries;
@@ -11,18 +12,24 @@ use App\Models\Gallery;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
 class GalleryResource extends Resource
 {
+    use ResolvesTrashedRecordRoutes;
+
     protected static ?string $model = Gallery::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-photo';
+
     protected static string|\UnitEnum|null $navigationGroup = 'Content';
+
     protected static ?int $navigationSort = 1;
+
     protected static ?string $navigationLabel = 'Gallery';
+
     protected static ?string $modelLabel = 'gallery';
+
     protected static ?string $pluralModelLabel = 'gallery';
 
     public static function form(Schema $schema): Schema

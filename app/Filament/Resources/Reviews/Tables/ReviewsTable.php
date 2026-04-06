@@ -2,15 +2,19 @@
 
 namespace App\Filament\Resources\Reviews\Tables;
 
+use App\Filament\Actions\TypedDeleteBulkAction;
+use App\Filament\Actions\TypedForceDeleteBulkAction;
+use App\Filament\Resources\Reviews\ReviewResource;
 use App\Models\Review;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
 class ReviewsTable
@@ -19,13 +23,12 @@ class ReviewsTable
     {
         return $table
             ->recordAction('view')
-            ->recordUrl(fn ($record) => \App\Filament\Resources\Reviews\ReviewResource::getUrl('view', ['record' => $record]))
+            ->recordUrl(fn ($record) => ReviewResource::getUrl('view', ['record' => $record]))
             ->columns([
                 TextColumn::make('guest.full_name')
                     ->label('Guest')
                     ->formatStateUsing(fn ($record) => $record->guest?->full_name ?? '—')
                     ->searchable(['guest.first_name', 'guest.middle_name', 'guest.last_name']),
-
 
                 TextColumn::make('rating')
                     ->badge()
@@ -69,6 +72,8 @@ class ReviewsTable
 
                 SelectFilter::make('rating')
                     ->options(Review::ratingOptions()),
+
+                TrashedFilter::make(),
             ])
             ->recordActions([
                 ViewAction::make(),
@@ -76,7 +81,9 @@ class ReviewsTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    TypedDeleteBulkAction::make(),
+                    RestoreBulkAction::make(),
+                    TypedForceDeleteBulkAction::make(),
                 ]),
             ]);
     }

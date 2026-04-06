@@ -34,12 +34,12 @@ class ContactUsPolicy
 
     public function restore(User $user, ContactUs $contactUs): bool
     {
-        return false;
+        return $user->hasPrivilege('manage_contact_messages');
     }
 
     public function forceDelete(User $user, ContactUs $contactUs): bool
     {
-        return false;
+        return strtolower(trim((string) ($user->role ?? ''))) === 'admin';
     }
 
     public function bulkDelete(User $user): bool

@@ -4,9 +4,12 @@ namespace App\Models;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class BlockedDate extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = ['date', 'reason'];
 
     protected $casts = [

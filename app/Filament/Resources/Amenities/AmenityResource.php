@@ -10,6 +10,7 @@ use App\Filament\Resources\Amenities\RelationManagers\RoomsRelationManager;
 use App\Filament\Resources\Amenities\RelationManagers\VenuesRelationManager;
 use App\Filament\Resources\Amenities\Schemas\AmenityForm;
 use App\Filament\Resources\Amenities\Tables\AmenitiesTable;
+use App\Filament\Resources\Concerns\ResolvesTrashedRecordRoutes;
 use App\Models\Amenity;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -19,11 +20,16 @@ use Illuminate\Database\Eloquent\Builder;
 
 class AmenityResource extends Resource
 {
+    use ResolvesTrashedRecordRoutes;
+
     protected static ?string $model = Amenity::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-sparkles';
+
     protected static string|\UnitEnum|null $navigationGroup = 'Properties';
+
     protected static ?int $navigationSort = 4;
+
     protected static ?string $navigationLabel = 'Amenities';
 
     protected static ?string $recordTitleAttribute = 'name';

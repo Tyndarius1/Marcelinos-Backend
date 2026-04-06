@@ -2,16 +2,19 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Guest extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     /* ================= GENDER ================= */
     const GENDER_MALE = 'male';
+
     const GENDER_FEMALE = 'female';
+
     const GENDER_OTHER = 'other';
 
     public static function genderOptions(): array
@@ -45,19 +48,19 @@ class Guest extends Model
         'is_international' => 'boolean',
     ];
 
-     /**
+    /**
      * Get the full name of the guest
      */
     public function getFullNameAttribute(): string
     {
-        $middle = $this->middle_name ? " {$this->middle_name} " : " ";
+        $middle = $this->middle_name ? " {$this->middle_name} " : ' ';
+
         return "{$this->first_name}{$middle}{$this->last_name}";
     }
 
     /**
      * Relationships
      */
-
 
     /**
      * Scope for international guests
@@ -74,7 +77,6 @@ class Guest extends Model
     {
         return $query->where('is_international', false);
     }
-
 
     // Link to the ID photo in the images table
     public function identification()
@@ -95,18 +97,18 @@ class Guest extends Model
     public static function store($request)
     {
         $validated = $request->validate([
-            'first_name'       => 'required|string|max:100',
-            'middle_name'      => 'nullable|string|max:100',
-            'last_name'        => 'required|string|max:100',
-            'email'            => 'required|email',
-            'contact_num'      => 'required|string|max:20',
-            'gender'           => 'nullable|in:' . implode(',', [Guest::GENDER_MALE, Guest::GENDER_FEMALE, Guest::GENDER_OTHER]),
+            'first_name' => 'required|string|max:100',
+            'middle_name' => 'nullable|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'email' => 'required|email',
+            'contact_num' => 'required|string|max:20',
+            'gender' => 'nullable|in:'.implode(',', [Guest::GENDER_MALE, Guest::GENDER_FEMALE, Guest::GENDER_OTHER]),
             'is_international' => 'required|boolean',
-            'country'          => 'nullable|string|max:100',
-            'region'           => 'nullable|string|max:100',
-            'province'         => 'nullable|string|max:100',
-            'municipality'     => 'nullable|string|max:100',
-            'barangay'         => 'nullable|string|max:100',
+            'country' => 'nullable|string|max:100',
+            'region' => 'nullable|string|max:100',
+            'province' => 'nullable|string|max:100',
+            'municipality' => 'nullable|string|max:100',
+            'barangay' => 'nullable|string|max:100',
         ]);
 
         return self::create($validated);

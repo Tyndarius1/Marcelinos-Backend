@@ -2,15 +2,21 @@
 
 namespace App\Filament\Resources\ContactUs\Tables;
 
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
+use App\Filament\Actions\TypedDeleteBulkAction;
+use App\Filament\Actions\TypedForceDeleteBulkAction;
+use App\Mail\ContactReply;
 use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\EditAction;
+use Filament\Actions\RestoreBulkAction;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Mail;
-use App\Mail\ContactReply;
 
 class ContactUsTable
 {
@@ -59,15 +65,17 @@ class ContactUsTable
                         'resolved' => 'Resolved',
                         'closed' => 'Closed',
                     ]),
+
+                TrashedFilter::make(),
             ])
             ->recordActions([
                 Action::make('reply')
                     ->label('Reply')
                     ->icon('heroicon-o-arrow-uturn-left')
                     ->color('success')
-                    ->visible(fn ($record) => in_array($record->status, ['new', 'in_progress']))
+                    ->visible(fn ($record) => ! $record->trashed() && in_array($record->status, ['new', 'in_progress']))
                     ->form([
-                        \Filament\Forms\Components\Select::make('method')
+                        Select::make('method')
                             ->label('Reply Method')
                             ->options([
                                 'email' => 'Email',
@@ -75,7 +83,7 @@ class ContactUsTable
                             ])
                             ->default('email')
                             ->required(),
-                        \Filament\Forms\Components\Textarea::make('message')
+                        Textarea::make('message')
                             ->label('Reply Message')
                             ->required()
                             ->rows(4)
@@ -86,20 +94,20 @@ class ContactUsTable
                         if ($data['method'] === 'email') {
                             // Send email reply using mailable
                             Mail::to($record->email)->send(new ContactReply($record, $data['message']));
-                            
+
                             // Update status to in_progress if it's new, and set replied_at
                             $record->update([
                                 'status' => $record->status === 'new' ? 'in_progress' : $record->status,
                                 'replied_at' => now(),
                             ]);
-                            
-                            \Filament\Notifications\Notification::make()
+
+                            Notification::make()
                                 ->title('Reply sent successfully!')
                                 ->success()
                                 ->send();
                         } else {
                             // SMS functionality (placeholder for future)
-                            \Filament\Notifications\Notification::make()
+                            Notification::make()
                                 ->title('SMS functionality coming soon!')
                                 ->warning()
                                 ->send();
@@ -111,7 +119,9 @@ class ContactUsTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    TypedDeleteBulkAction::make(),
+                    RestoreBulkAction::make(),
+                    TypedForceDeleteBulkAction::make(),
                 ]),
             ])
             ->defaultSort('created_at', 'desc');

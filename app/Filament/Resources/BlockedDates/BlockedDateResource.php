@@ -7,9 +7,9 @@ use App\Filament\Resources\BlockedDates\Pages\EditBlockedDate;
 use App\Filament\Resources\BlockedDates\Pages\ListBlockedDates;
 use App\Filament\Resources\BlockedDates\Schemas\BlockedDateForm;
 use App\Filament\Resources\BlockedDates\Tables\BlockedDatesTable;
+use App\Filament\Resources\Concerns\ResolvesTrashedRecordRoutes;
 use App\Models\BlockedDate;
 use BackedEnum;
-use UnitEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -17,6 +17,8 @@ use Filament\Tables\Table;
 
 class BlockedDateResource extends Resource
 {
+    use ResolvesTrashedRecordRoutes;
+
     protected static ?string $model = BlockedDate::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalendarDays;

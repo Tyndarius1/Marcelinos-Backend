@@ -2,17 +2,22 @@
 
 namespace App\Filament\Resources\Guests\RelationManagers;
 
+use App\Filament\Actions\TypedDeleteAction;
+use App\Filament\Actions\TypedDeleteBulkAction;
+use App\Filament\Actions\TypedForceDeleteAction;
+use App\Filament\Actions\TypedForceDeleteBulkAction;
+use App\Models\Review;
 use App\Models\Room;
 use App\Models\Venue;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\RestoreAction;
+use Filament\Actions\RestoreBulkAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Utilities\Get;
@@ -22,6 +27,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
 class ReviewsRelationManager extends RelationManager
@@ -136,17 +142,31 @@ class ReviewsRelationManager extends RelationManager
                         4 => '4',
                         5 => '5',
                     ]),
+
+                TrashedFilter::make(),
             ])
             ->headerActions([
                 CreateAction::make(),
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
+                RestoreAction::make(),
+                TypedForceDeleteAction::make(function (Review $record): string {
+                    $title = trim((string) $record->title);
+
+                    return $title !== '' ? $title : 'Review #'.$record->getKey();
+                }),
+                TypedDeleteAction::make(function (Review $record): string {
+                    $title = trim((string) $record->title);
+
+                    return $title !== '' ? $title : 'Review #'.$record->getKey();
+                }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    TypedDeleteBulkAction::make(),
+                    RestoreBulkAction::make(),
+                    TypedForceDeleteBulkAction::make(),
                 ]),
             ]);
     }

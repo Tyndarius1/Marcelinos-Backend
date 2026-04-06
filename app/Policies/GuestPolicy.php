@@ -4,7 +4,6 @@ namespace App\Policies;
 
 use App\Models\Guest;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class GuestPolicy
 {
@@ -53,7 +52,7 @@ class GuestPolicy
      */
     public function restore(User $user, Guest $guest): bool
     {
-        return false;
+        return $user->hasPrivilege('manage_guests');
     }
 
     /**
@@ -61,6 +60,6 @@ class GuestPolicy
      */
     public function forceDelete(User $user, Guest $guest): bool
     {
-        return false;
+        return strtolower(trim((string) ($user->role ?? ''))) === 'admin';
     }
 }

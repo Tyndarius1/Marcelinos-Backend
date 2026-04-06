@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Venues;
 
+use App\Filament\Resources\Concerns\ResolvesTrashedRecordRoutes;
 use App\Filament\Resources\Venues\Pages\CreateVenues;
 use App\Filament\Resources\Venues\Pages\EditVenues;
 use App\Filament\Resources\Venues\Pages\ListVenues;
@@ -18,6 +19,8 @@ use Filament\Tables\Table;
 
 class VenuesResource extends Resource
 {
+    use ResolvesTrashedRecordRoutes;
+
     protected static ?string $model = Venue::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedHomeModern;

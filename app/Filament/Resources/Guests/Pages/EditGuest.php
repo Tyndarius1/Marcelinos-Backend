@@ -2,8 +2,11 @@
 
 namespace App\Filament\Resources\Guests\Pages;
 
+use App\Filament\Actions\TypedDeleteAction;
+use App\Filament\Actions\TypedForceDeleteAction;
 use App\Filament\Resources\Guests\GuestResource;
-use Filament\Actions\DeleteAction;
+use App\Models\Guest;
+use Filament\Actions\RestoreAction;
 use Filament\Resources\Pages\EditRecord;
 
 class EditGuest extends EditRecord
@@ -25,8 +28,15 @@ class EditGuest extends EditRecord
 
     protected function getHeaderActions(): array
     {
+        if ($this->record->trashed()) {
+            return [
+                RestoreAction::make(),
+                TypedForceDeleteAction::make(fn (Guest $record): string => filled($record->email) ? $record->email : $record->full_name),
+            ];
+        }
+
         return [
-            DeleteAction::make(),
+            TypedDeleteAction::make(fn (Guest $record): string => filled($record->email) ? $record->email : $record->full_name),
         ];
     }
 }

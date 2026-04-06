@@ -13,6 +13,7 @@ use App\Filament\Resources\Bookings\RelationManagers\ReviewsRelationManager;
 use App\Filament\Resources\Bookings\RelationManagers\RoomLinesRelationManager;
 use App\Filament\Resources\Bookings\Schemas\BookingForm;
 use App\Filament\Resources\Bookings\Tables\BookingsTable;
+use App\Filament\Resources\Concerns\ResolvesTrashedRecordRoutes;
 use App\Filament\Widgets\BookingStatsOverview;
 use App\Models\Booking;
 use BackedEnum;
@@ -23,6 +24,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class BookingResource extends Resource
 {
+    use ResolvesTrashedRecordRoutes;
+
     protected static ?string $model = Booking::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calendar';

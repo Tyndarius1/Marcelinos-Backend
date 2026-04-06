@@ -4,7 +4,6 @@ namespace App\Policies;
 
 use App\Models\Room;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class RoomPolicy
 {
@@ -53,7 +52,7 @@ class RoomPolicy
      */
     public function restore(User $user, Room $room): bool
     {
-        return false;
+        return $user->hasPrivilege('manage_rooms');
     }
 
     /**
@@ -61,10 +60,10 @@ class RoomPolicy
      */
     public function forceDelete(User $user, Room $room): bool
     {
-        return false;
+        return strtolower(trim((string) ($user->role ?? ''))) === 'admin';
     }
 
-     public function bulkDelete(User $user): bool
+    public function bulkDelete(User $user): bool
     {
         return $user->hasPrivilege('manage_rooms');
     }

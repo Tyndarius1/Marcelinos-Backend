@@ -2,14 +2,13 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use App\Models\Room;
-use App\Models\Venue;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Review extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     // For compatibility with Filament/resources expecting this relationship
     public function reviewable()
@@ -28,8 +27,6 @@ class Review extends Model
             5 => '5',
         ];
     }
-
-
 
     protected $fillable = [
         'guest_id',
@@ -63,16 +60,10 @@ class Review extends Model
         return $this->belongsTo(Booking::class);
     }
 
-
-
     /* ================= SCOPES ================= */
 
     public function scopeApproved($query)
     {
         return $query->where('is_approved', true);
     }
-
-
-
-    
 }

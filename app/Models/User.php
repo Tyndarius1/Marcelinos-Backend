@@ -2,16 +2,17 @@
 
 namespace App\Models;
 
+use Exception;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Exception;
 
 class User extends Authenticatable implements FilamentUser
 {
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, SoftDeletes;
 
     protected $fillable = [
         'name',
@@ -34,7 +35,7 @@ class User extends Authenticatable implements FilamentUser
             'password' => 'hashed',
             'permissions' => 'array',
         ];
-    }   
+    }
 
     public function setPermissionsAttribute($value): void
     {
@@ -104,20 +105,20 @@ class User extends Authenticatable implements FilamentUser
         static::updating(function ($user) {
             // Check if it WAS an admin before this change
             if ($user->getOriginal('role') === 'admin' && $user->role !== 'admin') {
-                throw new Exception("Security Breach: You cannot change the Admin role!");
+                throw new Exception('Security Breach: You cannot change the Admin role!');
             }
         });
 
         static::deleting(function ($user) {
             if ($user->getOriginal('role') === 'admin') {
-                throw new Exception("Security Breach: You cannot delete the Admin!");
+                throw new Exception('Security Breach: You cannot delete the Admin!');
             }
         });
     }
 
     public function canAccessPanel(Panel $panel): bool
     {
-        if (!$this->is_active) {
+        if (! $this->is_active) {
             return false;
         }
 

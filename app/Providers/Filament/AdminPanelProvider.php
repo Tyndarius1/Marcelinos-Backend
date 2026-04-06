@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Livewire\DatabaseNotifications as AppDatabaseNotifications;
 use App\Filament\Pages\AdminDashboard;
 use App\Filament\Pages\Auth\Login;
+use App\Filament\Pages\RecycleBin;
 use App\Http\Middleware\EnsureAdminUser;
 use App\Http\Middleware\LogStaffPanelActions;
 use Filament\Http\Middleware\Authenticate;
@@ -14,6 +15,7 @@ use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -61,6 +63,15 @@ class AdminPanelProvider extends PanelProvider
                 DispatchServingFilamentEvent::class,
             ])
             ->viteTheme('resources/css/filament/admin/theme.css')
+            ->renderHook(
+                PanelsRenderHook::GLOBAL_SEARCH_AFTER,
+                fn (): string => RecycleBin::canAccess()
+                    ? view('filament.hooks.recycle-bin-topbar-button', [
+                        'url' => RecycleBin::getUrl(panel: 'admin'),
+                        'trashedCount' => RecycleBin::allTrashedTotal(),
+                    ])->render()
+                    : '',
+            )
             ->resourceCreatePageRedirect('index')
             ->resourceEditPageRedirect('index')
             ->authMiddleware([

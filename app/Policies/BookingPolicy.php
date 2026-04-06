@@ -4,7 +4,6 @@ namespace App\Policies;
 
 use App\Models\Booking;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class BookingPolicy
 {
@@ -53,7 +52,7 @@ class BookingPolicy
      */
     public function restore(User $user, Booking $booking): bool
     {
-        return false;
+        return $user->hasPrivilege('manage_bookings');
     }
 
     /**
@@ -61,7 +60,7 @@ class BookingPolicy
      */
     public function forceDelete(User $user, Booking $booking): bool
     {
-        return false;
+        return strtolower(trim((string) ($user->role ?? ''))) === 'admin';
     }
 
     /**

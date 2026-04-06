@@ -2,9 +2,17 @@
 
 namespace App\Filament\Resources\BlogPosts\Tables;
 
-use Filament\Actions\DeleteAction;
+use App\Filament\Actions\TypedDeleteAction;
+use App\Filament\Actions\TypedDeleteBulkAction;
+use App\Filament\Actions\TypedForceDeleteAction;
+use App\Filament\Actions\TypedForceDeleteBulkAction;
+use App\Models\BlogPost;
+use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
+use Filament\Actions\RestoreAction;
+use Filament\Actions\RestoreBulkAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
 class BlogPostsTable
@@ -32,11 +40,20 @@ class BlogPostsTable
             ])
             ->defaultSort('sort_order', 'desc')
             ->filters([
-                //
+                TrashedFilter::make(),
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
+                RestoreAction::make(),
+                TypedForceDeleteAction::make(fn (BlogPost $record): string => $record->title),
+                TypedDeleteAction::make(fn (BlogPost $record): string => $record->title),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    TypedDeleteBulkAction::make(),
+                    RestoreBulkAction::make(),
+                    TypedForceDeleteBulkAction::make(),
+                ]),
             ]);
     }
 }

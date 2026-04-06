@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Reviews;
 
-use App\Filament\Resources\Reviews\Pages\CreateReview;
+use App\Filament\Resources\Concerns\ResolvesTrashedRecordRoutes;
 use App\Filament\Resources\Reviews\Pages\EditReview;
 use App\Filament\Resources\Reviews\Pages\ListReviews;
 use App\Filament\Resources\Reviews\Pages\ViewReview;
@@ -17,11 +17,16 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ReviewResource extends Resource
 {
+    use ResolvesTrashedRecordRoutes;
+
     protected static ?string $model = Review::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-star';
+
     protected static string|\UnitEnum|null $navigationGroup = 'Operations';
+
     protected static ?int $navigationSort = 3;
+
     protected static ?string $navigationLabel = 'Reviews';
 
     protected static ?string $recordTitleAttribute = 'comment';

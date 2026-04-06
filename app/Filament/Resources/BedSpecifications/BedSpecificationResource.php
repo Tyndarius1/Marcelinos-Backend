@@ -8,6 +8,7 @@ use App\Filament\Resources\BedSpecifications\Pages\ListBedSpecifications;
 use App\Filament\Resources\BedSpecifications\Pages\ViewBedSpecification;
 use App\Filament\Resources\BedSpecifications\Schemas\BedSpecificationForm;
 use App\Filament\Resources\BedSpecifications\Tables\BedSpecificationsTable;
+use App\Filament\Resources\Concerns\ResolvesTrashedRecordRoutes;
 use App\Models\BedSpecification;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -17,6 +18,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class BedSpecificationResource extends Resource
 {
+    use ResolvesTrashedRecordRoutes;
+
     protected static ?string $model = BedSpecification::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-moon';

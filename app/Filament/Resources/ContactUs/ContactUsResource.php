@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ContactUs;
 
+use App\Filament\Resources\Concerns\ResolvesTrashedRecordRoutes;
 use App\Filament\Resources\ContactUs\Pages\EditContactUs;
 use App\Filament\Resources\ContactUs\Pages\ListContactUs;
 use App\Filament\Resources\ContactUs\Schemas\ContactUsForm;
@@ -15,6 +16,8 @@ use Filament\Tables\Table;
 
 class ContactUsResource extends Resource
 {
+    use ResolvesTrashedRecordRoutes;
+
     /**
      * Show a badge in the navigation if there are new contact requests.
      */
@@ -22,11 +25,13 @@ class ContactUsResource extends Resource
     {
         // Count only 'new' status, matching the table and migration
         $count = ContactUs::where('status', 'new')->count();
+
         return $count > 0 ? (string) $count : null;
     }
+
     protected static ?string $model = ContactUs::class;
 
-    protected static string|BackedEnum|null $navigationIcon = \Filament\Support\Icons\Heroicon::OutlinedChatBubbleLeftRight;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChatBubbleLeftRight;
 
     protected static ?string $navigationLabel = 'Contact Us';
 

@@ -364,7 +364,22 @@
                                                 {{ Booking::statusOptions()[$row['status']] ?? $row['status'] }}
                                             </span>
 
-                                            <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                                            <div
+                                                class="relative"
+                                                x-data="{
+                                                    open: false,
+                                                    delOpen: false,
+                                                    delVal: '',
+                                                    delRef: @js($row['reference_number']),
+                                                    delId: {{ (int) $row['id'] }},
+                                                    submitDelete() {
+                                                        $wire.deleteBooking(this.delId, this.delVal);
+                                                        this.delOpen = false;
+                                                        this.delVal = '';
+                                                    },
+                                                }"
+                                                @click.outside="open = false"
+                                            >
                                                 <button
                                                     type="button"
                                                     class="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:text-gray-300 dark:hover:bg-white/10 dark:hover:text-white"
@@ -442,14 +457,59 @@
 
                                                     <button
                                                         type="button"
-                                                        wire:click="deleteBooking({{ $row['id'] }})"
-                                                        @click="open = false"
-                                                        onclick="return confirm('Delete this booking permanently?')"
+                                                        @click="open = false; delOpen = true; delVal = ''"
                                                         class="block w-full whitespace-nowrap px-3 py-1.5 text-left text-[13px] font-medium leading-5 text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10"
                                                     >
                                                         Delete
                                                     </button>
                                                 </div>
+
+                                                <template x-teleport="body">
+                                                    <div
+                                                        x-show="delOpen"
+                                                        x-cloak
+                                                        class="fixed inset-0 z-[100] flex items-center justify-center p-4"
+                                                        style="display: none;"
+                                                    >
+                                                        <div class="absolute inset-0 bg-black/50" @click="delOpen = false"></div>
+                                                        <div
+                                                            class="relative z-10 w-full max-w-md rounded-xl border border-gray-200 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-gray-900"
+                                                            @click.stop
+                                                        >
+                                                            <h3 class="text-base font-semibold text-gray-900 dark:text-white">
+                                                                {{ __('Delete booking') }}
+                                                            </h3>
+                                                            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                                                {{ __('To confirm, type the booking reference below. This cannot be undone.') }}
+                                                            </p>
+                                                            <p class="mt-2 font-mono text-sm font-semibold text-gray-900 dark:text-white" x-text="delRef"></p>
+                                                            <input
+                                                                type="text"
+                                                                x-model="delVal"
+                                                                class="mt-3 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-danger-500 focus:outline-none focus:ring-1 focus:ring-danger-500 dark:border-white/10 dark:bg-gray-950 dark:text-white"
+                                                                autocomplete="off"
+                                                                :placeholder="delRef"
+                                                            />
+                                                            <div class="mt-4 flex justify-end gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    class="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5"
+                                                                    @click="delOpen = false"
+                                                                >
+                                                                    {{ __('Cancel') }}
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    class="rounded-lg bg-rose-600 px-3 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
+                                                                    :disabled="delVal.trim() !== delRef"
+                                                                    @click="submitDelete()"
+                                                                >
+                                                                    {{ __('Delete booking') }}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </template>
                                             </div>
                                         </div>
                                     </div>

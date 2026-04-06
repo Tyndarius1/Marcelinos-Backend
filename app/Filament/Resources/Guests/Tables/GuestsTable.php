@@ -2,15 +2,19 @@
 
 namespace App\Filament\Resources\Guests\Tables;
 
+use App\Filament\Actions\TypedDeleteBulkAction;
+use App\Filament\Actions\TypedForceDeleteBulkAction;
+use App\Filament\Resources\Guests\GuestResource;
 use App\Models\Guest;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
-use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
 class GuestsTable
@@ -19,11 +23,11 @@ class GuestsTable
     {
         return $table
             ->recordAction('view')
-            ->recordUrl(fn($record) => \App\Filament\Resources\Guests\GuestResource::getUrl('view', ['record' => $record]))
+            ->recordUrl(fn ($record) => GuestResource::getUrl('view', ['record' => $record]))
             ->columns([
                 TextColumn::make('full_name')
                     ->label('Name')
-                    ->formatStateUsing(fn($record) => $record->full_name)
+                    ->formatStateUsing(fn ($record) => $record->full_name)
                     ->searchable(['first_name', 'middle_name', 'last_name'])
                     ->sortable(),
                 TextColumn::make('contact_num')->searchable(),
@@ -39,7 +43,7 @@ class GuestsTable
                         'warning' => Guest::GENDER_FEMALE,
                         'secondary' => Guest::GENDER_OTHER,
                     ])
-                    ->formatStateUsing(fn(string $state): string => Guest::genderOptions()[$state] ?? ucfirst($state)),
+                    ->formatStateUsing(fn (string $state): string => Guest::genderOptions()[$state] ?? ucfirst($state)),
 
                 // ✅ International Guest Icon
                 IconColumn::make('is_international')
@@ -62,7 +66,6 @@ class GuestsTable
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
-
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -80,6 +83,8 @@ class GuestsTable
                     ->label('International')
                     ->trueLabel('International')
                     ->falseLabel('Local'),
+
+                TrashedFilter::make(),
             ])
             ->recordActions([
                 ViewAction::make(),
@@ -87,7 +92,9 @@ class GuestsTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    TypedDeleteBulkAction::make(),
+                    RestoreBulkAction::make(),
+                    TypedForceDeleteBulkAction::make(),
                 ]),
             ]);
     }

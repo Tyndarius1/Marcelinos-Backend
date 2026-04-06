@@ -34,12 +34,12 @@ class AmenityPolicy
 
     public function restore(User $user, Amenity $amenity): bool
     {
-        return false;
+        return $user->hasPrivilege('manage_amenities');
     }
 
     public function forceDelete(User $user, Amenity $amenity): bool
     {
-        return false;
+        return strtolower(trim((string) ($user->role ?? ''))) === 'admin';
     }
 
     public function bulkDelete(User $user): bool

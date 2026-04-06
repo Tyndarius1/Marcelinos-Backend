@@ -2,12 +2,15 @@
 
 namespace App\Filament\Resources\BedSpecifications\Tables;
 
+use App\Filament\Actions\TypedDeleteBulkAction;
+use App\Filament\Actions\TypedForceDeleteBulkAction;
 use App\Filament\Resources\BedSpecifications\BedSpecificationResource;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
 class BedSpecificationsTable
@@ -46,13 +49,18 @@ class BedSpecificationsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->defaultSort('specification')
+            ->filters([
+                TrashedFilter::make(),
+            ])
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    TypedDeleteBulkAction::make(),
+                    RestoreBulkAction::make(),
+                    TypedForceDeleteBulkAction::make(),
                 ]),
             ]);
     }

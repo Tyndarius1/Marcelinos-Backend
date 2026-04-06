@@ -34,12 +34,12 @@ class BlockedDatePolicy
 
     public function restore(User $user, BlockedDate $blockedDate): bool
     {
-        return false;
+        return $user->hasPrivilege('manage_blocked_dates');
     }
 
     public function forceDelete(User $user, BlockedDate $blockedDate): bool
     {
-        return false;
+        return strtolower(trim((string) ($user->role ?? ''))) === 'admin';
     }
 
     public function bulkDelete(User $user): bool

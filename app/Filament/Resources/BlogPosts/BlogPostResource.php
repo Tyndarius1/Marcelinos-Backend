@@ -7,6 +7,7 @@ use App\Filament\Resources\BlogPosts\Pages\EditBlogPost;
 use App\Filament\Resources\BlogPosts\Pages\ListBlogPosts;
 use App\Filament\Resources\BlogPosts\Schemas\BlogPostForm;
 use App\Filament\Resources\BlogPosts\Tables\BlogPostsTable;
+use App\Filament\Resources\Concerns\ResolvesTrashedRecordRoutes;
 use App\Models\BlogPost;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -15,14 +16,22 @@ use Filament\Tables\Table;
 
 class BlogPostResource extends Resource
 {
+    use ResolvesTrashedRecordRoutes;
+
     protected static ?string $model = BlogPost::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
+
     protected static string|\UnitEnum|null $navigationGroup = 'Content';
+
     protected static ?int $navigationSort = 2;
+
     protected static ?string $navigationLabel = 'Blog posts';
+
     protected static ?string $modelLabel = 'blog post';
+
     protected static ?string $pluralModelLabel = 'blog posts';
+
     protected static ?string $recordTitleAttribute = 'title';
 
     public static function form(Schema $schema): Schema

@@ -2,8 +2,11 @@
 
 namespace App\Filament\Resources\Reviews\Pages;
 
+use App\Filament\Actions\TypedDeleteAction;
+use App\Filament\Actions\TypedForceDeleteAction;
 use App\Filament\Resources\Reviews\ReviewResource;
-use Filament\Actions\DeleteAction;
+use App\Models\Review;
+use Filament\Actions\RestoreAction;
 use Filament\Resources\Pages\EditRecord;
 
 class EditReview extends EditRecord
@@ -12,8 +15,21 @@ class EditReview extends EditRecord
 
     protected function getHeaderActions(): array
     {
+        $resolveExpected = function (Review $record): string {
+            $title = trim((string) $record->title);
+
+            return $title !== '' ? $title : 'Review #'.$record->getKey();
+        };
+
+        if ($this->record->trashed()) {
+            return [
+                RestoreAction::make(),
+                TypedForceDeleteAction::make($resolveExpected),
+            ];
+        }
+
         return [
-            DeleteAction::make(),
+            TypedDeleteAction::make($resolveExpected),
         ];
     }
 }
