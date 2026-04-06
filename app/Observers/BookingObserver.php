@@ -36,24 +36,41 @@ class BookingObserver
             $bookedByName = trim((string) ($booking->guest?->full_name ?? '')) ?: 'a guest';
             $bookingViewUrl = BookingResource::getUrl('view', ['record' => $booking]);
 
-            foreach ($users as $user) {
-                Notification::make()
+            $isSuspicious = $booking->no_of_days > 10;
+
+            if ($isSuspicious) {
+                $notification = Notification::make()
+                    ->warning() // Sets the official warning theme styling
+                    ->title('Suspicious Booking Alert')
+                    ->body("{$bookedByName} created a suspicious booking for {$booking->no_of_days} days.")
+                    ->icon('heroicon-o-exclamation-triangle')
+                    ->actions([
+                        Action::make('view')
+                            ->label('Review Booking')
+                            ->button()
+                            ->color('danger')
+                            ->markAsRead()
+                            ->url(BookingResource::getUrl('view', ['record' => $booking])),
+                    ])
+                    ->persistent();
+            } else {
+                $notification = Notification::make()
+                    ->success() // Sets the official success theme styling
                     ->title('New Booking Created')
                     ->body("{$bookedByName} created a booking.")
                     ->icon('heroicon-o-calendar-days')
-                    ->color('success')
                     ->actions([
                         Action::make('view')
                             ->label('View')
-                            ->button()->size('sm')
+                            ->button()
                             ->color('success')
                             ->markAsRead()
                             ->url(BookingResource::getUrl('view', ['record' => $booking])),
+                    ]);
+            }
 
-                    ])
-                    ->sendToDatabase($user)
-                    ->broadcast($user);
-
+            foreach ($users as $user) {
+                $notification->sendToDatabase($user)->broadcast($user);
                 $this->dispatchNotificationSound($user);
             }
         }
