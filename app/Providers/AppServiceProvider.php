@@ -380,11 +380,9 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('booking_otp', function (Request $request) use ($jsonTooManyRequests) {
-            $booking = $request->route('booking');
-            $ref = $booking instanceof Booking ? $booking->reference_number : (string) ($request->route('booking') ?? '');
-
-            return Limit::perMinutes(15, 3)
-                ->by($request->ip().':'.$ref)
+            // Per-IP flood guard; per-email limits are enforced in BookingActionOtpService.
+            return Limit::perMinute(30)
+                ->by($request->ip())
                 ->response($jsonTooManyRequests);
         });
     }

@@ -2,10 +2,11 @@
 
 namespace App\Services;
 
+use App\Mail\BookingActionOtp as BookingActionOtpMail;
 use App\Models\Booking;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 class BookingActionOtpService
@@ -22,76 +23,52 @@ class BookingActionOtpService
     {
         $this->assertValidPurpose($purpose);
 
-        $apiKey = config('services.semaphore.api_key');
-        if (empty($apiKey)) {
-            Log::error('Semaphore API key not configured');
-            throw ValidationException::withMessages([
-                'otp' => ['SMS verification is temporarily unavailable. Please try again later.'],
-            ]);
-        }
-
         $booking->loadMissing('guest');
         $guest = $booking->guest;
 
         if ($guest === null) {
             throw ValidationException::withMessages([
-                'phone' => ['No guest record linked to this booking. Please contact the hotel.'],
+                'email' => ['No guest record linked to this booking. Please contact the hotel.'],
             ]);
         }
 
-        // Semaphore `number` must be the guest's saved contact number (SMS recipient).
-        $rawContact = $guest->contact_num;
-        $recipient = self::normalizePhilippineMobile($rawContact);
-
-        if ($recipient === null) {
+        $email = strtolower(trim((string) $guest->email));
+        if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             throw ValidationException::withMessages([
-                'phone' => ['No valid mobile number on file for this guest. Please contact the hotel.'],
+                'email' => ['No valid email on file for this guest. Please contact the hotel.'],
             ]);
         }
+
+        $maxSends = $this->maxSendsBeforeCooldown();
+        $cooldownSeconds = $this->cooldownSeconds();
+
+        $this->reserveEmailSendSlot($email, $maxSends, $cooldownSeconds);
 
         $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
-        $message = 'Your Marcelino\'s booking OTP is {otp}. Valid for '.self::TTL_MINUTES.' minutes.';
+        $purposeLabel = $purpose === self::PURPOSE_CANCEL
+            ? 'Cancellation'
+            : 'Reschedule';
 
-        $payload = [
-            'apikey' => $apiKey,
-            'number' => $recipient,
-            'message' => $message,
-            'code' => $code,
-        ];
-
-        $senderName = config('services.semaphore.sender_name');
-        if (! empty($senderName)) {
-            $payload['sendername'] = $senderName;
-        }
-
-        $url = config('services.semaphore.otp_url');
+        $otpKey = $this->cacheKey($booking->reference_number, $purpose);
+        Cache::put($otpKey, hash('sha256', $code), now()->addMinutes(self::TTL_MINUTES));
 
         try {
-            $response = Http::asForm()
-                ->timeout(20)
-                ->post($url, $payload);
+            Mail::to($email)->send(new BookingActionOtpMail(
+                $code,
+                $purposeLabel,
+                self::TTL_MINUTES,
+                (string) ($guest->full_name ?? 'Guest'),
+            ));
         } catch (\Throwable $e) {
-            Log::error('Semaphore OTP request failed', ['exception' => $e->getMessage()]);
+            Cache::forget($otpKey);
+            $this->rollbackEmailSendReservation($email, $maxSends);
+            Log::error('Booking action OTP email failed', ['exception' => $e->getMessage()]);
 
             throw ValidationException::withMessages([
                 'otp' => ['Could not send verification code. Please try again shortly.'],
             ]);
         }
-
-        if (! $response->successful()) {
-            Log::warning('Semaphore OTP HTTP error', [
-                'status' => $response->status(),
-                'body' => $response->body(),
-            ]);
-
-            throw ValidationException::withMessages([
-                'otp' => ['Could not send verification code. Please try again shortly.'],
-            ]);
-        }
-
-        $key = $this->cacheKey($booking->reference_number, $purpose);
-        Cache::put($key, hash('sha256', $code), now()->addMinutes(self::TTL_MINUTES));
     }
 
     public function verifyAndConsume(string $reference, string $purpose, string $input): bool
@@ -129,30 +106,91 @@ class BookingActionOtpService
         return false;
     }
 
-    public static function normalizePhilippineMobile(?string $raw): ?string
+    private function emailRateKey(string $normalizedEmail): string
     {
-        if ($raw === null || trim($raw) === '') {
-            return null;
-        }
+        return hash('sha256', $normalizedEmail);
+    }
 
-        $digits = preg_replace('/\D/', '', trim($raw));
-        if ($digits === '' || $digits === null) {
-            return null;
-        }
+    private function rateKeys(string $normalizedEmail): array
+    {
+        $hash = $this->emailRateKey($normalizedEmail);
 
-        if (str_starts_with($digits, '63') && strlen($digits) >= 12) {
-            return $digits;
-        }
+        return [
+            'lock' => self::CACHE_PREFIX.'email_rate_lock:'.$hash,
+            'count' => self::CACHE_PREFIX.'email_sends:'.$hash,
+            'block' => self::CACHE_PREFIX.'email_blocked_until:'.$hash,
+        ];
+    }
 
-        if (str_starts_with($digits, '0') && strlen($digits) === 11) {
-            return '63'.substr($digits, 1);
-        }
+    private function maxSendsBeforeCooldown(): int
+    {
+        $n = (int) config('services.booking_action_otp.max_sends_before_cooldown', 3);
 
-        if (strlen($digits) === 10 && str_starts_with($digits, '9')) {
-            return '63'.$digits;
-        }
+        return $n >= 1 ? $n : 3;
+    }
 
-        return null;
+    private function cooldownSeconds(): int
+    {
+        $n = (int) config('services.booking_action_otp.cooldown_seconds', 60);
+
+        return $n >= 1 ? $n : 60;
+    }
+
+    private function reserveEmailSendSlot(string $normalizedEmail, int $maxSends, int $cooldownSeconds): void
+    {
+        $keys = $this->rateKeys($normalizedEmail);
+
+        Cache::lock($keys['lock'], 10)->block(5, function () use ($keys, $maxSends, $cooldownSeconds) {
+            $blockedUntil = Cache::get($keys['block']);
+            if ($blockedUntil instanceof \Carbon\Carbon && now()->lt($blockedUntil)) {
+                $seconds = max(1, (int) ceil($blockedUntil->getTimestamp() - now()->getTimestamp()));
+                throw ValidationException::withMessages([
+                    'email' => [
+                        "Too many verification emails sent. Please try again in {$seconds} second".($seconds === 1 ? '' : 's').'.',
+                    ],
+                ]);
+            }
+
+            if ($blockedUntil !== null) {
+                Cache::forget($keys['block']);
+                Cache::forget($keys['count']);
+            }
+
+            $count = (int) Cache::get($keys['count'], 0) + 1;
+            Cache::put($keys['count'], $count, now()->addHours(24));
+
+            if ($count > $maxSends) {
+                Cache::put($keys['count'], $count - 1, now()->addHours(24));
+                throw ValidationException::withMessages([
+                    'email' => ['Too many verification emails sent. Please try again later.'],
+                ]);
+            }
+
+            if ($count === $maxSends) {
+                Cache::put($keys['block'], now()->addSeconds($cooldownSeconds), now()->addSeconds($cooldownSeconds + 120));
+                Cache::forget($keys['count']);
+            }
+        });
+    }
+
+    private function rollbackEmailSendReservation(string $normalizedEmail, int $maxSends): void
+    {
+        $keys = $this->rateKeys($normalizedEmail);
+
+        Cache::lock($keys['lock'], 10)->block(5, function () use ($keys, $maxSends) {
+            $blockedUntil = Cache::get($keys['block']);
+            if ($blockedUntil instanceof \Carbon\Carbon && now()->lt($blockedUntil)) {
+                Cache::forget($keys['block']);
+                Cache::put($keys['count'], max(0, $maxSends - 1), now()->addHours(24));
+
+                return;
+            }
+
+            $count = (int) Cache::get($keys['count'], 0);
+            if ($count > 0) {
+                Cache::put($keys['count'], $count - 1, now()->addHours(24));
+            }
+        });
     }
 
     private function cacheKey(string $reference, string $purpose): string

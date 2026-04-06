@@ -29,7 +29,7 @@ class BookingController extends Controller
     ) {}
 
     /**
-     * Send SMS OTP for cancel or reschedule (Semaphore).
+     * Send email OTP for cancel or reschedule.
      */
     public function sendBookingOtp(Request $request, Booking $booking)
     {

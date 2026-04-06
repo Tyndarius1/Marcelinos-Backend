@@ -39,10 +39,12 @@ return [
         'key' => env('API_KEY'),
     ],
 
-    'semaphore' => [
-        'api_key' => env('SEMAPHORE_API_KEY'),
-        'otp_url' => env('SEMAPHORE_OTP_URL', 'https://api.semaphore.co/api/v4/otp'),
-        'sender_name' => env('SEMAPHORE_SENDER_NAME'),
+    /*
+     * Booking cancel/reschedule OTP is sent by email (see BookingActionOtpService).
+     */
+    'booking_action_otp' => [
+        'max_sends_before_cooldown' => (int) env('BOOKING_ACTION_OTP_MAX_SENDS', 3),
+        'cooldown_seconds' => (int) env('BOOKING_ACTION_OTP_COOLDOWN_SECONDS', 60),
     ],
 
 ];
