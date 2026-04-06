@@ -33,17 +33,17 @@
                 'actions' => 'inline-flex flex-wrap items-center justify-end gap-2',
             ],
             'saas' => [
-                'hero' => 'relative overflow-hidden rounded-2xl border border-indigo-200/70 bg-gradient-to-br from-white to-indigo-50/40 p-7 shadow-sm dark:border-indigo-400/30 dark:from-gray-900 dark:to-indigo-500/10',
+                'hero' => 'relative overflow-hidden rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-white to-indigo-50/50 p-7 shadow-sm dark:border-indigo-300/30 dark:from-slate-900 dark:to-indigo-500/12',
                 'accent' => 'from-indigo-500/80 via-cyan-500/70 to-fuchsia-500/70',
-                'badge' => 'inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-800 dark:border-indigo-400/30 dark:bg-indigo-500/15 dark:text-indigo-200',
-                'badgeIcon' => 'h-4 w-4 text-indigo-500 dark:text-indigo-300',
-                'badgeText' => 'text-indigo-700/80 dark:text-indigo-300/80',
-                'stat' => 'rounded-xl border border-indigo-200/70 bg-white/90 px-4 py-3 shadow-sm dark:border-indigo-400/25 dark:bg-white/[0.04]',
-                'table' => 'overflow-hidden rounded-xl border border-indigo-200/70 bg-white shadow-sm dark:border-indigo-400/25 dark:bg-gray-900',
-                'thead' => 'bg-indigo-50/70 dark:bg-indigo-500/[0.08]',
-                'row' => 'group transition hover:bg-indigo-50/60 dark:hover:bg-indigo-500/[0.08]',
-                'typeBadge' => 'inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 dark:border-indigo-400/25 dark:bg-indigo-500/[0.14] dark:text-indigo-200',
-                'actions' => 'inline-flex flex-wrap items-center justify-end gap-2 rounded-lg border border-transparent p-1 group-hover:border-indigo-200/70 group-hover:bg-indigo-50/70 dark:group-hover:border-indigo-400/25 dark:group-hover:bg-indigo-500/[0.12]',
+                'badge' => 'inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50/90 px-3 py-1.5 text-sm font-medium text-indigo-800 dark:border-indigo-300/35 dark:bg-indigo-400/15 dark:text-indigo-100',
+                'badgeIcon' => 'h-4 w-4 text-indigo-500 dark:text-indigo-200',
+                'badgeText' => 'text-indigo-700/80 dark:text-indigo-200/80',
+                'stat' => 'rounded-xl border border-indigo-200/80 bg-white/95 px-4 py-3 shadow-sm dark:border-indigo-300/30 dark:bg-slate-900/65',
+                'table' => 'overflow-hidden rounded-xl border border-indigo-200/80 bg-white shadow-sm dark:border-indigo-300/30 dark:bg-slate-900/70',
+                'thead' => 'bg-indigo-50/80 dark:bg-indigo-400/[0.10]',
+                'row' => 'group transition hover:bg-indigo-50/70 dark:hover:bg-indigo-400/[0.12]',
+                'typeBadge' => 'inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 dark:border-indigo-300/35 dark:bg-indigo-400/[0.20] dark:text-indigo-100',
+                'actions' => 'inline-flex flex-wrap items-center justify-end gap-2 rounded-lg border border-transparent p-1 group-hover:border-indigo-200/80 group-hover:bg-indigo-50/80 dark:group-hover:border-indigo-300/35 dark:group-hover:bg-indigo-400/[0.14]',
             ],
         ];
 
@@ -72,12 +72,6 @@
                 </p>
             </div>
         @else
-            <div class="flex items-center justify-end gap-2">
-                <a href="{{ request()->url() }}?style=luxury" class="rounded-md px-3 py-1.5 text-xs font-semibold {{ $style === 'luxury' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-300' }}">{{ __('Option 1: Luxury') }}</a>
-                <a href="{{ request()->url() }}?style=corporate" class="rounded-md px-3 py-1.5 text-xs font-semibold {{ $style === 'corporate' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-300' }}">{{ __('Option 2: Corporate') }}</a>
-                <a href="{{ request()->url() }}?style=saas" class="rounded-md px-3 py-1.5 text-xs font-semibold {{ $style === 'saas' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-300' }}">{{ __('Option 3: SaaS') }}</a>
-            </div>
-
             <div class="{{ $theme['hero'] }}">
                 <div class="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r {{ $theme['accent'] }}"></div>
                 <div class="flex flex-wrap items-start justify-between gap-4">
