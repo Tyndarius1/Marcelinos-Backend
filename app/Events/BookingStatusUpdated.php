@@ -9,7 +9,7 @@ use Illuminate\Broadcasting\Channel;
 /**
  * Broadcast when a booking's status (or relevant data) changes.
  * Public channel so guests on the receipt page can listen without auth.
- * Listen on channel "booking.{reference}" with event "BookingStatusUpdated".
+ * Listen on channel "booking.{receipt_token}" with event "BookingStatusUpdated".
  */
 final class BookingStatusUpdated extends BaseBroadcastEvent
 {
@@ -21,7 +21,7 @@ final class BookingStatusUpdated extends BaseBroadcastEvent
     {
         return [
             new Channel(
-                BroadcastChannelNames::booking($this->booking->reference_number)
+                BroadcastChannelNames::booking((string) ($this->booking->receipt_token ?: $this->booking->reference_number))
             ),
         ];
     }

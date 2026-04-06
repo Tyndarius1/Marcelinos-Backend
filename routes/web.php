@@ -46,10 +46,13 @@ Route::get('/', function () {
 
 
 // Signed link from testimonial email: redirects to client app testimonial form.
-Route::get('/testimonial/feedback/{reference}', function (string $reference) {
+Route::get('/testimonial/feedback/{token}', function (string $token) {
     $base = rtrim(config('app.frontend_url'), '/');
-    return redirect($base . '/testimonial?reference=' . urlencode($reference));
-})->name('testimonial.feedback.redirect')->middleware('signed');
+
+    return redirect($base.'/testimonial?token='.urlencode($token));
+})->where('token', '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}')
+    ->name('testimonial.feedback.redirect')
+    ->middleware('signed');
 
 if ($adminPanel = Filament::getPanel('admin')) {
     $loginMiddleware = array_merge($adminPanel->getMiddleware(), ['guest']);

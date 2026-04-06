@@ -97,7 +97,32 @@ class BookingController extends Controller
     }
 
     /**
-     * Display a booking by reference number (frontend QR lookup).
+     * Display a booking by opaque receipt token (public receipt URL — non-guessable).
+     */
+    public function showByReceiptToken(string $token)
+    {
+        try {
+            $booking = Booking::with(['guest', 'rooms', 'venues', 'roomLines'])
+                ->where('receipt_token', $token)
+                ->first();
+
+            if (! $booking) {
+                return response()->json([
+                    'message' => 'Booking not found',
+                ], 404);
+            }
+
+            return $this->jsonReceiptForBooking($booking);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Error retrieving booking',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Display a booking by reference number (legacy links and testimonial flow).
      */
     public function showByReferenceNumber(string $reference)
     {
@@ -112,31 +137,36 @@ class BookingController extends Controller
                 ], 404);
             }
 
-            $this->expireIfNeeded($booking);
-
-            $hasTestimonial = $booking->reviews()->exists();
-
-            $this->ensureBookingQrExists($booking);
-
-            $filename = $booking->qr_code ? basename($booking->qr_code) : null;
-
-            $bookingPayload = $booking->fresh(['guest', 'rooms', 'venues', 'roomLines']);
-
-            return response()->json([
-                'booking' => $bookingPayload,
-                'unpaid_expires_at' => $bookingPayload->unpaidExpiresAt()?->toIso8601String(),
-                'unpaid_expiry_days' => Booking::UNPAID_EXPIRY_DAYS,
-                'down_payment_notice_applies' => $bookingPayload->downPaymentNoticeApplies(),
-                'down_payment_notice_min_lead_days' => Booking::DOWN_PAYMENT_NOTICE_MIN_LEAD_DAYS,
-                'qr_code_url' => $filename ? url("/qr-image/{$filename}") : null,
-                'has_testimonial' => $hasTestimonial,
-            ], 200);
+            return $this->jsonReceiptForBooking($booking);
         } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'Error retrieving booking',
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    private function jsonReceiptForBooking(Booking $booking): \Illuminate\Http\JsonResponse
+    {
+        $this->expireIfNeeded($booking);
+
+        $hasTestimonial = $booking->reviews()->exists();
+
+        $this->ensureBookingQrExists($booking);
+
+        $filename = $booking->qr_code ? basename($booking->qr_code) : null;
+
+        $bookingPayload = $booking->fresh(['guest', 'rooms', 'venues', 'roomLines']);
+
+        return response()->json([
+            'booking' => $bookingPayload,
+            'unpaid_expires_at' => $bookingPayload->unpaidExpiresAt()?->toIso8601String(),
+            'unpaid_expiry_days' => Booking::UNPAID_EXPIRY_DAYS,
+            'down_payment_notice_applies' => $bookingPayload->downPaymentNoticeApplies(),
+            'down_payment_notice_min_lead_days' => Booking::DOWN_PAYMENT_NOTICE_MIN_LEAD_DAYS,
+            'qr_code_url' => $filename ? url("/qr-image/{$filename}") : null,
+            'has_testimonial' => $hasTestimonial,
+        ], 200);
     }
 
     public function store(StoreBookingRequest $request)

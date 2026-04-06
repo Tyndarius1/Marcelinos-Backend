@@ -22,6 +22,7 @@ class Booking extends Model
     protected $fillable = [
         'guest_id',
         'reference_number',
+        'receipt_token',
         'qr_code',
         'check_in',
         'check_out',
@@ -48,6 +49,9 @@ class Booking extends Model
         static::creating(function ($booking) {
             $booking->reference_number =
                 'MWA-'.now()->year.'-'.str_pad(rand(1, 999999), 6, '0', STR_PAD_LEFT);
+            if (empty($booking->receipt_token)) {
+                $booking->receipt_token = (string) Str::uuid();
+            }
         });
 
         /**

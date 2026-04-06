@@ -9,10 +9,10 @@ namespace App\Broadcasting;
  */
 final class BroadcastChannelNames
 {
-    /** Public: single booking (by reference) – receipt page. */
-    public static function booking(string $reference): string
+    /** Public: single booking – receipt page (prefer {@see Booking::$receipt_token}). */
+    public static function booking(string $receiptPublicId): string
     {
-        return 'booking.' . $reference;
+        return 'booking.' . $receiptPublicId;
     }
 
     /** Private channel for admin/staff dashboard updates. */

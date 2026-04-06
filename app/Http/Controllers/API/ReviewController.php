@@ -34,20 +34,41 @@ class ReviewController extends Controller
         return ApiResponse::success($reviews);
     }
     /**
+     * Store a testimonial/site review for a completed booking (by opaque receipt token).
+     */
+    public function storeByReceiptToken(Request $request, string $token): JsonResponse
+    {
+        $booking = Booking::with('guest')
+            ->where('receipt_token', $token)
+            ->first();
+
+        if (! $booking) {
+            return response()->json(['message' => 'Booking not found.'], 404);
+        }
+
+        return $this->storeReviewForBooking($request, $booking);
+    }
+
+    /**
      * Store a testimonial/site review for a completed booking (by reference number).
-     * Used by the client testimonial form linked from the post-stay email.
+     * Used by the client testimonial form linked from legacy post-stay emails.
      */
     public function storeByBookingReference(Request $request, string $reference): JsonResponse
     {
+        $booking = Booking::with('guest')
+            ->where('reference_number', $reference)
+            ->first();
+
+        if (! $booking) {
+            return response()->json(['message' => 'Booking not found.'], 404);
+        }
+
+        return $this->storeReviewForBooking($request, $booking);
+    }
+
+    private function storeReviewForBooking(Request $request, Booking $booking): JsonResponse
+    {
         try {
-            $booking = Booking::with('guest')
-                ->where('reference_number', $reference)
-                ->first();
-
-            if (!$booking) {
-                return response()->json(['message' => 'Booking not found.'], 404);
-            }
-
             if ($booking->status !== Booking::STATUS_COMPLETED) {
                 return response()->json(
                     ['message' => 'Reviews can only be submitted for completed stays.'],
