@@ -379,7 +379,22 @@ class BookingsTable
                     RestoreAction::make(),
                     TypedForceDeleteAction::make(fn (Booking $record): string => $record->reference_number),
                     TypedDeleteAction::make(fn (Booking $record): string => $record->reference_number),
-                ]),
+                    Action::make('resendEmail')
+                        ->label('Resend Email')
+                        ->icon('heroicon-o-envelope')
+                        ->color('gray')
+                        ->requiresConfirmation()
+                        ->modalHeading('Resend Booking Confirmation')
+                        ->modalDescription('This will send another booking confirmation email to the guest.')
+                        ->modalSubmitActionLabel('Yes, resend email')
+                        ->successNotificationTitle('Email successfully resent.')
+                        ->visible(fn (Booking $record) => $record->guest?->email !== null)
+                        ->action(function (Booking $record) {
+                            if ($record->guest?->email) {
+                                \Illuminate\Support\Facades\Mail::to($record->guest->email)->send(new \App\Mail\BookingCreated($record));
+                            }
+                        }),
+                ])
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

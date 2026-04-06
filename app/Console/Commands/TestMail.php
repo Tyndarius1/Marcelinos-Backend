@@ -26,7 +26,7 @@ class TestMail extends Command
      */
     public function handle()
     {
-        $email = $this->argument('email') ?? 'test@example.com';
+        $email = $this->argument('email') ?? 'libamarkjefferson@gmail.com';
 
         $this->info('Sending test email to: ' . $email);
 
