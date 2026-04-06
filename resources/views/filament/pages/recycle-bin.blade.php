@@ -1,4 +1,55 @@
 <x-filament-panels::page>
+    @php
+        $style = request()->query('style', 'luxury');
+        if (! in_array($style, ['luxury', 'corporate', 'saas'], true)) {
+            $style = 'luxury';
+        }
+
+        $themes = [
+            'luxury' => [
+                'hero' => 'relative overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-7 shadow-sm dark:border-white/10 dark:bg-gray-900',
+                'accent' => 'from-primary-500/80 via-sky-500/70 to-violet-500/70',
+                'badge' => 'inline-flex items-center gap-2 rounded-lg border border-primary-200 bg-primary-50/60 px-3 py-1.5 text-sm font-medium text-primary-800 dark:border-primary-500/30 dark:bg-primary-500/10 dark:text-primary-300',
+                'badgeIcon' => 'h-4 w-4 text-primary-500 dark:text-primary-300',
+                'badgeText' => 'text-primary-700/80 dark:text-primary-300/80',
+                'stat' => 'rounded-xl border border-gray-200/80 bg-gradient-to-b from-white to-gray-50/60 px-4 py-3 shadow-sm dark:border-white/10 dark:from-white/[0.04] dark:to-white/[0.02]',
+                'table' => 'overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-gray-900',
+                'thead' => 'bg-gray-50/90 dark:bg-white/5',
+                'row' => 'group transition hover:bg-primary-50/40 dark:hover:bg-primary-500/[0.06]',
+                'typeBadge' => 'inline-flex items-center rounded-md border border-gray-200 bg-white px-2 py-0.5 text-[11px] font-medium text-gray-600 group-hover:border-primary-200 group-hover:text-primary-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-gray-300 dark:group-hover:border-primary-400/40 dark:group-hover:text-primary-300',
+                'actions' => 'inline-flex flex-wrap items-center justify-end gap-2 rounded-lg border border-transparent bg-transparent p-1 group-hover:border-primary-100 group-hover:bg-primary-50/50 dark:group-hover:border-primary-400/20 dark:group-hover:bg-primary-500/[0.08]',
+            ],
+            'corporate' => [
+                'hero' => 'relative overflow-hidden rounded-2xl border border-gray-300/80 bg-white p-7 shadow-sm dark:border-white/10 dark:bg-gray-900',
+                'accent' => 'from-slate-500/80 via-slate-400/60 to-slate-600/70',
+                'badge' => 'inline-flex items-center gap-2 rounded-md border border-gray-300 bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-800 dark:border-white/10 dark:bg-white/5 dark:text-gray-200',
+                'badgeIcon' => 'h-4 w-4 text-gray-500 dark:text-gray-400',
+                'badgeText' => 'text-gray-600 dark:text-gray-400',
+                'stat' => 'rounded-lg border border-gray-300/80 bg-gray-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]',
+                'table' => 'overflow-hidden rounded-xl border border-gray-300 bg-white shadow-sm dark:border-white/10 dark:bg-gray-900',
+                'thead' => 'bg-gray-100 dark:bg-white/5',
+                'row' => 'group transition hover:bg-gray-50 dark:hover:bg-white/[0.04]',
+                'typeBadge' => 'inline-flex items-center rounded-md border border-gray-300 bg-gray-50 px-2 py-0.5 text-[11px] font-medium text-gray-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-gray-300',
+                'actions' => 'inline-flex flex-wrap items-center justify-end gap-2',
+            ],
+            'saas' => [
+                'hero' => 'relative overflow-hidden rounded-2xl border border-indigo-200/70 bg-gradient-to-br from-white to-indigo-50/40 p-7 shadow-sm dark:border-indigo-400/30 dark:from-gray-900 dark:to-indigo-500/10',
+                'accent' => 'from-indigo-500/80 via-cyan-500/70 to-fuchsia-500/70',
+                'badge' => 'inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-800 dark:border-indigo-400/30 dark:bg-indigo-500/15 dark:text-indigo-200',
+                'badgeIcon' => 'h-4 w-4 text-indigo-500 dark:text-indigo-300',
+                'badgeText' => 'text-indigo-700/80 dark:text-indigo-300/80',
+                'stat' => 'rounded-xl border border-indigo-200/70 bg-white/90 px-4 py-3 shadow-sm dark:border-indigo-400/25 dark:bg-white/[0.04]',
+                'table' => 'overflow-hidden rounded-xl border border-indigo-200/70 bg-white shadow-sm dark:border-indigo-400/25 dark:bg-gray-900',
+                'thead' => 'bg-indigo-50/70 dark:bg-indigo-500/[0.08]',
+                'row' => 'group transition hover:bg-indigo-50/60 dark:hover:bg-indigo-500/[0.08]',
+                'typeBadge' => 'inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 dark:border-indigo-400/25 dark:bg-indigo-500/[0.14] dark:text-indigo-200',
+                'actions' => 'inline-flex flex-wrap items-center justify-end gap-2 rounded-lg border border-transparent p-1 group-hover:border-indigo-200/70 group-hover:bg-indigo-50/70 dark:group-hover:border-indigo-400/25 dark:group-hover:bg-indigo-500/[0.12]',
+            ],
+        ];
+
+        $theme = $themes[$style];
+    @endphp
+
     <div class="fi-recycle-bin space-y-6">
         {{-- Hero / empty state --}}
         @if ($this->totalTrashed === 0)
@@ -21,40 +72,93 @@
                 </p>
             </div>
         @else
-            <x-filament::section>
-                <x-slot name="heading">
-                    {{ __('Recycle Bin') }}
-                </x-slot>
-                <x-slot name="description">
-                    {{ __('Like the Windows Recycle Bin: restore puts the item back, or remove it permanently (you must type DELETE). Newest deletions are listed first.') }}
-                </x-slot>
+            <div class="flex items-center justify-end gap-2">
+                <a href="{{ request()->url() }}?style=luxury" class="rounded-md px-3 py-1.5 text-xs font-semibold {{ $style === 'luxury' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-300' }}">{{ __('Option 1: Luxury') }}</a>
+                <a href="{{ request()->url() }}?style=corporate" class="rounded-md px-3 py-1.5 text-xs font-semibold {{ $style === 'corporate' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-300' }}">{{ __('Option 2: Corporate') }}</a>
+                <a href="{{ request()->url() }}?style=saas" class="rounded-md px-3 py-1.5 text-xs font-semibold {{ $style === 'saas' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-300' }}">{{ __('Option 3: SaaS') }}</a>
+            </div>
 
-                <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-gray-900">
+            <div class="{{ $theme['hero'] }}">
+                <div class="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r {{ $theme['accent'] }}"></div>
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                        <h2 class="text-xl font-semibold tracking-tight text-gray-950 dark:text-white">
+                            {{ __('Recycle Bin') }}
+                        </h2>
+                        <p class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400">
+                            {{ __('Restore items or delete them permanently. Newest deletions appear first.') }}
+                        </p>
+                    </div>
+                    <div class="{{ $theme['badge'] }}">
+                        <x-filament::icon icon="heroicon-o-archive-box-x-mark" class="{{ $theme['badgeIcon'] }}" />
+                        <span class="tabular-nums">{{ number_format($this->totalTrashed) }}</span>
+                        <span class="{{ $theme['badgeText'] }}">{{ __('total') }}</span>
+                    </div>
+                </div>
+
+                <div class="mt-5 grid gap-3 sm:grid-cols-3">
+                    <div class="{{ $theme['stat'] }}">
+                        <div class="flex items-center gap-2">
+                            <x-filament::icon icon="heroicon-o-circle-stack" class="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Main records') }}</p>
+                        </div>
+                        <p class="mt-1.5 text-xl font-semibold tabular-nums text-gray-950 dark:text-white">
+                            {{ number_format(\App\Filament\Pages\RecycleBin::primaryTrashedTotal()) }}
+                        </p>
+                    </div>
+                    <div class="{{ $theme['stat'] }}">
+                        <div class="flex items-center gap-2">
+                            <x-filament::icon icon="heroicon-o-link" class="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Related records') }}</p>
+                        </div>
+                        <p class="mt-1.5 text-xl font-semibold tabular-nums text-gray-950 dark:text-white">
+                            {{ number_format($this->totalTrashed - \App\Filament\Pages\RecycleBin::primaryTrashedTotal()) }}
+                        </p>
+                    </div>
+                    <div class="{{ $theme['stat'] }}">
+                        <div class="flex items-center gap-2">
+                            <x-filament::icon icon="heroicon-o-list-bullet" class="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Shown on this page') }}</p>
+                        </div>
+                        <p class="mt-1.5 text-xl font-semibold tabular-nums text-gray-950 dark:text-white">
+                            {{ number_format($this->trashedPaginator->count()) }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <x-filament::section>
+                <x-slot name="heading">{{ __('Deleted items') }}</x-slot>
+                <x-slot name="description">{{ __('Review, restore, or permanently remove records.') }}</x-slot>
+
+                <div class="{{ $theme['table'] }}">
                     <div class="overflow-x-auto">
                         <table class="w-full divide-y divide-gray-200 text-start text-sm dark:divide-white/10">
-                            <thead class="bg-gray-50 dark:bg-white/5">
+                            <thead class="{{ $theme['thead'] }}">
                                 <tr>
-                                    <th scope="col" class="px-4 py-3 font-semibold text-gray-950 dark:text-white">
+                                    <th scope="col" class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
                                         {{ __('Name') }}
                                     </th>
-                                    <th scope="col" class="hidden px-4 py-3 font-semibold text-gray-950 sm:table-cell dark:text-white">
+                                    <th scope="col" class="hidden px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-600 sm:table-cell dark:text-gray-300">
                                         {{ __('Original location') }}
                                     </th>
-                                    <th scope="col" class="hidden px-4 py-3 font-semibold text-gray-950 md:table-cell dark:text-white">
+                                    <th scope="col" class="hidden px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-600 md:table-cell dark:text-gray-300">
                                         {{ __('Date deleted') }}
                                     </th>
-                                    <th scope="col" class="px-4 py-3 text-end font-semibold text-gray-950 dark:text-white">
+                                    <th scope="col" class="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
                                         {{ __('Actions') }}
                                     </th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200 dark:divide-white/10">
                                 @foreach ($this->trashedPaginator as $row)
-                                    <tr
-                                        wire:key="trash-{{ $row['type'] }}-{{ $row['id'] }}"
-                                        class="transition hover:bg-gray-50/80 dark:hover:bg-white/5"
-                                    >
+                                    <tr wire:key="trash-{{ $row['type'] }}-{{ $row['id'] }}" class="{{ $theme['row'] }}">
                                         <td class="px-4 py-3 align-top">
+                                            <div class="mb-1 flex items-center gap-2">
+                                                <span class="{{ $theme['typeBadge'] }}">
+                                                    {{ $row['type_label'] }}
+                                                </span>
+                                            </div>
                                             <div class="font-medium text-gray-950 dark:text-white">
                                                 {{ $row['name'] }}
                                             </div>
@@ -70,20 +174,26 @@
                                         </td>
                                         <td class="hidden px-4 py-3 align-middle tabular-nums text-gray-600 md:table-cell dark:text-gray-400">
                                             @if ($row['deleted_at'])
-                                                <span title="{{ $row['deleted_at']->toIso8601String() }}">
-                                                    {{ $row['deleted_at']->timezone(config('app.timezone'))->format('M j, Y g:i A') }}
-                                                </span>
+                                                <div class="space-y-0.5">
+                                                    <span title="{{ $row['deleted_at']->toIso8601String() }}">
+                                                        {{ $row['deleted_at']->timezone(config('app.timezone'))->format('M j, Y g:i A') }}
+                                                    </span>
+                                                    <div class="text-xs text-gray-500 dark:text-gray-400">
+                                                        {{ $row['deleted_at']->diffForHumans() }}
+                                                    </div>
+                                                </div>
                                             @else
                                                 —
                                             @endif
                                         </td>
                                         <td class="px-4 py-3 align-middle">
-                                            <div class="flex flex-wrap items-center justify-end gap-2">
+                                            <div class="{{ $theme['actions'] }}">
                                                 @if (! empty($row['edit_url']))
                                                     <x-filament::button
                                                         color="gray"
                                                         size="sm"
                                                         outlined
+                                                        class="rounded-md min-w-[4.25rem]"
                                                         tag="a"
                                                         :href="$row['edit_url']"
                                                     >
@@ -93,7 +203,8 @@
                                                 <x-filament::button
                                                     color="success"
                                                     size="sm"
-                                                    wire:click="restoreItem('{{ $row['type'] }}', @js($row['id']))"
+                                                    class="rounded-md min-w-[4.25rem]"
+                                                    wire:click="restoreItem('{{ $row['type'] }}', '{{ (string) $row['id'] }}')"
                                                 >
                                                     {{ __('Restore') }}
                                                 </x-filament::button>
@@ -101,7 +212,8 @@
                                                     color="danger"
                                                     size="sm"
                                                     outlined
-                                                    wire:click="openPurgeModal('{{ $row['type'] }}', @js($row['id']))"
+                                                    class="rounded-md min-w-[7.5rem]"
+                                                    wire:click="openPurgeModal('{{ $row['type'] }}', '{{ (string) $row['id'] }}')"
                                                 >
                                                     {{ __('Delete forever') }}
                                                 </x-filament::button>
@@ -128,16 +240,16 @@
             <x-slot name="description">
                 {{ __('Jump to a list with the “Trashed” filter set to only deleted items.') }}
             </x-slot>
-            <ul class="divide-y divide-gray-200 rounded-xl border border-gray-200 dark:divide-white/10 dark:border-white/10">
+            <ul class="divide-y divide-gray-200 rounded-xl border border-gray-200 bg-white shadow-sm dark:divide-white/10 dark:border-white/10 dark:bg-gray-900">
                 @foreach ($this->links as $link)
-                    <li class="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                    <li class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 transition hover:bg-gray-50 dark:hover:bg-white/[0.03]">
                         <a
                             href="{{ $link['url'] }}"
-                            class="font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400"
+                            class="font-medium text-primary-600 hover:text-primary-500 hover:underline dark:text-primary-400"
                         >
                             {{ $link['label'] }}
                         </a>
-                        <span class="text-sm tabular-nums text-gray-500 dark:text-gray-400">
+                        <span class="inline-flex items-center rounded-md border border-gray-200 px-2 py-0.5 text-xs tabular-nums text-gray-600 dark:border-white/10 dark:text-gray-300">
                             {{ trans_choice(':count in bin|:count in bin', $link['count'], ['count' => $link['count']]) }}
                         </span>
                     </li>

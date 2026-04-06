@@ -333,7 +333,7 @@ class RecycleBin extends Page
     }
 
     /**
-     * @return Collection<int, array{type: string, id: int|string, name: string, location: string, deleted_at: \Illuminate\Support\Carbon|null, edit_url: ?string}>
+     * @return Collection<int, array{type: string, type_label: string, id: int|string, name: string, location: string, deleted_at: \Illuminate\Support\Carbon|null, edit_url: ?string}>
      */
     protected function collectTrashedItems(): Collection
     {
@@ -342,6 +342,7 @@ class RecycleBin extends Page
         $push = function (string $type, Model $model) use ($rows): void {
             $rows->push([
                 'type' => $type,
+                'type_label' => $this->rowTypeLabel($type),
                 'id' => $model->getKey(),
                 'name' => $this->rowLabel($type, $model),
                 'location' => $this->rowLocation($type, $model),
@@ -414,6 +415,28 @@ class RecycleBin extends Page
         };
     }
 
+    protected function rowTypeLabel(string $type): string
+    {
+        return match ($type) {
+            'booking' => __('Booking'),
+            'guest' => __('Guest'),
+            'room' => __('Room'),
+            'venue' => __('Venue'),
+            'staff' => __('Staff'),
+            'review' => __('Review'),
+            'contact' => __('Contact'),
+            'gallery' => __('Gallery'),
+            'blog_post' => __('Blog'),
+            'amenity' => __('Amenity'),
+            'bed_spec' => __('Bed spec'),
+            'blocked_date' => __('Blocked date'),
+            'payment' => __('Payment'),
+            'room_blocked' => __('Room blocked date'),
+            'venue_blocked' => __('Venue blocked date'),
+            default => __('Other'),
+        };
+    }
+
     protected function paymentLabel(Payment $payment): string
     {
         $payment->loadMissing('booking');
@@ -472,9 +495,9 @@ class RecycleBin extends Page
     {
         $base = $resourceClass::getUrl(panel: $panel);
         $query = http_build_query([
-            'filters' => [
+            'tableFilters' => [
                 'trashed' => [
-                    'value' => 0,
+                    'value' => 'only',
                 ],
             ],
         ]);
