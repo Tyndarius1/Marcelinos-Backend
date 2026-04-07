@@ -47,4 +47,10 @@ return [
         'cooldown_seconds' => (int) env('BOOKING_ACTION_OTP_COOLDOWN_SECONDS', 60),
     ],
 
+    'semaphore' => [
+        'api_key' => env('SEMAPHORE_API_KEY'),
+        'otp_url' => env('SEMAPHORE_OTP_URL', 'https://api.semaphore.co/api/v4/otp'),
+        'sender_name' => env('SEMAPHORE_SENDER_NAME'),
+    ],
+
 ];

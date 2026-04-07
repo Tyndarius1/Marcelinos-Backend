@@ -6,12 +6,14 @@ use App\Filament\Livewire\DatabaseNotifications as AppDatabaseNotifications;
 use App\Filament\Pages\AdminDashboard;
 use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\RecycleBin;
+use App\Filament\Pages\Settings;
 use App\Http\Middleware\EnsureAdminUser;
 use App\Http\Middleware\LogStaffPanelActions;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\MenuItem;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -51,6 +53,12 @@ class AdminPanelProvider extends PanelProvider
                 AdminDashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
+            ->userMenuItems([
+                MenuItem::make()
+                    ->label('Settings')
+                    ->icon('heroicon-o-cog-6-tooth')
+                    ->url(fn (): string => Settings::getUrl(panel: 'admin')),
+            ])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

@@ -44,6 +44,8 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Mail\Events\MessageSent;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
@@ -90,6 +92,7 @@ class AppServiceProvider extends ServiceProvider
 
         $this->registerAuthActivityListeners();
         $this->registerModelActivityListeners();
+        $this->registerCommunicationTrackingListeners();
 
         Event::listen(RecordCreated::class, RecordBookingWizardInitialPayment::class);
     }
@@ -179,6 +182,17 @@ class AppServiceProvider extends ServiceProvider
 
         Event::listen('eloquent.deleted: *', function (string $eventName, array $data): void {
             $this->logModelLifecycleEvent('deleted', $data[0] ?? null);
+        });
+    }
+
+    protected function registerCommunicationTrackingListeners(): void
+    {
+        Event::listen(MessageSent::class, function (): void {
+            $key = 'mail_sent_count_'.now()->toDateString();
+            $secondsUntilMidnight = max(60, now()->diffInSeconds(now()->copy()->endOfDay()));
+
+            $count = (int) Cache::get($key, 0);
+            Cache::put($key, $count + 1, $secondsUntilMidnight);
         });
     }
 
