@@ -38,10 +38,8 @@ Route::middleware([EnsureApiKeyIsValid::class])->group(function () {
         Route::post('/bookings/{booking:reference_number}/otp/send', [BookingController::class, 'sendBookingOtp'])
             ->middleware('throttle:booking_otp');
         Route::patch('/bookings/{booking:reference_number}/cancel', [BookingController::class, 'cancel']);
-        Route::get('bookings/receipt/{token}', [BookingController::class, 'showByReceiptToken'])
-            ->where('token', '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}');
+        Route::get('bookings/receipt/{token}', [BookingController::class, 'showByReceiptToken']);
         Route::post('bookings/receipt/{token}/review', [ReviewController::class, 'storeByReceiptToken'])
-            ->where('token', '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}')
             ->middleware('throttle:bookings');
         Route::get('bookings/reference/{reference}', [BookingController::class, 'showByReferenceNumber']);
         Route::post('bookings/reference/{reference}/review', [ReviewController::class, 'storeByBookingReference'])->middleware('throttle:bookings');
