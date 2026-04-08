@@ -475,10 +475,22 @@
                                                 class="relative"
                                                 x-data="{
                                                     open: false,
+                                                    payOpen: false,
+                                                    payId: {{ (int) $row['id'] }},
+                                                    cancelOpen: false,
+                                                    cancelId: {{ (int) $row['id'] }},
                                                     delOpen: false,
                                                     delVal: '',
                                                     delRef: @js($row['reference_number']),
                                                     delId: {{ (int) $row['id'] }},
+                                                    submitPayBalance() {
+                                                        $wire.payBalance(this.payId);
+                                                        this.payOpen = false;
+                                                    },
+                                                    submitCancel() {
+                                                        $wire.cancelBooking(this.cancelId);
+                                                        this.cancelOpen = false;
+                                                    },
                                                     submitDelete() {
                                                         $wire.deleteBooking(this.delId, this.delVal);
                                                         this.delOpen = false;
@@ -520,9 +532,7 @@
                                                     @if (($row['can_pay_balance'] ?? false) === true)
                                                         <button
                                                             type="button"
-                                                            wire:click="payBalance({{ $row['id'] }})"
-                                                            @click="open = false"
-                                                            onclick="return confirm('Are you sure you want to pay the remaining balance for this booking?')"
+                                                            @click="open = false; payOpen = true"
                                                             class="block w-full whitespace-nowrap px-3 py-1.5 text-left text-[13px] font-medium leading-5 text-sky-700 hover:bg-sky-50 dark:text-sky-300 dark:hover:bg-sky-500/10"
                                                         >
                                                             Pay Balance
@@ -554,12 +564,10 @@
                                                     @if (! in_array(($row['status'] ?? null), [Booking::STATUS_CANCELLED, Booking::STATUS_COMPLETED], true))
                                                         <button
                                                             type="button"
-                                                            wire:click="cancelBooking({{ $row['id'] }})"
-                                                            @click="open = false"
-                                                            onclick="return confirm('Cancel this booking?')"
+                                                            @click="open = false; cancelOpen = true"
                                                             class="block w-full whitespace-nowrap px-3 py-1.5 text-left text-[13px] font-medium leading-5 text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10"
                                                         >
-                                                            Cancel
+                                                            Cancel booking
                                                         </button>
                                                     @endif
 
@@ -571,6 +579,82 @@
                                                         Delete
                                                     </button>
                                                 </div>
+
+                                                <template x-teleport="body">
+                                                    <div
+                                                        x-show="payOpen"
+                                                        x-cloak
+                                                        class="fixed inset-0 z-[100] flex items-center justify-center p-4"
+                                                        style="display: none;"
+                                                    >
+                                                        <div class="absolute inset-0 bg-black/50" @click="payOpen = false"></div>
+                                                        <div
+                                                            class="relative z-10 w-full max-w-md rounded-xl border border-gray-200 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-gray-900"
+                                                            @click.stop
+                                                        >
+                                                            <h3 class="text-base font-semibold text-gray-900 dark:text-white">
+                                                                {{ __('Pay remaining balance') }}
+                                                            </h3>
+                                                            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                                                {{ __('Are you sure you want to record the remaining balance as paid for this booking?') }}
+                                                            </p>
+                                                            <div class="mt-4 flex justify-end gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    class="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5"
+                                                                    @click="payOpen = false"
+                                                                >
+                                                                    {{ __('No, go back') }}
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    class="rounded-lg bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700"
+                                                                    @click="submitPayBalance()"
+                                                                >
+                                                                    {{ __('Yes, mark as paid') }}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </template>
+
+                                                <template x-teleport="body">
+                                                    <div
+                                                        x-show="cancelOpen"
+                                                        x-cloak
+                                                        class="fixed inset-0 z-[100] flex items-center justify-center p-4"
+                                                        style="display: none;"
+                                                    >
+                                                        <div class="absolute inset-0 bg-black/50" @click="cancelOpen = false"></div>
+                                                        <div
+                                                            class="relative z-10 w-full max-w-md rounded-xl border border-gray-200 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-gray-900"
+                                                            @click.stop
+                                                        >
+                                                            <h3 class="text-base font-semibold text-gray-900 dark:text-white">
+                                                                {{ __('Cancel booking') }}
+                                                            </h3>
+                                                            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                                                {{ __('Are you sure you want to cancel this booking? This will update its status to Cancelled.') }}
+                                                            </p>
+                                                            <div class="mt-4 flex justify-end gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    class="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5"
+                                                                    @click="cancelOpen = false"
+                                                                >
+                                                                    {{ __('No, keep booking') }}
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    class="rounded-lg bg-rose-600 px-3 py-2 text-sm font-medium text-white hover:bg-rose-700"
+                                                                    @click="submitCancel()"
+                                                                >
+                                                                    {{ __('Yes, cancel booking') }}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </template>
 
                                                 <template x-teleport="body">
                                                     <div
