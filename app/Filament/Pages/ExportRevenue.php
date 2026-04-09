@@ -38,6 +38,13 @@ class ExportRevenue extends Page
      */
     public int $revenueYear;
 
+    public static function canAccess(): bool
+    {
+        $user = auth()->user();
+
+        return $user?->hasPrivilege('view_export_revenue') ?? false;
+    }
+
     public function mount(): void
     {
         $this->revenueYear = (int) now()->year;

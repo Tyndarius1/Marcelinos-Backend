@@ -68,8 +68,28 @@ class StaffForm
                     CheckboxList::make('permissions')
                         ->label('Allowed actions')
                         ->options(User::staffPrivilegeOptions())
-                        ->columns(2)
-                        ->bulkToggleable(),
+                        ->default([])
+                        ->rules([
+                            'array',
+                            fn (): \Closure => function ($attribute, $value, $fail): void {
+                                $value = is_array($value) ? $value : [];
+                                $allowed = array_keys(User::staffPrivilegeOptions());
+
+                                foreach ($value as $selected) {
+                                    if (! is_string($selected)) {
+                                        $fail('Invalid permission value.');
+                                        return;
+                                    }
+
+                                    if (! in_array($selected, $allowed, true)) {
+                                        $fail('One or more selected permissions are invalid.');
+                                        return;
+                                    }
+                                }
+                            },
+                        ])
+                        ->columns(3)
+                        ->searchable(),
                 ]),
         ]);
     }

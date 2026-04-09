@@ -23,6 +23,13 @@ class GuestDemographics extends Page
     public ?string $overviewStart = null; // Y-m-d
     public ?string $overviewEnd = null;   // Y-m-d
 
+    public static function canAccess(): bool
+    {
+        $user = auth()->user();
+
+        return $user?->hasPrivilege('view_guest_demographics') ?? false;
+    }
+
     public function mount(): void
     {
         $this->setOverviewPresetDefaults($this->overviewPreset);

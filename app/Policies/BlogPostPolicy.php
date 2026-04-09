@@ -9,32 +9,32 @@ class BlogPostPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasPrivilege('manage_galleries');
+        return $user->hasPrivilege('manage_blog_posts');
     }
 
     public function view(User $user, BlogPost $blogPost): bool
     {
-        return $user->hasPrivilege('manage_galleries');
+        return $user->hasPrivilege('manage_blog_posts');
     }
 
     public function create(User $user): bool
     {
-        return $user->hasPrivilege('manage_galleries');
+        return $user->hasPrivilege('manage_blog_posts');
     }
 
     public function update(User $user, BlogPost $blogPost): bool
     {
-        return $user->hasPrivilege('manage_galleries');
+        return $user->hasPrivilege('manage_blog_posts');
     }
 
     public function delete(User $user, BlogPost $blogPost): bool
     {
-        return $user->hasPrivilege('manage_galleries');
+        return $user->hasPrivilege('manage_blog_posts');
     }
 
     public function restore(User $user, BlogPost $blogPost): bool
     {
-        return $user->hasPrivilege('manage_galleries');
+        return $user->hasPrivilege('manage_blog_posts');
     }
 
     public function forceDelete(User $user, BlogPost $blogPost): bool

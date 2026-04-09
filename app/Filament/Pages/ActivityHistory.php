@@ -37,9 +37,9 @@ class ActivityHistory extends Page
 
     public static function canAccess(): bool
     {
-        $role = strtolower(trim((string) (auth()->user()?->role ?? '')));
+        $user = auth()->user();
 
-        return $role === 'admin';
+        return $user?->hasPrivilege('manage_activity_logs') ?? false;
     }
 
     public function getTimelineGroupsProperty(): Collection
