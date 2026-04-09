@@ -14,15 +14,15 @@ class CancelPendingBookings extends Command
      * @var string
      */
     protected $signature = 'bookings:cancel-unpaid
-                            {--days=3 : Auto-cancel unpaid bookings older than this many days}
-                            {--before= : Optional cutoff datetime; defaults to now}';
+                            {--days=3 : Days from booking creation for legacy unpaid rules (see Booking::isExpiredUnpaid)}
+                            {--before= : Optional evaluation time; defaults to now}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Auto-cancel unpaid bookings that exceed the unpaid time window';
+    protected $description = 'Evaluate all unpaid bookings and cancel those that exceed Booking::isExpiredUnpaid (e.g. check-in day 12:00 Manila, legacy 3-day rule)';
 
     /**
      * Execute the console command.
@@ -34,24 +34,24 @@ class CancelPendingBookings extends Command
         $before = $this->option('before')
             ? Carbon::parse($this->option('before'))
             : now();
-        $cutoff = $before->copy()->subDays($days);
-
-        $bookings = Booking::query()
-            ->where('status', Booking::STATUS_UNPAID)
-            ->where('created_at', '<=', $cutoff)
-            ->get();
 
         $count = 0;
-        foreach ($bookings as $booking) {
-            if ($booking->expireIfUnpaidExceededRule($before, $days)) {
-                $count++;
-            }
-        }
+
+        Booking::query()
+            ->where('status', Booking::STATUS_UNPAID)
+            ->orderBy('id')
+            ->chunkById(100, function ($bookings) use (&$count, $before, $days): void {
+                foreach ($bookings as $booking) {
+                    if ($booking->expireIfUnpaidExceededRule($before, $days)) {
+                        $count++;
+                    }
+                }
+            });
 
         if ($count > 0) {
-            $this->info("Cancelled {$count} unpaid booking(s) older than {$days} day(s).");
+            $this->info("Cancelled {$count} unpaid booking(s) that exceeded the unpaid policy (evaluated at {$before->toIso8601String()}).");
         } else {
-            $this->comment("No unpaid bookings older than {$days} day(s).");
+            $this->comment('No unpaid bookings matched the cancel policy at this run.');
         }
 
         return self::SUCCESS;

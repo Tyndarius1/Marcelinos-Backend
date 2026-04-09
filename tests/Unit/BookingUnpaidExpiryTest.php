@@ -45,6 +45,23 @@ class BookingUnpaidExpiryTest extends TestCase
         $this->assertTrue($booking->isExpiredUnpaid($afterNoon));
     }
 
+    /**
+     * Short-lead booking (created the day before check-in): still expires after check-in day noon.
+     * The cancel-unpaid command must evaluate all unpaid rows so this is not skipped by a created_at cutoff.
+     */
+    #[Test]
+    public function check_in_day_expires_after_noon_when_booking_created_one_day_before_check_in(): void
+    {
+        $booking = new Booking([
+            'status' => Booking::STATUS_UNPAID,
+        ]);
+        $booking->created_at = self::manila('2026-04-14 10:00:00');
+        $booking->check_in = self::manila('2026-04-15 14:00:00');
+
+        $this->assertFalse($booking->isExpiredUnpaid(self::manila('2026-04-15 11:00:00')));
+        $this->assertTrue($booking->isExpiredUnpaid(self::manila('2026-04-15 13:00:00')));
+    }
+
     #[Test]
     public function messenger_path_omits_unpaid_expires_at_for_receipt(): void
     {
