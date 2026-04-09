@@ -35,8 +35,7 @@ class GuestForm
                 TextInput::make('contact_num')->required(),
                 TextInput::make('email')
                     ->required()
-                    ->email()
-                    ->unique(ignoreRecord: true),
+                    ->email(),
                 Select::make('gender')
                     ->options(Guest::genderOptions())
                     ->required(),
