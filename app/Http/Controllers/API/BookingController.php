@@ -14,6 +14,7 @@ use App\Services\BookingActionOtpService;
 use App\Support\BookingPricing;
 use App\Support\RoomInventoryGroupAvailability;
 use App\Support\RoomInventoryGroupKey;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -142,7 +143,7 @@ class BookingController extends Controller
         }
     }
 
-    private function jsonReceiptForBooking(Booking $booking): \Illuminate\Http\JsonResponse
+    private function jsonReceiptForBooking(Booking $booking): JsonResponse
     {
         $this->expireIfNeeded($booking);
 
@@ -158,6 +159,7 @@ class BookingController extends Controller
             'booking' => $bookingPayload,
             'unpaid_expires_at' => $bookingPayload->unpaidExpiresAt()?->toIso8601String(),
             'unpaid_expiry_days' => Booking::UNPAID_EXPIRY_DAYS,
+            'use_messenger_deposit_instructions' => $bookingPayload->useMessengerDepositInstructions(),
             'down_payment_notice_applies' => $bookingPayload->downPaymentNoticeApplies(),
             'down_payment_notice_min_lead_days' => Booking::DOWN_PAYMENT_NOTICE_MIN_LEAD_DAYS,
             'qr_code_url' => $filename ? url("/qr-image/{$filename}") : null,
@@ -325,7 +327,7 @@ class BookingController extends Controller
      * Room stays: check-in 12:00 PM, check-out 10:00 AM (local) on the selected calendar dates.
      * Venue-only: full-day window (start of first day → end of last day) for availability overlap.
      *
-     * @return array{0: \Illuminate\Support\Carbon, 1: \Illuminate\Support\Carbon}
+     * @return array{0: Carbon, 1: Carbon}
      */
     private function bookingWindowForStorage(bool $hasRoomComponent, Carbon $checkInDate, Carbon $checkOutDate): array
     {
@@ -346,7 +348,7 @@ class BookingController extends Controller
      * Validate each room line against catalogue (type + spec key + rate) and remaining capacity
      * for the stay window (room_lines + assigned rooms on other bookings). Staff still pick concrete rooms.
      */
-    private function validateGuestRoomLines(array $roomLines, Carbon $checkIn, Carbon $checkOut, ?int $excludeBookingId): ?\Illuminate\Http\JsonResponse
+    private function validateGuestRoomLines(array $roomLines, Carbon $checkIn, Carbon $checkOut, ?int $excludeBookingId): ?JsonResponse
     {
         foreach ($roomLines as $line) {
             $type = $line['room_type'];
