@@ -196,6 +196,58 @@ class Booking extends Model
      */
     const DOWN_PAYMENT_NOTICE_MIN_LEAD_DAYS = 4;
 
+    /** Unpaid settlement deadline on the check-in calendar day (Asia/Manila). */
+    const CHECK_IN_UNPAID_DEADLINE_HOUR = 12;
+
+    public static function timezoneManila(): string
+    {
+        return 'Asia/Manila';
+    }
+
+    /**
+     * Check-in calendar date in Manila is strictly after "today" in Manila (receipt: messenger instructions).
+     */
+    public function isCheckInStrictlyAfterTodayManila(?Carbon $at = null): bool
+    {
+        if (! $this->check_in) {
+            return false;
+        }
+        $at = $at ?? now();
+        $tz = self::timezoneManila();
+        $checkInDay = $this->check_in->copy()->timezone($tz)->startOfDay();
+        $today = $at->copy()->timezone($tz)->startOfDay();
+
+        return $checkInDay->gt($today);
+    }
+
+    /**
+     * Whether the billing statement should show Messenger settlement (30% deposit, no 3-day deadline line).
+     *
+     * Same-day check-in (check-in date is today in Manila) does not use this path — those bookings follow
+     * the legacy 3-day / same-day unpaid rules instead.
+     */
+    public function useMessengerDepositInstructions(?Carbon $at = null): bool
+    {
+        return $this->isCheckInStrictlyAfterTodayManila($at);
+    }
+
+    /**
+     * 12:00 PM Asia/Manila on the check-in calendar day (used for unpaid auto-cancel when not "future-only").
+     */
+    public function checkInDayNoonManila(): ?Carbon
+    {
+        if (! $this->check_in) {
+            return null;
+        }
+        $tz = self::timezoneManila();
+
+        return $this->check_in->copy()->timezone($tz)->setTime(
+            self::CHECK_IN_UNPAID_DEADLINE_HOUR,
+            0,
+            0,
+        );
+    }
+
     public static function statusOptions(): array
     {
         return [
@@ -210,11 +262,16 @@ class Booking extends Model
     }
 
     /**
-     * The moment an unpaid booking should be auto-cancelled.
+     * The moment shown as "deposit due by" on the receipt (3-day-from-booking rule).
+     * Null when check-in is strictly after today (Manila) — Messenger path has no fixed deadline date.
      */
     public function unpaidExpiresAt(?int $days = null): ?Carbon
     {
         if (! $this->created_at) {
+            return null;
+        }
+
+        if ($this->useMessengerDepositInstructions()) {
             return null;
         }
 
@@ -248,6 +305,11 @@ class Booking extends Model
 
     /**
      * True when booking is still unpaid and already past the unpaid expiry window.
+     *
+     * - Check-in calendar day is in the future (Manila): not expired until check-in day noon.
+     * - Check-in is today (Manila): expired at or after 12:00 Manila that day (or legacy 3-day before noon when same calendar day as booking).
+     * - Check-in is before today (Manila): expired.
+     * - Otherwise: legacy created_at + N days at 12:00.
      */
     public function isExpiredUnpaid(?Carbon $at = null, ?int $days = null): bool
     {
@@ -255,12 +317,39 @@ class Booking extends Model
             return false;
         }
 
-        $expiresAt = $this->unpaidExpiresAt($days);
-        if (! $expiresAt) {
+        if (! $this->check_in || ! $this->created_at) {
             return false;
         }
 
-        return $expiresAt->lte($at ?? now());
+        $at = $at ?? now();
+        $tz = self::timezoneManila();
+        $checkInStart = $this->check_in->copy()->timezone($tz)->startOfDay();
+        $todayStart = $at->copy()->timezone($tz)->startOfDay();
+
+        if ($checkInStart->lt($todayStart)) {
+            return true;
+        }
+
+        if ($checkInStart->gt($todayStart)) {
+            return false;
+        }
+
+        $noon = $this->checkInDayNoonManila();
+        if ($noon && $at->gte($noon)) {
+            return true;
+        }
+
+        $createdDay = $this->created_at->copy()->timezone($tz)->startOfDay();
+        if ($checkInStart->gt($createdDay)) {
+            return false;
+        }
+
+        $expiresAt = $this->created_at
+            ->copy()
+            ->addDays($days ?? self::UNPAID_EXPIRY_DAYS)
+            ->setTime(12, 0, 0);
+
+        return $expiresAt->lte($at);
     }
 
     /**
