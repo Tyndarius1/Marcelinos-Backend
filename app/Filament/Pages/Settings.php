@@ -8,6 +8,7 @@ use Filament\Pages\Page;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class Settings extends Page
 {
@@ -251,12 +252,37 @@ class Settings extends Page
             return;
         }
 
+        $apiHash = md5($this->semaphoreApiKey);
+        $cooldownKey = "semaphore_connectivity_test_cooldown_{$apiHash}";
+        if (! Cache::add($cooldownKey, 1, now()->addSeconds(20))) {
+            Notification::make()
+                ->title('Please wait')
+                ->body('SMS connectivity test is cooling down to avoid rate limits.')
+                ->info()
+                ->send();
+            return;
+        }
+
         try {
             $response = Http::timeout(10)->get('https://api.semaphore.co/api/v4/account', [
                 'apikey' => $this->semaphoreApiKey,
             ]);
 
             if (! $response->successful()) {
+                if ($response->status() === 429) {
+                    $retryAfter = $this->parseRetryAfterSeconds($response->header('Retry-After'));
+                    $until = now()->addSeconds($retryAfter);
+                    Cache::put("semaphore_rate_limited_until_{$apiHash}", $until->timestamp, $until);
+
+                    Notification::make()
+                        ->title('Semaphore rate limited')
+                        ->body('Too many requests. Try again in ~'.$retryAfter.'s.')
+                        ->warning()
+                        ->send();
+
+                    return;
+                }
+
                 Notification::make()
                     ->title('Semaphore connectivity failed')
                     ->body('HTTP '.$response->status())
@@ -295,10 +321,14 @@ class Settings extends Page
         }
 
         if (! str_starts_with(strtolower($this->smsHealth), 'online')) {
+            $smsLevel = Str::contains(strtolower($this->smsHealth), ['rate limit', 'rate-limited', 'throttle'])
+                ? 'warning'
+                : 'danger';
+
             $alerts[] = [
                 'title' => 'SMS service issue',
                 'detail' => $this->smsHealth,
-                'level' => 'danger',
+                'level' => $smsLevel,
             ];
         }
 
@@ -407,9 +437,15 @@ class Settings extends Page
             $apiHash = md5($this->semaphoreApiKey);
             $today = now()->toDateString();
 
+            $rateLimitedUntil = Cache::get("semaphore_rate_limited_until_{$apiHash}");
+            if (is_numeric($rateLimitedUntil) && (int) $rateLimitedUntil > now()->timestamp) {
+                $this->applyCachedSmsSnapshot($apiHash, $today);
+                return 'Rate limited (retry soon)';
+            }
+
             $accountPayload = Cache::remember(
                 "semaphore_account_{$apiHash}",
-                now()->addSeconds(45),
+                now()->addMinutes(5),
                 function (): array {
                     $response = Http::timeout(10)
                         ->get('https://api.semaphore.co/api/v4/account', [
@@ -419,12 +455,22 @@ class Settings extends Page
                     return [
                         'ok' => $response->successful(),
                         'status' => $response->status(),
+                        'retry_after' => $this->parseRetryAfterSeconds($response->header('Retry-After')),
                         'data' => $response->successful() ? $response->json() : null,
                     ];
                 }
             );
 
             if (! ($accountPayload['ok'] ?? false)) {
+                if ((int) ($accountPayload['status'] ?? 0) === 429) {
+                    $retryAfter = (int) ($accountPayload['retry_after'] ?? 60);
+                    $until = now()->addSeconds(max(15, $retryAfter));
+                    Cache::put("semaphore_rate_limited_until_{$apiHash}", $until->timestamp, $until);
+
+                    $this->applyCachedSmsSnapshot($apiHash, $today);
+                    return 'Rate limited (HTTP 429)';
+                }
+
                 $this->smsCredits = null;
                 $this->smsSentToday = 0;
 
@@ -433,10 +479,11 @@ class Settings extends Page
 
             $account = is_array($accountPayload['data'] ?? null) ? $accountPayload['data'] : [];
             $this->smsCredits = isset($account['credit_balance']) ? (float) $account['credit_balance'] : null;
+            Cache::put("semaphore_last_ok_account_{$apiHash}", ['credits' => $this->smsCredits], now()->addHours(6));
 
             $messagesPayload = Cache::remember(
                 "semaphore_messages_{$apiHash}_{$today}",
-                now()->addSeconds(30),
+                now()->addMinutes(2),
                 function () use ($today): array {
                     $response = Http::timeout(10)
                         ->get('https://api.semaphore.co/api/v4/messages', [
@@ -448,13 +495,25 @@ class Settings extends Page
 
                     return [
                         'ok' => $response->successful(),
+                        'status' => $response->status(),
+                        'retry_after' => $this->parseRetryAfterSeconds($response->header('Retry-After')),
                         'data' => $response->successful() ? $response->json() : null,
                     ];
                 }
             );
 
+            if (! ($messagesPayload['ok'] ?? false) && (int) ($messagesPayload['status'] ?? 0) === 429) {
+                $retryAfter = (int) ($messagesPayload['retry_after'] ?? 60);
+                $until = now()->addSeconds(max(15, $retryAfter));
+                Cache::put("semaphore_rate_limited_until_{$apiHash}", $until->timestamp, $until);
+
+                $this->applyCachedSmsSnapshot($apiHash, $today);
+                return 'Rate limited (HTTP 429)';
+            }
+
             $messages = $messagesPayload['data'] ?? null;
             $this->smsSentToday = is_array($messages) ? count($messages) : 0;
+            Cache::put("semaphore_last_ok_sent_today_{$apiHash}_{$today}", $this->smsSentToday, now()->addHours(6));
 
             return 'Online';
         } catch (\Throwable) {
@@ -462,6 +521,40 @@ class Settings extends Page
             $this->smsSentToday = 0;
 
             return 'Offline';
+        }
+    }
+
+    private function applyCachedSmsSnapshot(string $apiHash, string $today): void
+    {
+        $account = Cache::get("semaphore_last_ok_account_{$apiHash}");
+        if (is_array($account) && array_key_exists('credits', $account)) {
+            $this->smsCredits = is_numeric($account['credits']) ? (float) $account['credits'] : null;
+        } else {
+            $this->smsCredits = null;
+        }
+
+        $sentToday = Cache::get("semaphore_last_ok_sent_today_{$apiHash}_{$today}");
+        $this->smsSentToday = is_numeric($sentToday) ? (int) $sentToday : 0;
+    }
+
+    private function parseRetryAfterSeconds(?string $retryAfterHeader): int
+    {
+        $value = trim((string) $retryAfterHeader);
+
+        if ($value === '') {
+            return 60;
+        }
+
+        if (ctype_digit($value)) {
+            return max(15, min(3600, (int) $value));
+        }
+
+        try {
+            $parsed = \Carbon\Carbon::parse($value);
+            $diff = now()->diffInSeconds($parsed, false);
+            return max(15, min(3600, $diff > 0 ? $diff : 60));
+        } catch (\Throwable) {
+            return 60;
         }
     }
 
