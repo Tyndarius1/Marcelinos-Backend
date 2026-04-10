@@ -566,7 +566,14 @@ class BookingsTable
                         ->visible(fn (Booking $record) => $record->guest?->email !== null)
                         ->action(function (Booking $record) {
                             if ($record->guest?->email) {
-                                \Illuminate\Support\Facades\Mail::to($record->guest->email)->send(new \App\Mail\BookingCreated($record));
+                                $mail = \Illuminate\Support\Facades\Mail::to($record->guest->email);
+                                $bookingCcAddress = config('mail.booking_cc_address');
+
+                                if (filled($bookingCcAddress)) {
+                                    $mail->cc($bookingCcAddress);
+                                }
+
+                                $mail->send(new \App\Mail\BookingCreated($record));
                             }
                         }),
                 ])

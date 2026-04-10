@@ -53,7 +53,14 @@ class SendBookingReminders extends Command
 
                 $this->info("Sending reminder to: {$booking->guest->email} for booking ID {$booking->id}");
 
-                Mail::to($booking->guest->email)->send(new BookingReminderMail($booking));
+                $mail = Mail::to($booking->guest->email);
+                $bookingCcAddress = config('mail.booking_cc_address');
+
+                if (filled($bookingCcAddress)) {
+                    $mail->cc($bookingCcAddress);
+                }
+
+                $mail->send(new BookingReminderMail($booking));
 
                 $booking->update([
                     'reminder_sent' => true,

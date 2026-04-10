@@ -25,7 +25,14 @@ class SendBookingConfirmation implements ShouldQueue
         $this->booking->loadMissing('guest');
 
         if ($this->booking->guest && $this->booking->guest->email) {
-            Mail::to($this->booking->guest->email)->send(new BookingCreated($this->booking));
+            $mail = Mail::to($this->booking->guest->email);
+            $bookingCcAddress = config('mail.booking_cc_address');
+
+            if (filled($bookingCcAddress)) {
+                $mail->cc($bookingCcAddress);
+            }
+
+            $mail->send(new BookingCreated($this->booking));
         }
     }
 }

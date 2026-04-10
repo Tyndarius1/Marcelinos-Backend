@@ -63,8 +63,14 @@ class Booking extends Model
 
             $booking->loadMissing('guest');
             if ($booking->guest && $booking->guest->email) {
-                Mail::to($booking->guest->email)
-                    ->send(new BookingCreated($booking));
+                $mail = Mail::to($booking->guest->email);
+                $bookingCcAddress = config('mail.booking_cc_address');
+
+                if (filled($bookingCcAddress)) {
+                    $mail->cc($bookingCcAddress);
+                }
+
+                $mail->send(new BookingCreated($booking));
             }
         });
 
