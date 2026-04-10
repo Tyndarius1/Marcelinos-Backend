@@ -17,19 +17,30 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        User::factory()->create([
-            'name' => 'MWA-ADMIN-001',
-            'email' => 'a@a.com',
-            'password' => bcrypt('admin123'),
-            'role' => 'admin',
+        $this->call([
+            AmenitySeeder::class,
+            BedSpecificationSeeder::class,
+            RoomSeeder::class,
+            VenueSeeder::class,
         ]);
 
-        User::factory()->create([
-            'name' => 'MWA-STAFF-001',
-            'email' => 's@s.com',
-            'password' => bcrypt('staff123'),
-            'role' => 'staff',
-        ]);
+        User::query()->updateOrCreate(
+            ['email' => 'a@a.com'],
+            [
+                'name' => 'MWA-ADMIN-001',
+                'password' => bcrypt('admin123'),
+                'role' => 'admin',
+            ]
+        );
+
+        User::query()->updateOrCreate(
+            ['email' => 's@s.com'],
+            [
+                'name' => 'MWA-STAFF-001',
+                'password' => bcrypt('staff123'),
+                'role' => 'staff',
+            ]
+        );
 
     }
 }
