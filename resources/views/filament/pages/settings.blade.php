@@ -50,6 +50,7 @@
                     'actions' => 'ACTIONS',
                     'email' => 'EMAIL CONFIG',
                     'sms' => 'SMS CONFIG',
+                    'maintenance' => 'MAINTENANCE',
                 ] as $tabKey => $tabLabel)
                     <button type="button"
                         wire:click="setTab('{{ $tabKey }}')"
@@ -309,6 +310,102 @@
                         </div>
                     @endforeach
                 </div>
+            </x-filament::section>
+        @endif
+
+        @if ($this->activeTab === 'maintenance')
+            <x-filament::section icon="heroicon-m-wrench" icon-color="danger" heading="Website Maintenance Mode">
+                <x-slot name="description">
+                    Configure the public maintenance page shown in the frontend while maintenance mode is enabled.
+                </x-slot>
+
+                <div class="mb-4 flex gap-2">
+                    @if (! $this->editingMaintenance)
+                        <x-filament::button size="sm" wire:click="enableMaintenanceEdit">Edit Maintenance Settings</x-filament::button>
+                    @else
+                        <x-filament::button size="sm" color="gray" wire:click="cancelMaintenanceEdit">Cancel</x-filament::button>
+                        <x-filament::button size="sm" color="success" wire:click="saveMaintenanceSettings">Save Changes</x-filament::button>
+                    @endif
+                </div>
+
+                @if (! $this->editingMaintenance)
+                    <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-white/10 dark:bg-gray-900/40">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Maintenance Mode</p>
+                            <p class="mt-1 text-sm font-bold {{ $this->maintenanceModeEnabled ? 'text-success-700 dark:text-success-300' : 'text-gray-700 dark:text-gray-200' }}">
+                                {{ $this->maintenanceModeEnabled ? 'Enabled' : 'Disabled' }}
+                            </p>
+                        </div>
+                        <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-white/10 dark:bg-gray-900/40">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Estimated Return</p>
+                            <p class="mt-1 text-sm font-bold text-gray-900 dark:text-white">{{ $this->maintenanceEta !== '' ? $this->maintenanceEta : 'Not set' }}</p>
+                        </div>
+                    </div>
+                    <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                        Click <span class="font-semibold">Edit Maintenance Settings</span> to update title, description, and other maintenance page details.
+                    </p>
+                @else
+                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div class="md:col-span-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-white/10 dark:bg-gray-900/40">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Quick Presets</p>
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                <x-filament::button size="sm" color="gray" wire:click="applyMaintenancePreset('quick-fix')">Quick Fix (2 Hours)</x-filament::button>
+                                <x-filament::button size="sm" color="gray" wire:click="applyMaintenancePreset('scheduled-upgrade')">Scheduled Upgrade (1 Day)</x-filament::button>
+                                <x-filament::button size="sm" color="gray" wire:click="applyMaintenancePreset('emergency')">Emergency Notice</x-filament::button>
+                            </div>
+                        </div>
+
+                        <div class="md:col-span-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-white/10 dark:bg-gray-900/40">
+                            <label class="flex items-center gap-3 text-sm font-medium text-gray-800 dark:text-gray-100">
+                                <input
+                                    type="checkbox"
+                                    wire:model.defer="maintenanceModeEnabled"
+                                    class="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                />
+                                Enable maintenance mode
+                            </label>
+                            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                When enabled, website visitors in the frontend will see the maintenance page.
+                            </p>
+                        </div>
+
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Badge Text</label>
+                            <input
+                                type="text"
+                                wire:model.defer="maintenanceBadge"
+                                class="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900/70"
+                            />
+                        </div>
+
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Estimated Return (Optional)</label>
+                            <input
+                                type="text"
+                                wire:model.defer="maintenanceEta"
+                                class="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900/70"
+                            />
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Title</label>
+                            <input
+                                type="text"
+                                wire:model.defer="maintenanceTitle"
+                                class="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900/70"
+                            />
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Description</label>
+                            <textarea
+                                rows="4"
+                                wire:model.defer="maintenanceDescription"
+                                class="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900/70"
+                            ></textarea>
+                        </div>
+                    </div>
+                @endif
             </x-filament::section>
         @endif
     </div>

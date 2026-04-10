@@ -26,6 +26,8 @@ class Settings extends Page
 
     public bool $editingSms = false;
 
+    public bool $editingMaintenance = false;
+
     public string $mailHost = '';
 
     public string $mailPort = '';
@@ -74,6 +76,16 @@ class Settings extends Page
 
     public bool $showSmsApiKey = false;
 
+    public bool $maintenanceModeEnabled = false;
+
+    public string $maintenanceBadge = '';
+
+    public string $maintenanceTitle = '';
+
+    public string $maintenanceDescription = '';
+
+    public string $maintenanceEta = '';
+
     public function mount(): void
     {
         $this->loadFromEnv();
@@ -84,7 +96,7 @@ class Settings extends Page
 
     public function setTab(string $tab): void
     {
-        if (! in_array($tab, ['overview', 'actions', 'email', 'sms'], true)) {
+        if (! in_array($tab, ['overview', 'actions', 'email', 'sms', 'maintenance'], true)) {
             return;
         }
 
@@ -201,6 +213,99 @@ class Settings extends Page
             ->send();
 
         $this->showSmsApiKey = false;
+    }
+
+    public function enableMaintenanceEdit(): void
+    {
+        $this->editingMaintenance = true;
+    }
+
+    public function cancelMaintenanceEdit(): void
+    {
+        $this->editingMaintenance = false;
+        $this->loadFromEnv();
+    }
+
+    public function saveMaintenanceSettings(): void
+    {
+        if (! $this->editingMaintenance) {
+            return;
+        }
+
+        $this->validate([
+            'maintenanceModeEnabled' => ['required', 'boolean'],
+            'maintenanceBadge' => ['required', 'string', 'max:100'],
+            'maintenanceTitle' => ['required', 'string', 'max:150'],
+            'maintenanceDescription' => ['required', 'string', 'max:500'],
+            'maintenanceEta' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        EnvEditor::updateMany([
+            'MAINTENANCE_MODE_ENABLED' => $this->maintenanceModeEnabled ? 'true' : 'false',
+            'MAINTENANCE_MODE_BADGE' => $this->maintenanceBadge,
+            'MAINTENANCE_MODE_TITLE' => $this->maintenanceTitle,
+            'MAINTENANCE_MODE_DESCRIPTION' => $this->maintenanceDescription,
+            'MAINTENANCE_MODE_ETA' => $this->maintenanceEta,
+        ]);
+
+        Cache::forever('maintenance_mode_config', [
+            'enabled' => $this->maintenanceModeEnabled,
+            'badge' => $this->maintenanceBadge,
+            'title' => $this->maintenanceTitle,
+            'description' => $this->maintenanceDescription,
+            'eta' => $this->maintenanceEta,
+        ]);
+
+        $this->editingMaintenance = false;
+
+        Notification::make()
+            ->title('Maintenance settings saved')
+            ->success()
+            ->send();
+    }
+
+    public function applyMaintenancePreset(string $preset): void
+    {
+        if (! $this->editingMaintenance) {
+            return;
+        }
+
+        $presets = [
+            'quick-fix' => [
+                'badge' => 'Maintenance Update',
+                'title' => 'Quick Service Adjustment',
+                'description' => 'We are applying a quick system adjustment to improve performance. Please check back shortly.',
+                'eta' => now()->addHours(2)->format('M d, Y h:i A'),
+            ],
+            'scheduled-upgrade' => [
+                'badge' => 'Scheduled Maintenance',
+                'title' => 'Platform Upgrade in Progress',
+                'description' => 'Our team is rolling out planned platform improvements for better reliability and booking experience.',
+                'eta' => now()->addDay()->format('M d, Y'),
+            ],
+            'emergency' => [
+                'badge' => 'Service Notice',
+                'title' => 'Temporary Service Interruption',
+                'description' => 'We are addressing an unexpected issue and restoring services as quickly as possible.',
+                'eta' => 'To be announced',
+            ],
+        ];
+
+        if (! array_key_exists($preset, $presets)) {
+            return;
+        }
+
+        $selected = $presets[$preset];
+
+        $this->maintenanceBadge = $selected['badge'];
+        $this->maintenanceTitle = $selected['title'];
+        $this->maintenanceDescription = $selected['description'];
+        $this->maintenanceEta = $selected['eta'];
+
+        Notification::make()
+            ->title('Preset applied')
+            ->success()
+            ->send();
     }
 
     public function refreshHealth(): void
@@ -396,6 +501,12 @@ class Settings extends Page
         $this->semaphoreApiKey = (string) env('SEMAPHORE_API_KEY', '');
         $this->semaphoreOtpUrl = (string) env('SEMAPHORE_OTP_URL', 'https://api.semaphore.co/api/v4/otp');
         $this->semaphoreSenderName = (string) env('SEMAPHORE_SENDER_NAME', '');
+
+        $this->maintenanceModeEnabled = filter_var(env('MAINTENANCE_MODE_ENABLED', false), FILTER_VALIDATE_BOOLEAN);
+        $this->maintenanceBadge = (string) env('MAINTENANCE_MODE_BADGE', 'Scheduled Maintenance');
+        $this->maintenanceTitle = (string) env('MAINTENANCE_MODE_TITLE', 'We are improving your experience');
+        $this->maintenanceDescription = (string) env('MAINTENANCE_MODE_DESCRIPTION', 'Our website is currently under maintenance. Please check back again shortly.');
+        $this->maintenanceEta = (string) env('MAINTENANCE_MODE_ETA', '');
     }
 
     private function checkEmailHealth(): string
