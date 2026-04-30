@@ -349,8 +349,8 @@
             class="min-w-0 max-w-full"
             icon="heroicon-o-clock"
             icon-color="success"
-            :heading="__('Current active bookings')"
-            :description="__('Bookings overlapping today, excluding cancelled and completed. Includes Room, Venue, and Room + Venue bookings.')"
+            :heading="__('Current overlapping bookings')"
+            :description="__('Bookings overlapping today. Includes Room, Venue, and Room + Venue bookings.')"
         >
             @php
                 $activeRows = $this->activeBookingRows;
@@ -359,11 +359,11 @@
             <div class="space-y-3">
                 <div class="inline-flex w-fit items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700 ring-1 ring-gray-950/5 dark:bg-white/10 dark:text-gray-200 dark:ring-white/10">
                     <span class="tabular-nums">{{ $activeCount }}</span>
-                    <span class="ms-1">{{ $activeCount === 1 ? __('active booking') : __('active bookings') }}</span>
+                    <span class="ms-1">{{ $activeCount === 1 ? __('overlapping booking') : __('overlapping bookings') }}</span>
                 </div>
                 @if ($activeCount === 0)
                     <p class="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 px-4 py-6 text-sm text-gray-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-gray-300">
-                        {{ __('No active bookings for today.') }}
+                        {{ __('No overlapping bookings for today.') }}
                     </p>
                 @else
                     <ul class="space-y-3">
