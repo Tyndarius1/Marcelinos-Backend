@@ -410,6 +410,30 @@ class RoomCalendar extends Page
     }
 
     /**
+     * @return array<string, int>
+     */
+    #[Computed]
+    public function roomTypeCapacities(): array
+    {
+        $options = array_keys(Room::typeOptions());
+        $counts = Room::query()
+            ->where('status', '!=', Room::STATUS_MAINTENANCE)
+            ->whereIn('type', $options)
+            ->selectRaw('type, COUNT(*) as aggregate')
+            ->groupBy('type')
+            ->pluck('aggregate', 'type')
+            ->map(fn ($count) => (int) $count)
+            ->all();
+
+        $capacities = [];
+        foreach ($options as $type) {
+            $capacities[$type] = $counts[$type] ?? 0;
+        }
+
+        return $capacities;
+    }
+
+    /**
      * @return list<list<array{day: int|null, dateStr: string|null, inMonth: bool, typeCounts: array<string, int>}>>
      */
     #[Computed]
