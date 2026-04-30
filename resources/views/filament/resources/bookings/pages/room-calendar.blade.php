@@ -2,7 +2,6 @@
     use App\Models\Booking;
     use App\Models\Room;
     $legendItems = $this->calendarLegendItems;
-    $roomTypeCapacities = $this->roomTypeCapacities;
     $spreadsheetId = trim((string) config('services.google_sheets.spreadsheet_id', ''));
     $spreadsheetUrl = $spreadsheetId !== '' ? "https://docs.google.com/spreadsheets/d/{$spreadsheetId}/preview" : null;
     $reservationFilterLabels = [
