@@ -385,6 +385,9 @@ class BookingController extends Controller
             'down_payment_notice_min_lead_days' => Booking::DOWN_PAYMENT_NOTICE_MIN_LEAD_DAYS,
             'down_payment_percent' => $downPaymentPercent,
             'qr_code_url' => $filename ? url("/qr-image/{$filename}") : null,
+            'billing_token' => $bookingPayload->id !== null
+                ? Cache::get('booking.billing_token.'.(int) $bookingPayload->id)
+                : null,
             'billing_statement_pdf_url' => $billingStatementPdfUrl,
             'has_testimonial' => $hasTestimonial,
             'email_verification_required' => $pendingVerification,

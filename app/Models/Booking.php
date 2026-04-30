@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -233,7 +234,16 @@ class Booking extends Model
             'token_expires_at' => $expiresAt,
         ])->saveQuietly();
 
+        if ($this->id !== null) {
+            Cache::put($this->billingTokenCacheKey(), $rawToken, $expiresAt);
+        }
+
         return $rawToken;
+    }
+
+    public function billingTokenCacheKey(): string
+    {
+        return 'booking.billing_token.'.(int) $this->id;
     }
 
     /* ================= RELATIONSHIPS ================= */
