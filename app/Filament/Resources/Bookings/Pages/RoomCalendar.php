@@ -567,7 +567,7 @@ class RoomCalendar extends Page
 
         return Booking::query()
             ->overlappingCalendarInclusiveDisplay($today)
-            ->whereNotIn('booking_status', [Booking::BOOKING_STATUS_CANCELLED, Booking::BOOKING_STATUS_COMPLETED])
+            ->whereNotIn('booking_status', [Booking::BOOKING_STATUS_CANCELLED])
             ->with(['guest', 'rooms', 'roomLines', 'venues'])
             ->orderBy('check_in')
             ->get()
