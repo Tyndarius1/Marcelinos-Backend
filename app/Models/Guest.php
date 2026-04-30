@@ -146,10 +146,8 @@ class Guest extends Model
             if ($existingGuest->trashed()) {
                 $existingGuest->restore();
             }
-
-            $existingGuest->fill($validated);
-            $existingGuest->save();
-
+            // Reused-by-email guests act as identity records.
+            // Do not mutate profile fields from new booking payloads.
             return $existingGuest->fresh();
         }
 

@@ -40,6 +40,9 @@ class GuestEmailIdentityPolicyTest extends TestCase
 
         $this->assertSame($existing->id, $resolved->id);
         $this->assertSame(1, Guest::count());
+        $this->assertSame('Bryan', $resolved->first_name);
+        $this->assertSame('Dacera', $resolved->last_name);
+        $this->assertSame('09123456789', $resolved->contact_num);
     }
 
     public function test_manual_source_does_not_auto_reuse_by_email(): void
