@@ -3,10 +3,13 @@
 namespace App\Filament\Resources\Bookings\Pages;
 
 use App\Filament\Resources\Bookings\BookingResource;
+use App\Models\BlockedDate;
 use App\Models\Booking;
 use App\Models\Room;
+use App\Models\RoomBlockedDate;
 use App\Models\RoomChecklistItem;
 use App\Models\Venue;
+use App\Models\VenueBlockedDate;
 use App\Support\BookingCheckInEligibility;
 use App\Support\BookingFullBalancePayment;
 use App\Support\BookingLifecycleActions;
@@ -256,9 +259,52 @@ class RoomCalendar extends Page
         unset(
             $this->calendarLegendItems,
             $this->calendarWeeks,
+            $this->blockedDateSetForMonth,
             $this->activeBookingRows,
             $this->modalBookingRows
         );
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    #[Computed]
+    public function blockedDateSetForMonth(): array
+    {
+        $monthStart = Carbon::create(year: $this->year, month: $this->month, day: 1)->startOfDay();
+        $monthEnd = $monthStart->copy()->endOfMonth()->endOfDay();
+        $blockedDates = collect();
+
+        $globalBlocked = BlockedDate::query()
+            ->whereDate('date', '>=', $monthStart->toDateString())
+            ->whereDate('date', '<=', $monthEnd->toDateString())
+            ->pluck('date')
+            ->map(fn ($date) => Carbon::parse($date)->toDateString());
+        $blockedDates = $blockedDates->merge($globalBlocked);
+
+        if (in_array($this->reservationFilter, [self::RESERVATION_ROOM, self::RESERVATION_BOTH], true)) {
+            $roomBlocked = RoomBlockedDate::query()
+                ->whereDate('blocked_on', '>=', $monthStart->toDateString())
+                ->whereDate('blocked_on', '<=', $monthEnd->toDateString())
+                ->pluck('blocked_on')
+                ->map(fn ($date) => Carbon::parse($date)->toDateString());
+            $blockedDates = $blockedDates->merge($roomBlocked);
+        }
+
+        if (in_array($this->reservationFilter, [self::RESERVATION_VENUE, self::RESERVATION_BOTH], true)) {
+            $venueBlocked = VenueBlockedDate::query()
+                ->whereDate('blocked_on', '>=', $monthStart->toDateString())
+                ->whereDate('blocked_on', '<=', $monthEnd->toDateString())
+                ->pluck('blocked_on')
+                ->map(fn ($date) => Carbon::parse($date)->toDateString());
+            $blockedDates = $blockedDates->merge($venueBlocked);
+        }
+
+        return $blockedDates
+            ->filter(fn ($date) => is_string($date) && $date !== '')
+            ->unique()
+            ->mapWithKeys(fn (string $date) => [$date => true])
+            ->all();
     }
 
     /**
@@ -410,12 +456,13 @@ class RoomCalendar extends Page
     }
 
     /**
-     * @return list<list<array{day: int|null, dateStr: string|null, inMonth: bool, typeCounts: array<string, int>}>>
+     * @return list<list<array{day: int|null, dateStr: string|null, inMonth: bool, typeCounts: array<string, int>, isBlocked: bool}>>
      */
     #[Computed]
     public function calendarWeeks(): array
     {
         $counts = $this->bookingsCountByDateAndType();
+        $blockedDateSet = $this->blockedDateSetForMonth;
         $monthStart = Carbon::create(year: $this->year, month: $this->month, day: 1);
         $gridStart = $monthStart->copy()->startOfWeek(Carbon::SUNDAY);
         $monthEnd = $monthStart->copy()->endOfMonth();
@@ -434,6 +481,7 @@ class RoomCalendar extends Page
                     'dateStr' => $inMonth ? $dateStr : null,
                     'inMonth' => $inMonth,
                     'typeCounts' => $inMonth ? ($counts[$dateStr] ?? []) : [],
+                    'isBlocked' => $inMonth ? isset($blockedDateSet[$dateStr]) : false,
                 ];
                 $cursor->addDay();
             }

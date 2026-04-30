@@ -254,14 +254,16 @@
                                 $isWeekend = $dowIndex === 0 || $dowIndex === 6;
                                 $isToday =
                                     $cell['inMonth'] && ($cell['dateStr'] ?? null) === now()->toDateString();
+                                $isBlocked = (bool) ($cell['isBlocked'] ?? false);
                             @endphp
                             <div
                                 @class([
                                     'hidden sm:flex' => ! $cell['inMonth'],
                                     'flex min-h-[5.5rem] flex-col rounded-xl border p-2.5 transition-colors sm:min-h-[8.5rem]',
                                     'border-transparent bg-gray-100/40 dark:bg-white/[0.02]' => ! $cell['inMonth'],
-                                    'border-gray-200/90 bg-white shadow-sm dark:border-white/10 dark:bg-gray-950/40' => $cell['inMonth'] && ! $isWeekend,
-                                    'border-gray-200/90 bg-slate-50/90 shadow-sm dark:border-white/10 dark:bg-slate-950/35' => $cell['inMonth'] && $isWeekend,
+                                    'border-rose-500/90 bg-rose-600 shadow-sm text-white dark:border-rose-400/50 dark:bg-rose-700' => $cell['inMonth'] && $isBlocked,
+                                    'border-gray-200/90 bg-white shadow-sm dark:border-white/10 dark:bg-gray-950/40' => $cell['inMonth'] && ! $isWeekend && ! $isBlocked,
+                                    'border-gray-200/90 bg-slate-50/90 shadow-sm dark:border-white/10 dark:bg-slate-950/35' => $cell['inMonth'] && $isWeekend && ! $isBlocked,
                                     'ring-2 ring-primary-500/80 ring-offset-2 ring-offset-white dark:ring-primary-400/80 dark:ring-offset-gray-900' => $isToday,
                                 ])
                             >
@@ -272,53 +274,66 @@
                                                 @class([
                                                     'flex h-6 min-w-[1.5rem] items-center justify-center rounded-md text-xs font-bold tabular-nums sm:h-7 sm:min-w-[1.75rem] sm:rounded-lg sm:text-sm',
                                                     'bg-primary-600 text-white shadow-sm dark:bg-primary-500' => $isToday,
-                                                    'text-gray-900 dark:text-gray-100' => ! $isToday,
+                                                    'text-gray-900 dark:text-gray-100' => ! $isToday && ! $isBlocked,
+                                                    'bg-rose-700 text-white shadow-sm dark:bg-rose-800' => $isBlocked && ! $isToday,
                                                 ])
                                             >
                                                 {{ $cell['day'] }}
                                             </span>
-                                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:hidden">
+                                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:hidden {{ $isBlocked ? '!text-rose-100 dark:!text-rose-100' : '' }}">
                                                 {{ \Carbon\Carbon::parse($cell['dateStr'])->format('l') }}
                                             </span>
                                         </div>
+                                        @if ($isBlocked)
+                                            <span class="inline-flex items-center rounded-md bg-rose-900/35 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white ring-1 ring-inset ring-white/25">
+                                                {{ __('Blocked') }}
+                                            </span>
+                                        @endif
                                     </div>
                                     <div class="flex flex-wrap content-start gap-1.5 sm:min-h-0 sm:flex-1 sm:flex-col sm:gap-1">
-                                        @foreach ($legendItems as $type => $label)
-                                            @php $cnt = $cell['typeCounts'][$type] ?? 0; @endphp
-                                            @if ($cnt === 0)
-                                                @continue
-                                            @endif
-                                            <button
-                                                type="button"
-                                                wire:click="openDayType('{{ $cell['dateStr'] }}', '{{ $type }}')"
-                                                class="group w-full cursor-pointer appearance-none rounded-lg border-0 bg-transparent p-0 text-left shadow-none transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-900"
-                                            >
-                                                @if ($this->reservationFilter === 'venue')
-                                                    <span
-                                                        @class([
-                                                            'inline-flex w-full items-center justify-between rounded-lg px-2 py-1 text-[11px] font-medium ring-1 ring-inset transition',
-                                                            'bg-gradient-to-r from-sky-100 to-cyan-100 text-sky-900 ring-sky-600/25 shadow-sm dark:from-sky-500/20 dark:to-cyan-400/10 dark:text-sky-100 dark:ring-sky-400/30' => $cnt > 0,
-                                                        ])
-                                                    >
-                                                        <span class="inline-flex min-w-0 items-center gap-1.5 pe-2">
-                                                            <span class="h-1.5 w-1.5 rounded-full bg-sky-500 dark:bg-sky-300"></span>
-                                                            <span class="truncate">{{ $label }}</span>
-                                                        </span>
-                                                        <span class="inline-flex h-4 min-w-[1.1rem] items-center justify-center rounded-full bg-white/80 px-1 text-[10px] font-semibold tabular-nums text-sky-800 ring-1 ring-sky-700/10 dark:bg-sky-900/50 dark:text-sky-100 dark:ring-sky-300/20">
-                                                            {{ $cnt }}
-                                                        </span>
-                                                    </span>
-                                                @else
-                                                    <x-room-type-badge
-                                                        class="w-full"
-                                                        :type="$type"
-                                                        :muted="$cnt === 0"
-                                                        :count="$cnt"
-                                                        compact
-                                                    />
+                                        @if ($isBlocked)
+                                            <div class="mt-1 inline-flex w-full items-center justify-center rounded-lg bg-rose-900/30 px-2 py-2 text-center text-xs font-semibold uppercase tracking-wide text-rose-50 ring-1 ring-inset ring-white/20 sm:mt-auto">
+                                                {{ __('Unavailable for booking') }}
+                                            </div>
+                                        @else
+                                            @foreach ($legendItems as $type => $label)
+                                                @php $cnt = $cell['typeCounts'][$type] ?? 0; @endphp
+                                                @if ($cnt === 0)
+                                                    @continue
                                                 @endif
-                                            </button>
-                                        @endforeach
+                                                <button
+                                                    type="button"
+                                                    wire:click="openDayType('{{ $cell['dateStr'] }}', '{{ $type }}')"
+                                                    class="group w-full cursor-pointer appearance-none rounded-lg border-0 bg-transparent p-0 text-left shadow-none transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-900"
+                                                    title="{{ __('View bookings') }}"
+                                                >
+                                                    @if ($this->reservationFilter === 'venue')
+                                                        <span
+                                                            @class([
+                                                                'inline-flex w-full items-center justify-between rounded-lg px-2 py-1 text-[11px] font-medium ring-1 ring-inset transition',
+                                                                'bg-gradient-to-r from-sky-100 to-cyan-100 text-sky-900 ring-sky-600/25 shadow-sm dark:from-sky-500/20 dark:to-cyan-400/10 dark:text-sky-100 dark:ring-sky-400/30' => $cnt > 0,
+                                                            ])
+                                                        >
+                                                            <span class="inline-flex min-w-0 items-center gap-1.5 pe-2">
+                                                                <span class="h-1.5 w-1.5 rounded-full bg-sky-500 dark:bg-sky-300"></span>
+                                                                <span class="truncate">{{ $label }}</span>
+                                                            </span>
+                                                            <span class="inline-flex h-4 min-w-[1.1rem] items-center justify-center rounded-full bg-white/80 px-1 text-[10px] font-semibold tabular-nums text-sky-800 ring-1 ring-sky-700/10 dark:bg-sky-900/50 dark:text-sky-100 dark:ring-sky-300/20">
+                                                                {{ $cnt }}
+                                                            </span>
+                                                        </span>
+                                                    @else
+                                                        <x-room-type-badge
+                                                            class="w-full"
+                                                            :type="$type"
+                                                            :muted="$cnt === 0"
+                                                            :count="$cnt"
+                                                            compact
+                                                        />
+                                                    @endif
+                                                </button>
+                                            @endforeach
+                                        @endif
                                     </div>
                                 @endif
                             </div>
