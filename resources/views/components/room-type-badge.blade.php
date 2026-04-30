@@ -4,6 +4,7 @@
     'count' => null,
     'compact' => false,
     'hideLabelOnMobile' => false,
+    'fullyBooked' => false,
 ])
 
 @php
@@ -16,19 +17,23 @@
     ];
     $label = strtoupper($labels[$type] ?? (string) $type);
 
-    $outer = match ($type) {
-        Room::TYPE_STANDARD => 'rounded-lg bg-[#38523b] shadow-md shadow-black/30 ring-1 ring-white/10',
-        Room::TYPE_FAMILY => 'rounded-lg bg-[#3c513d] shadow-md shadow-black/30 ring-1 ring-white/10',
-        Room::TYPE_DELUXE => 'rounded-full bg-gradient-to-r from-[#9c7a42] via-[#b8924a] to-[#c5a467] shadow-md shadow-amber-950/35 ring-1 ring-amber-100/25',
-        default => 'rounded-lg bg-gray-700 shadow-md ring-1 ring-white/10',
-    };
+    $outer = $fullyBooked
+        ? 'rounded-lg bg-red-100 shadow-sm ring-1 ring-red-300/70 dark:bg-red-500/20 dark:ring-red-400/40'
+        : match ($type) {
+            Room::TYPE_STANDARD => 'rounded-lg bg-[#38523b] shadow-md shadow-black/30 ring-1 ring-white/10',
+            Room::TYPE_FAMILY => 'rounded-lg bg-[#3c513d] shadow-md shadow-black/30 ring-1 ring-white/10',
+            Room::TYPE_DELUXE => 'rounded-full bg-gradient-to-r from-[#9c7a42] via-[#b8924a] to-[#c5a467] shadow-md shadow-amber-950/35 ring-1 ring-amber-100/25',
+            default => 'rounded-lg bg-gray-700 shadow-md ring-1 ring-white/10',
+        };
 
-    $iconBox = match ($type) {
-        Room::TYPE_STANDARD => 'rounded-md bg-emerald-950/40 ring-1 ring-white/10',
-        Room::TYPE_FAMILY => 'rounded-md bg-emerald-950/35 ring-1 ring-white/10',
-        Room::TYPE_DELUXE => 'rounded-md bg-black/15 ring-1 ring-white/15',
-        default => 'rounded-md bg-black/20',
-    };
+    $iconBox = $fullyBooked
+        ? 'rounded-md bg-red-200/70 ring-1 ring-red-400/40 dark:bg-red-500/25 dark:ring-red-300/35'
+        : match ($type) {
+            Room::TYPE_STANDARD => 'rounded-md bg-emerald-950/40 ring-1 ring-white/10',
+            Room::TYPE_FAMILY => 'rounded-md bg-emerald-950/35 ring-1 ring-white/10',
+            Room::TYPE_DELUXE => 'rounded-md bg-black/15 ring-1 ring-white/15',
+            default => 'rounded-md bg-black/20',
+        };
 
     $mutedWrap = $muted
         ? 'opacity-[0.68] saturate-[0.6] brightness-[0.96]'
@@ -57,7 +62,10 @@
         @if ($type === Room::TYPE_STANDARD)
             {{-- BedDouble (Lucide-style outline) --}}
             <svg
-                @class([$compact ? 'h-3.5 w-3.5' : 'h-4 w-4', 'text-white'])
+                @class([
+                    $compact ? 'h-3.5 w-3.5' : 'h-4 w-4',
+                    $fullyBooked ? 'text-red-700 dark:text-red-100' : 'text-white',
+                ])
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -76,14 +84,17 @@
             <x-filament::icon
                 icon="heroicon-o-users"
                 @class([
-                    'text-white',
+                    $fullyBooked ? 'text-red-700 dark:text-red-100' : 'text-white',
                     $compact ? 'h-3.5 w-3.5' : 'h-4 w-4',
                 ])
             />
         @else
             {{-- Crown (Lucide-style outline) --}}
             <svg
-                @class([$compact ? 'h-3.5 w-3.5' : 'h-4 w-4', 'text-white'])
+                @class([
+                    $compact ? 'h-3.5 w-3.5' : 'h-4 w-4',
+                    $fullyBooked ? 'text-red-700 dark:text-red-100' : 'text-white',
+                ])
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -101,7 +112,13 @@
     </div>
 
     {{-- Divider --}}
-    <div class="relative z-[2] w-px shrink-0 bg-white/35" aria-hidden="true"></div>
+    <div
+        @class([
+            'relative z-[2] w-px shrink-0',
+            $fullyBooked ? 'bg-red-400/50 dark:bg-red-200/30' : 'bg-white/35',
+        ])
+        aria-hidden="true"
+    ></div>
 
     {{-- Label + optional count --}}
     <div
@@ -112,7 +129,8 @@
     >
         <span
             @class([
-                'room-type-badge-label truncate font-bold uppercase tracking-wide text-white',
+                'room-type-badge-label truncate font-bold uppercase tracking-wide',
+                $fullyBooked ? 'text-red-700 dark:text-red-100' : 'text-white',
                 $compact ? 'text-[8px] leading-tight sm:text-[9px]' : 'text-[10px] sm:text-xs',
                 $hideLabelOnMobile ? 'hidden sm:inline' : '',
             ])
@@ -122,7 +140,10 @@
         @if ($count !== null)
             <span
                 @class([
-                    'shrink-0 rounded-md bg-black/20 px-1 font-bold tabular-nums text-white ring-1 ring-white/15',
+                    'shrink-0 rounded-md px-1 font-bold tabular-nums ring-1',
+                    $fullyBooked
+                        ? 'bg-red-200/80 text-red-700 ring-red-400/40 dark:bg-red-500/25 dark:text-red-100 dark:ring-red-300/35'
+                        : 'bg-black/20 text-white ring-white/15',
                     $compact ? 'py-px text-[8px]' : 'py-0.5 text-[10px]',
                 ])
             >{{ $count }}</span>

@@ -1,6 +1,8 @@
 @php
     use App\Models\Booking;
+    use App\Models\Room;
     $legendItems = $this->calendarLegendItems;
+    $roomTypeCapacities = $this->roomTypeCapacities;
     $spreadsheetId = trim((string) config('services.google_sheets.spreadsheet_id', ''));
     $spreadsheetUrl = $spreadsheetId !== '' ? "https://docs.google.com/spreadsheets/d/{$spreadsheetId}/preview" : null;
     $reservationFilterLabels = [
@@ -216,11 +218,19 @@
                                 </span>
                             @else
                                 <x-room-type-badge
-                                    class="w-[calc(50%-0.3rem)] flex-none sm:w-auto sm:max-w-[14rem]"
+                                    class="w-full flex-none sm:w-auto sm:max-w-[14rem]"
                                     :type="$type"
                                 />
                             @endif
                         @endforeach
+                        @if ($this->reservationFilter !== 'venue')
+                            <span
+                                class="inline-flex w-full min-h-[2rem] flex-none items-center justify-center gap-1.5 rounded-lg border border-[#0e7490] bg-[#0891b2] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm ring-1 ring-[#67e8f9] sm:w-auto sm:max-w-[14rem] sm:text-xs"
+                            >
+                                <x-filament::icon icon="heroicon-o-no-symbol" class="h-3.5 w-3.5" />
+                                {{ __('Fully Booked') }}
+                            </span>
+                        @endif
                     </div>
                 </div>
 
@@ -268,6 +278,8 @@
                                 ])
                             >
                                 @if ($cell['inMonth'])
+                                    @php
+                                    @endphp
                                     <div class="mb-2 flex items-center justify-between gap-2 sm:mb-1.5 sm:items-start sm:gap-1">
                                         <div class="flex items-center gap-2">
                                             <span
