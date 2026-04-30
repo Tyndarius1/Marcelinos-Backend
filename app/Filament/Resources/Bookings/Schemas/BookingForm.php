@@ -277,14 +277,20 @@ class BookingForm
                         })
                         ->helperText('Color-coded by room type and bed specification. Totals update as selections change.')
                         ->rules([
-                            fn (Get $get, ?Booking $record) => function (string $attribute, $value, $fail) use ($get): void {
+                            fn (Get $get, ?Booking $record) => function (string $attribute, $value, $fail) use ($get, $record): void {
                                 $roomIds = array_filter((array) ($get('rooms') ?? []));
                                 $venueIds = array_filter((array) ($get('venues') ?? []));
-                                if ($roomIds === [] && $venueIds === []) {
+                                $hasRoomLines = $record instanceof Booking && $record->roomLines()->exists();
+
+                                if ($roomIds === [] && $venueIds === [] && ! $hasRoomLines) {
                                     $fail('Select at least one room or one venue.');
                                 }
                             },
                             fn (Get $get, ?Booking $record) => function (string $attribute, $value, $fail) use ($get, $record): void {
+                                if ($record instanceof Booking && $record->booking_status === Booking::BOOKING_STATUS_CANCELLED) {
+                                    return;
+                                }
+
                                 if (self::hasRoomConflicts($value, $get('check_in'), $get('check_out'), $record)) {
                                     $fail('One or more selected rooms are not available for the chosen dates.');
                                 }
@@ -293,6 +299,11 @@ class BookingForm
                                 if (! $record instanceof Booking) {
                                     return;
                                 }
+
+                                if ($record->booking_status === Booking::BOOKING_STATUS_CANCELLED) {
+                                    return;
+                                }
+
                                 try {
                                     Booking::validateAssignedRoomsFulfillRoomLines($record, is_array($value) ? $value : []);
                                 } catch (ValidationException $e) {
@@ -333,14 +344,20 @@ class BookingForm
                         ->live()
                         ->helperText('Optional. Uses the same date-range availability checks.')
                         ->rules([
-                            fn (Get $get) => function (string $attribute, $value, $fail) use ($get): void {
+                            fn (Get $get, ?Booking $record) => function (string $attribute, $value, $fail) use ($get, $record): void {
                                 $roomIds = array_filter((array) ($get('rooms') ?? []));
                                 $venueIds = array_filter((array) ($get('venues') ?? []));
-                                if ($roomIds === [] && $venueIds === []) {
+                                $hasRoomLines = $record instanceof Booking && $record->roomLines()->exists();
+
+                                if ($roomIds === [] && $venueIds === [] && ! $hasRoomLines) {
                                     $fail('Select at least one room or one venue.');
                                 }
                             },
                             fn (Get $get, ?Booking $record) => function (string $attribute, $value, $fail) use ($get, $record): void {
+                                if ($record instanceof Booking && $record->booking_status === Booking::BOOKING_STATUS_CANCELLED) {
+                                    return;
+                                }
+
                                 if (self::hasVenueConflicts(
                                     $value,
                                     $get('check_in'),
@@ -377,7 +394,7 @@ class BookingForm
                         ->native(false)
                         ->live(onBlur: true)
                         ->seconds(false)
-                        ->minDate(now()->startOfDay())
+                        ->minDate(fn (?Booking $record) => $record instanceof Booking ? null : now()->startOfDay())
                         ->disabledDates(fn (Get $get): array => self::disabledCalendarDateStringsForWizard(array_filter((array) ($get('rooms') ?? []))))
                         ->helperText('Check-in time is fixed at 12:00 PM for rooms.')
                         ->afterStateUpdated(function (Get $get, Set $set): void {
@@ -395,11 +412,13 @@ class BookingForm
                         ->native(false)
                         ->live(onBlur: true)
                         ->seconds(false)
-                        ->minDate(fn (Get $get) => filled($get('check_in'))
-                            ? (self::isVenueOnlyBookingState($get)
-                                ? Carbon::parse($get('check_in'))->startOfDay()
-                                : Carbon::parse($get('check_in'))->startOfDay()->addDay())
-                            : now())
+                        ->minDate(fn (Get $get, ?Booking $record) => $record instanceof Booking
+                            ? null
+                            : (filled($get('check_in'))
+                                ? (self::isVenueOnlyBookingState($get)
+                                    ? Carbon::parse($get('check_in'))->startOfDay()
+                                    : Carbon::parse($get('check_in'))->startOfDay()->addDay())
+                                : now()))
                         ->disabledDates(function (Get $get): array {
                             $disabled = self::disabledCalendarDateStringsForWizard(array_filter((array) ($get('rooms') ?? [])));
 
