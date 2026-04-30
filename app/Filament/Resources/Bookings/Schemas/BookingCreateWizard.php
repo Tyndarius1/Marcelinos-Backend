@@ -51,7 +51,6 @@ class BookingCreateWizard
                                 ->afterStateUpdated(function (Get $get, Set $set, ?string $state): void {
                                     if ($state === 'venue') {
                                         $set('rooms', []);
-                                        self::applyVenueFixedTimes($get, $set);
                                     }
 
                                     if ($state === 'rooms') {
@@ -59,6 +58,8 @@ class BookingCreateWizard
                                         $set('venue_event_type', null);
                                     }
 
+                                    // Apply appropriate fixed times based on new booking type
+                                    self::applyFixedTimes($get, $set);
                                     BookingForm::updatePricing($get, $set);
                                 })
                                 ->columnSpanFull(),
@@ -72,12 +73,17 @@ class BookingCreateWizard
                                 ->seconds(false)
                                 ->minDate(now()->startOfDay())
                                 ->disabledDates(fn (Get $get): array => BookingForm::disabledCalendarDateStringsForWizard([]))
-                                ->helperText('Blocked days (maintenance / closed) show in red on the calendar and cannot be picked.')
+                                ->helperText('Check-in time is fixed at 12:00 PM for rooms. Blocked days show in red.')
                                 ->rules([
                                     fn (Get $get) => self::roomAvailabilityRuleForCheckIn($get),
                                 ])
                                 ->afterStateUpdated(function (Get $get, Set $set): void {
-                                    self::applyVenueFixedTimes($get, $set);
+                                    // Apply fixed times based on booking type
+                                    self::applyFixedTimes($get, $set);
+                                    
+                                    // Auto-set check-out to next day with fixed time
+                                    self::autoSetCheckOut($get, $set);
+                                    
                                     BookingForm::updatePricing($get, $set);
                                 }),
 
@@ -102,7 +108,7 @@ class BookingCreateWizard
 
                                     return array_values(array_unique($disabled));
                                 })
-                                ->helperText('Same blocked days as check-in; venue-only bookings may use same-day checkout.')
+                                ->helperText('Check-out time is fixed at 10:00 AM for rooms. Same blocked days as check-in.')
                                 ->minDate(fn (Get $get) => filled($get('check_in'))
                                     ? (self::bookingTypeIsVenueOnly($get)
                                         ? Carbon::parse($get('check_in'))->startOfDay()
@@ -136,7 +142,8 @@ class BookingCreateWizard
                                     fn (Get $get) => self::roomAvailabilityRuleForCheckOut($get),
                                 ])
                                 ->afterStateUpdated(function (Get $get, Set $set): void {
-                                    self::applyVenueFixedTimes($get, $set);
+                                    // Ensure check-out time remains fixed (don't allow it to be changed)
+                                    self::applyFixedTimes($get, $set);
                                     BookingForm::updatePricing($get, $set);
                                 }),
 
@@ -875,14 +882,62 @@ class BookingCreateWizard
         };
     }
 
-    private static function applyVenueFixedTimes(Get $get, Set $set): void
+    private static function applyFixedTimes(Get $get, Set $set): void
     {
-        if (! self::bookingTypeIsVenueOnly($get)) {
+        $bookingType = (string) ($get('booking_type') ?? 'rooms');
+        
+        // Apply fixed times based on booking type
+        if ($bookingType === 'venue') {
+            // Venue-only: 8:00 AM check-in, 12:00 AM (midnight) check-out
+            self::setTimeIfPresent($get, $set, 'check_in', 8, 0);
+            self::setTimeIfPresent($get, $set, 'check_out', 0, 0);
+        } else {
+            // Room bookings (rooms, rooms_and_venues): 12:00 PM check-in, 10:00 AM check-out
+            self::setTimeIfPresent($get, $set, 'check_in', 12, 0);
+            self::setTimeIfPresent($get, $set, 'check_out', 10, 0);
+        }
+    }
+
+    /**
+     * Auto-set check-out date to next day when check-in is selected.
+     * This improves UX by pre-selecting a reasonable default for check-out.
+     */
+    private static function autoSetCheckOut(Get $get, Set $set): void
+    {
+        $checkIn = $get('check_in');
+        $checkOut = $get('check_out');
+        
+        // Only auto-set if check-in is filled but check-out is not yet set or needs updating
+        if (! filled($checkIn)) {
             return;
         }
-
-        self::setTimeIfPresent($get, $set, 'check_in', 8, 0);
-        self::setTimeIfPresent($get, $set, 'check_out', 0, 0);
+        
+        try {
+            $checkInDate = Carbon::parse((string) $checkIn);
+            $bookingType = (string) ($get('booking_type') ?? 'rooms');
+            
+            // For venue-only bookings, same-day check-out is allowed
+            if ($bookingType === 'venue') {
+                $defaultCheckOut = $checkInDate->copy()->setTime(0, 0, 0);
+            } else {
+                // For room bookings, next day check-out
+                $defaultCheckOut = $checkInDate->copy()->addDay()->setTime(10, 0, 0);
+            }
+            
+            // Auto-set check-out if it's empty or if it's before the minimum required date
+            if (! filled($checkOut)) {
+                $set('check_out', $defaultCheckOut->toDateTimeString());
+            } else {
+                $checkOutDate = Carbon::parse((string) $checkOut);
+                // If check-out would violate minimum requirements, auto-adjust it
+                if ($bookingType !== 'venue' && $checkOutDate->lessThanOrEqualTo($checkInDate)) {
+                    $set('check_out', $defaultCheckOut->toDateTimeString());
+                }
+            }
+        } catch (\Exception $e) {
+            // Silently ignore parsing errors
+            return;
+        }
     }
 
     private static function setTimeIfPresent(Get $get, Set $set, string $field, int $hour, int $minute): void
