@@ -400,10 +400,10 @@ class BookingForm
                         ->afterStateUpdated(function (Get $get, Set $set): void {
                             // Apply fixed times based on booking type
                             self::applyFixedTimes($get, $set);
-                            
+
                             // Auto-set check-out to next day with fixed time
                             self::autoSetCheckOut($get, $set);
-                            
+
                             self::updatePricing($get, $set);
                         }),
 
@@ -750,7 +750,11 @@ class BookingForm
 
         if (Booking::query()
             ->when($record, fn ($query) => $query->where('id', '!=', $record->id))
-            ->whereNotIn('booking_status', [Booking::BOOKING_STATUS_CANCELLED, Booking::BOOKING_STATUS_COMPLETED])
+            ->whereNotIn('booking_status', [
+                Booking::BOOKING_STATUS_CANCELLED,
+                Booking::BOOKING_STATUS_COMPLETED,
+                Booking::BOOKING_STATUS_FLAGGED,
+            ])
             ->where('check_in', '<', $end)
             ->where('check_out', '>', $start)
             ->whereHas('rooms', fn ($query) => $query->whereIn('rooms.id', $roomIds))
@@ -1145,7 +1149,7 @@ class BookingForm
     public static function applyFixedTimes(Get $get, Set $set): void
     {
         $bookingType = (string) ($get('booking_type') ?? 'rooms');
-        
+
         if ($bookingType === 'venue') {
             // Venue-only: 8:00 AM check-in, 12:00 AM (midnight) check-out
             self::setTimeIfPresent($get, $set, 'check_in', 8, 0);
@@ -1165,16 +1169,16 @@ class BookingForm
     {
         $checkIn = $get('check_in');
         $checkOut = $get('check_out');
-        
+
         // Only auto-set if check-in is filled but check-out is not yet set or needs updating
         if (! filled($checkIn)) {
             return;
         }
-        
+
         try {
             $checkInDate = Carbon::parse((string) $checkIn);
             $bookingType = (string) ($get('booking_type') ?? 'rooms');
-            
+
             // For venue-only bookings, same-day check-out is allowed
             if ($bookingType === 'venue') {
                 $defaultCheckOut = $checkInDate->copy()->setTime(0, 0, 0);
@@ -1182,7 +1186,7 @@ class BookingForm
                 // For room bookings, next day check-out
                 $defaultCheckOut = $checkInDate->copy()->addDay()->setTime(10, 0, 0);
             }
-            
+
             // Auto-set check-out if it's empty or if it's before the minimum required date
             if (! filled($checkOut)) {
                 $set('check_out', $defaultCheckOut->toDateTimeString());
@@ -1222,4 +1226,3 @@ class BookingForm
         }
     }
 }
-

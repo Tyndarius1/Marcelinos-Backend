@@ -92,6 +92,7 @@ class EditBooking extends EditRecord
             $requiresAssignedRooms = in_array($nextBookingStatus, [
                 Booking::BOOKING_STATUS_OCCUPIED,
                 Booking::BOOKING_STATUS_COMPLETED,
+                Booking::BOOKING_STATUS_FLAGGED,
             ], true);
 
             // Allow status/payment updates on frontend-created bookings that do not
@@ -108,6 +109,7 @@ class EditBooking extends EditRecord
             $canAutoRecordFullPayment = ! in_array($nextBookingStatus, [
                 Booking::BOOKING_STATUS_CANCELLED,
                 Booking::BOOKING_STATUS_COMPLETED,
+                Booking::BOOKING_STATUS_FLAGGED,
             ], true);
 
             if ($incomingPaymentStatus === Booking::PAYMENT_STATUS_PAID && ! $wasAlreadyPaid && $hasOutstandingBalance && $canAutoRecordFullPayment) {

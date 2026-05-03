@@ -7,6 +7,7 @@ use App\Filament\Actions\TypedDeleteBulkAction;
 use App\Filament\Actions\TypedForceDeleteAction;
 use App\Filament\Actions\TypedForceDeleteBulkAction;
 use App\Filament\Exports\BookingExporter;
+use App\Filament\Resources\Bookings\Actions\CheckoutBookingAction;
 use App\Mail\BookingCreated;
 use App\Mail\VerifyBookingEmail;
 use App\Models\Booking;
@@ -33,7 +34,6 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Grid;
@@ -747,32 +747,7 @@ class BookingsTable
                                 ->success()
                                 ->send();
                         }),
-                    Action::make('complete')
-                        ->label(fn (Booking $record): string => $record->adminCheckoutActionLabel())
-                        ->icon('heroicon-o-flag')
-                        ->color('secondary')
-                        ->requiresConfirmation()
-                        ->modalHeading(fn (Booking $record): string => $record->adminCheckoutActionLabel())
-                        ->modalDescription('Mark this booking as completed.')
-                        ->visible(fn (Booking $record): bool => $record->canAdminCheckout())
-                        ->action(function (Booking $record): void {
-                            try {
-                                BookingLifecycleActions::complete($record);
-                            } catch (\InvalidArgumentException $e) {
-                                Notification::make()
-                                    ->title('Cannot complete')
-                                    ->body($e->getMessage())
-                                    ->danger()
-                                    ->send();
-
-                                return;
-                            }
-
-                            Notification::make()
-                                ->title('Booking marked as completed.')
-                                ->success()
-                                ->send();
-                        }),
+                    CheckoutBookingAction::makeTableAction('complete'),
                     Action::make('markDamageSettled')
                         ->label('Mark damage settled')
                         ->icon('heroicon-o-shield-check')
@@ -802,7 +777,11 @@ class BookingsTable
                         ->icon('heroicon-o-x-circle')
                         ->color('danger')
                         ->requiresConfirmation()
-                        ->visible(fn (Booking $record) => ! $record->trashed() && ! in_array($record->booking_status, [Booking::BOOKING_STATUS_CANCELLED, Booking::BOOKING_STATUS_COMPLETED], true))
+                        ->visible(fn (Booking $record) => ! $record->trashed() && ! in_array($record->booking_status, [
+                            Booking::BOOKING_STATUS_CANCELLED,
+                            Booking::BOOKING_STATUS_COMPLETED,
+                            Booking::BOOKING_STATUS_FLAGGED,
+                        ], true))
                         ->action(function (Booking $record) {
                             try {
                                 BookingLifecycleActions::cancel($record);

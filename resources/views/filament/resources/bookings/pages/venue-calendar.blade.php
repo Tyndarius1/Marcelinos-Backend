@@ -426,14 +426,14 @@
                                                         </button>
                                                     @endif
 
-                                                    @if (($row['payment_status'] ?? null) === Booking::PAYMENT_STATUS_PAID && (($row['can_check_in'] ?? false) === true))
+                                                    @if (($row['can_check_in'] ?? false) === true)
                                                         <button
                                                             type="button"
                                                             wire:click="checkInBooking({{ $row['id'] }})"
                                                             @click="open = false"
                                                             class="block w-full whitespace-nowrap px-3 py-1.5 text-left text-[13px] font-medium leading-5 text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-500/10"
                                                         >
-                                                            Check-in
+                                                            {{ __('Check in') }}
                                                         </button>
                                                     @endif
 
@@ -448,7 +448,7 @@
                                                         </button>
                                                     @endif
 
-                                                    @if (! in_array(($row['booking_status'] ?? null), [Booking::BOOKING_STATUS_CANCELLED, Booking::BOOKING_STATUS_COMPLETED], true))
+                                                    @if (! in_array(($row['booking_status'] ?? null), [Booking::BOOKING_STATUS_CANCELLED, Booking::BOOKING_STATUS_COMPLETED, Booking::BOOKING_STATUS_FLAGGED], true))
                                                         <button
                                                             type="button"
                                                             wire:click="cancelBooking({{ $row['id'] }})"

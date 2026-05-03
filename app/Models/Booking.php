@@ -3,9 +3,8 @@
 namespace App\Models;
 
 use App\Mail\BookingCreated;
-use App\Mail\VerifyBookingEmail;
 use App\Mail\TestimonialFeedbackEmail;
-use App\Models\RoomChecklist;
+use App\Mail\VerifyBookingEmail;
 use App\Support\RoomInventoryGroupKey;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -263,6 +262,11 @@ class Booking extends Model
         return $this->hasMany(RoomChecklist::class);
     }
 
+    public function bookingInspection()
+    {
+        return $this->hasOne(BookingInspection::class);
+    }
+
     /**
      * Guest-selected room type + bed-spec lines (no specific room until staff assigns).
      */
@@ -429,6 +433,9 @@ class Booking extends Model
 
     const BOOKING_STATUS_COMPLETED = 'completed';
 
+    /** Checkout finished with inventory issues (photo-backed inspection). */
+    const BOOKING_STATUS_FLAGGED = 'flagged';
+
     const BOOKING_STATUS_CANCELLED = 'cancelled';
 
     const BOOKING_STATUS_RESCHEDULED = 'rescheduled';
@@ -561,6 +568,7 @@ class Booking extends Model
             self::BOOKING_STATUS_RESERVED,
             self::BOOKING_STATUS_OCCUPIED,
             self::BOOKING_STATUS_COMPLETED,
+            self::BOOKING_STATUS_FLAGGED,
             self::BOOKING_STATUS_RESCHEDULED,
         ];
     }
@@ -572,9 +580,21 @@ class Booking extends Model
             self::BOOKING_STATUS_RESERVED => 'Reserved',
             self::BOOKING_STATUS_OCCUPIED => 'Occupied',
             self::BOOKING_STATUS_COMPLETED => 'Completed',
+            self::BOOKING_STATUS_FLAGGED => 'Flagged (checkout issues)',
             self::BOOKING_STATUS_CANCELLED => 'Cancelled',
             self::BOOKING_STATUS_RESCHEDULED => 'Rescheduled',
         ];
+    }
+
+    /**
+     * Stay has ended through checkout (completed or flagged after inspection).
+     */
+    public function isStayCheckoutClosed(): bool
+    {
+        return in_array((string) $this->booking_status, [
+            self::BOOKING_STATUS_COMPLETED,
+            self::BOOKING_STATUS_FLAGGED,
+        ], true);
     }
 
     public static function paymentStatusOptions(): array
@@ -687,6 +707,7 @@ class Booking extends Model
             'primary' => self::BOOKING_STATUS_RESERVED,
             'warning' => self::BOOKING_STATUS_OCCUPIED,
             'secondary' => self::BOOKING_STATUS_COMPLETED,
+            'gray' => self::BOOKING_STATUS_FLAGGED,
             'danger' => self::BOOKING_STATUS_CANCELLED,
             'default' => self::BOOKING_STATUS_RESCHEDULED,
         ];

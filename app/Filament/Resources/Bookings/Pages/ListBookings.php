@@ -107,6 +107,7 @@ class ListBookings extends ListRecords
             Booking::BOOKING_STATUS_RESERVED,
             Booking::BOOKING_STATUS_OCCUPIED,
             Booking::BOOKING_STATUS_COMPLETED,
+            Booking::BOOKING_STATUS_FLAGGED,
             Booking::BOOKING_STATUS_CANCELLED,
             Booking::BOOKING_STATUS_RESCHEDULED,
         ];

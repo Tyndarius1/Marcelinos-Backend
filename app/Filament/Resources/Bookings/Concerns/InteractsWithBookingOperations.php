@@ -2,15 +2,16 @@
 
 namespace App\Filament\Resources\Bookings\Concerns;
 
+use App\Filament\Resources\Bookings\Actions\CheckoutBookingAction;
 use App\Filament\Resources\Bookings\BookingResource;
 use App\Models\Booking;
 use App\Support\BookingAdminGuidance;
 use App\Support\BookingCheckInEligibility;
+use App\Support\BookingDamageSettlement;
 use App\Support\BookingFullBalancePayment;
 use App\Support\BookingLifecycleActions;
 use App\Support\BookingSpecialDiscount;
 use App\Support\CancellationPolicy;
-use App\Support\BookingDamageSettlement;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
@@ -247,18 +248,13 @@ trait InteractsWithBookingOperations
                         ->action(function (): void {
                             $this->runBookingCheckIn();
                         }),
-                    Action::make('bookingOpComplete')
-                        ->label(fn (): string => $this->record instanceof Booking ? $this->record->adminCheckoutActionLabel() : __('Checkout'))
-                        ->icon('heroicon-o-flag')
-                        ->color('secondary')
-                        ->requiresConfirmation()
-                        ->modalHeading(fn (): string => $this->record instanceof Booking ? $this->record->adminCheckoutActionLabel() : __('Checkout'))
-                        ->modalDescription(__('Mark this booking as completed.'))
-                        ->visible(fn (): bool => $this->record instanceof Booking
-                            && $this->record->canAdminCheckout())
-                        ->action(function (): void {
-                            $this->runBookingComplete();
-                        }),
+                    CheckoutBookingAction::makeForRecordCallbacks(
+                        'bookingOpComplete',
+                        fn () => $this->getRecord(),
+                        function (Booking $booking) {
+                            $this->afterBookingLifecycleMutation();
+                        },
+                    ),
                     Action::make('bookingOpMarkDamageSettled')
                         ->label(__('Mark damage settled'))
                         ->icon('heroicon-o-shield-check')
@@ -284,7 +280,11 @@ trait InteractsWithBookingOperations
                         ->modalHeading(__('Cancel this booking?'))
                         ->visible(fn (): bool => $this->record instanceof Booking
                             && ! $this->record->trashed()
-                            && ! in_array($this->record->booking_status, [Booking::BOOKING_STATUS_CANCELLED, Booking::BOOKING_STATUS_COMPLETED], true))
+                            && ! in_array($this->record->booking_status, [
+                                Booking::BOOKING_STATUS_CANCELLED,
+                                Booking::BOOKING_STATUS_COMPLETED,
+                                Booking::BOOKING_STATUS_FLAGGED,
+                            ], true))
                         ->action(function (): void {
                             $this->runBookingCancel();
                         }),
@@ -478,18 +478,13 @@ trait InteractsWithBookingOperations
                 ->action(function (): void {
                     $this->runBookingCheckIn();
                 }),
-            Action::make('viewBookingComplete')
-                ->label(fn (): string => $this->record instanceof Booking ? $this->record->adminCheckoutActionLabel() : __('Checkout'))
-                ->icon('heroicon-o-flag')
-                ->color('secondary')
-                ->requiresConfirmation()
-                ->modalHeading(fn (): string => $this->record instanceof Booking ? $this->record->adminCheckoutActionLabel() : __('Checkout'))
-                ->modalDescription(__('Mark this booking as completed.'))
-                ->visible(fn (): bool => $this->record instanceof Booking
-                    && $this->record->canAdminCheckout())
-                ->action(function (): void {
-                    $this->runBookingComplete();
-                }),
+            CheckoutBookingAction::makeForRecordCallbacks(
+                'viewBookingComplete',
+                fn () => $this->getRecord(),
+                function (Booking $booking) {
+                    $this->afterBookingLifecycleMutation();
+                },
+            ),
             Action::make('viewBookingMarkDamageSettled')
                 ->label(__('Mark damage settled'))
                 ->icon('heroicon-o-shield-check')
@@ -513,7 +508,11 @@ trait InteractsWithBookingOperations
                 ->requiresConfirmation()
                 ->modalHeading(__('Cancel this booking?'))
                 ->visible(fn (): bool => $this->record instanceof Booking
-                    && ! in_array($this->record->booking_status, [Booking::BOOKING_STATUS_CANCELLED, Booking::BOOKING_STATUS_COMPLETED], true))
+                    && ! in_array($this->record->booking_status, [
+                        Booking::BOOKING_STATUS_CANCELLED,
+                        Booking::BOOKING_STATUS_COMPLETED,
+                        Booking::BOOKING_STATUS_FLAGGED,
+                    ], true))
                 ->action(function (): void {
                     $this->runBookingCancel();
                 }),
@@ -528,7 +527,11 @@ trait InteractsWithBookingOperations
         }
 
         if ($record->payment_status === Booking::PAYMENT_STATUS_PAID
-            || in_array($record->booking_status, [Booking::BOOKING_STATUS_CANCELLED, Booking::BOOKING_STATUS_COMPLETED], true)) {
+            || in_array($record->booking_status, [
+                Booking::BOOKING_STATUS_CANCELLED,
+                Booking::BOOKING_STATUS_COMPLETED,
+                Booking::BOOKING_STATUS_FLAGGED,
+            ], true)) {
             return false;
         }
 

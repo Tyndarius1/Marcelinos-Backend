@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Bookings\Pages;
 use App\Filament\Resources\Bookings\BookingResource;
 use App\Models\BlockedDate;
 use App\Models\Booking;
+use App\Models\InspectionItem;
 use App\Models\Room;
 use App\Models\RoomBlockedDate;
 use App\Models\RoomChecklistItem;
@@ -12,6 +13,7 @@ use App\Models\Venue;
 use App\Models\VenueBlockedDate;
 use App\Support\BookingCheckInEligibility;
 use App\Support\BookingFullBalancePayment;
+use App\Support\BookingInspectionService;
 use App\Support\BookingLifecycleActions;
 use App\Support\BookingSpecialDiscount;
 use Carbon\Carbon;
@@ -27,9 +29,12 @@ use JeffersonGoncalves\Filament\QrCodeField\Forms\Components\QrCodeInput;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
 
 class RoomCalendar extends Page
 {
+    use WithFileUploads;
+
     public const RESERVATION_ROOM = 'room';
 
     public const RESERVATION_VENUE = 'venue';
@@ -218,6 +223,11 @@ class RoomCalendar extends Page
 
     #[Url]
     public ?string $modalType = null;
+
+    /**
+     * @var array<int, array<int, array{status?: string, photos?: array<int, mixed>}>>
+     */
+    public array $checkoutChecklistRows = [];
 
     public function mount(): void
     {
@@ -521,10 +531,11 @@ class RoomCalendar extends Page
             ->get()
             ->map(function (Booking $b) {
                 $hasAssignedRooms = $b->rooms->isNotEmpty();
-                $canCheckIn = BookingCheckInEligibility::assess($b)['allowed'];
+                $canCheckIn = BookingCheckInEligibility::assessForCalendarModalDay($b, (string) $this->modalDate)['allowed'];
                 $activeDateRange = $this->formatActiveDateRange($b);
                 $discountMeta = $this->specialDiscountMetaForBooking($b);
-                $checklistSummary = $this->checkoutChecklistSummaryForBooking($b);
+                $checklistSummary = $this->checkoutChecklistSummaryForBooking($b, (int) $b->id);
+                $inventoryItems = $this->inventoryItemsForBooking($b, (int) $b->id);
 
                 return [
                     'id' => $b->id,
@@ -551,6 +562,7 @@ class RoomCalendar extends Page
                     'discount_badge_text' => $discountMeta['discount_badge_text'],
                     'discount_tooltip' => $discountMeta['discount_tooltip'],
                     'checklist_summary' => $checklistSummary,
+                    'inventory_items' => $inventoryItems,
                 ];
             })
             ->values()
@@ -687,16 +699,20 @@ class RoomCalendar extends Page
      *   should_warn_on_complete: bool
      * }
      */
-    protected function checkoutChecklistSummaryForBooking(Booking $booking): array
+    protected function checkoutChecklistSummaryForBooking(Booking $booking, ?int $bookingId = null): array
     {
-        $items = $booking->roomChecklists
-            ->flatMap(fn ($checklist) => $checklist->items)
-            ->values();
+        if (BookingInspectionService::bookingNeedsInventoryInspection($booking)) {
+            $items = collect($this->inventoryItemsForBooking($booking, $bookingId));
+        } else {
+            $items = $booking->roomChecklists
+                ->flatMap(fn ($checklist) => $checklist->items)
+                ->values();
+        }
 
         $totalItems = (int) $items->count();
-        $answeredItems = (int) $items->filter(fn ($item) => filled($item->status))->count();
-        $brokenItems = (int) $items->where('status', RoomChecklistItem::STATUS_BROKEN)->count();
-        $missingItems = (int) $items->where('status', RoomChecklistItem::STATUS_MISSING)->count();
+        $answeredItems = (int) $items->filter(fn ($item) => filled(data_get($item, 'current_status', data_get($item, 'status'))))->count();
+        $brokenItems = (int) $items->filter(fn ($item) => data_get($item, 'current_status', data_get($item, 'status')) === 'broken' || data_get($item, 'current_status', data_get($item, 'status')) === RoomChecklistItem::STATUS_BROKEN)->count();
+        $missingItems = (int) $items->filter(fn ($item) => data_get($item, 'current_status', data_get($item, 'status')) === 'missing' || data_get($item, 'current_status', data_get($item, 'status')) === RoomChecklistItem::STATUS_MISSING)->count();
         $incompleteItems = max(0, $totalItems - $answeredItems);
 
         return [
@@ -708,6 +724,93 @@ class RoomCalendar extends Page
             'has_damage_items' => ($brokenItems + $missingItems) > 0,
             'should_warn_on_complete' => $incompleteItems > 0,
         ];
+    }
+
+    /**
+     * @return list<array{inventory_item_id: int, item_name: string, quantity: int, room_name: string}>
+     */
+    protected function inventoryItemsForBooking(Booking $booking, ?int $bookingId = null): array
+    {
+        if (! BookingInspectionService::bookingNeedsInventoryInspection($booking)) {
+            return [];
+        }
+
+        $rows = data_get($this->checkoutChecklistRows, (string) ($bookingId ?? $booking->id), []);
+        if (! is_array($rows)) {
+            $rows = [];
+        }
+
+        return collect(BookingInspectionService::defaultFormItems($booking))
+            ->map(function (array $item) use ($rows): array {
+                $itemId = (int) ($item['inventory_item_id'] ?? 0);
+                $state = $rows[$itemId] ?? [];
+                if (! is_array($state)) {
+                    $state = [];
+                }
+
+                $status = (string) ($state['status'] ?? 'good');
+                if (! in_array($status, ['good', 'broken', 'missing'], true)) {
+                    $status = 'good';
+                }
+
+                $photos = $state['photos'] ?? [];
+                if (! is_array($photos)) {
+                    $photos = $photos ? [$photos] : [];
+                }
+
+                $item['current_status'] = $status;
+                $item['photos'] = $photos;
+
+                return $item;
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array{inventory_item_id: int, status: string, remarks: string|null, photos: array<int, mixed>}>
+     */
+    protected function buildInspectionRowsForBooking(Booking $booking): array
+    {
+        if (! BookingInspectionService::bookingNeedsInventoryInspection($booking)) {
+            return [];
+        }
+
+        $bookingId = (int) $booking->id;
+        $rows = data_get($this->checkoutChecklistRows, (string) $bookingId, []);
+        if (! is_array($rows)) {
+            $rows = [];
+        }
+
+        return collect(BookingInspectionService::defaultFormItems($booking))
+            ->map(function (array $item) use ($rows): array {
+                $itemId = (int) ($item['inventory_item_id'] ?? 0);
+                $state = $rows[$itemId] ?? [];
+                if (! is_array($state)) {
+                    $state = [];
+                }
+
+                $uiStatus = (string) ($state['status'] ?? 'good');
+                $status = match ($uiStatus) {
+                    'broken' => InspectionItem::STATUS_DAMAGED,
+                    'missing' => InspectionItem::STATUS_MISSING,
+                    default => InspectionItem::STATUS_OK,
+                };
+
+                $photos = $state['photos'] ?? [];
+                if (! is_array($photos)) {
+                    $photos = $photos ? [$photos] : [];
+                }
+
+                return [
+                    'inventory_item_id' => $itemId,
+                    'status' => $status,
+                    'remarks' => null,
+                    'photos' => $photos,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     /**
@@ -869,13 +972,42 @@ class RoomCalendar extends Page
         bool $confirmed = false,
         bool $includeDamageChecklist = false,
         array $damageChecklist = [],
-    ): void
-    {
+    ): void {
         $booking = Booking::query()
-            ->with(['roomChecklists.items'])
+            ->with(['roomChecklists.items', 'rooms'])
             ->find($bookingId);
 
         if (! $booking) {
+            return;
+        }
+
+        $booking->loadMissing('rooms');
+        if (BookingInspectionService::bookingNeedsInventoryInspection($booking)) {
+            $inspectionRows = $includeDamageChecklist && $damageChecklist !== []
+                ? $damageChecklist
+                : $this->buildInspectionRowsForBooking($booking);
+
+            try {
+                BookingInspectionService::submitAndCheckout($booking, [
+                    'items' => $inspectionRows,
+                ]);
+            } catch (
+                \InvalidArgumentException $e
+            ) {
+                Notification::make()
+                    ->title('Cannot complete')
+                    ->body($e->getMessage())
+                    ->danger()
+                    ->send();
+
+                return;
+            }
+
+            Notification::make()
+                ->title('Booking marked as completed.')
+                ->success()
+                ->send();
+
             return;
         }
 

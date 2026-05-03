@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Booking;
+use App\Support\BookingInspectionService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 
@@ -58,15 +59,27 @@ class CompleteCheckoutBookings extends Command
             ->get();
 
         $count = 0;
+        $skipped = 0;
         foreach ($bookings as $booking) {
+            $booking->loadMissing('rooms');
+            if (BookingInspectionService::bookingNeedsInventoryInspection($booking)) {
+                $skipped++;
+
+                continue;
+            }
+
             $booking->update(['booking_status' => Booking::BOOKING_STATUS_COMPLETED]);
             $count++;
         }
 
+        if ($skipped > 0) {
+            $this->warn('Skipped '.$skipped.' booking(s) that require a staff checkout inspection (room inventory configured).');
+        }
+
         if ($count > 0) {
-            $this->info('Marked ' . $count . ' booking(s) as complete (check_out <= ' . $before->toDateTimeString() . ').');
-        } else {
-            $this->comment('No occupied bookings eligible for completion (check_out <= ' . $before->toDateTimeString() . ').');
+            $this->info('Marked '.$count.' booking(s) as complete (check_out <= '.$before->toDateTimeString().').');
+        } elseif ($skipped === 0) {
+            $this->comment('No occupied bookings eligible for completion (check_out <= '.$before->toDateTimeString().').');
         }
 
         return self::SUCCESS;

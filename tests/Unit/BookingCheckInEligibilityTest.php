@@ -90,7 +90,7 @@ class BookingCheckInEligibilityTest extends TestCase
 
         try {
             $this->expectException(\InvalidArgumentException::class);
-            $this->expectExceptionMessage('Booking can only be completed on the check-out date.');
+            $this->expectExceptionMessage('Cannot complete an unsaved booking.');
 
             BookingLifecycleActions::complete($booking);
         } finally {

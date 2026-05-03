@@ -23,6 +23,11 @@ class Room extends Model implements HasMedia
 
     protected $fillable = ['name', 'description',  'capacity', 'type', 'price', 'status'];
 
+    public function roomInventoryItems()
+    {
+        return $this->hasMany(RoomInventoryItem::class);
+    }
+
     /* ================= TYPES ================= */
     const TYPE_STANDARD = 'standard';
 

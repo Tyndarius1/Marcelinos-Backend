@@ -157,6 +157,11 @@ class BookingResource extends Resource
                 'rooms' => fn ($q) => $q->with(['bedSpecifications']),
                 'roomLines',
                 'venues:id,name',
+                'bookingInspection' => fn ($q) => $q->with([
+                    'items.photos',
+                    'items.inventoryItem.room',
+                    'inspectedBy:id,name',
+                ]),
             ]);
     }
 

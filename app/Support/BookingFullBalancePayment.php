@@ -53,6 +53,7 @@ final class BookingFullBalancePayment
         if (in_array($booking->booking_status, [
             Booking::BOOKING_STATUS_CANCELLED,
             Booking::BOOKING_STATUS_COMPLETED,
+            Booking::BOOKING_STATUS_FLAGGED,
         ], true) || $booking->payment_status === Booking::PAYMENT_STATUS_PAID) {
             return ['allowed' => false, 'reason' => self::REASON_INVALID_STATUS, 'message' => null];
         }

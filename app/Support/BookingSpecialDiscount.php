@@ -8,14 +8,17 @@ use App\Models\Room;
 use App\Models\User;
 use App\Models\Venue;
 use Illuminate\Support\Facades\DB;
-use App\Support\ActivityLogger;
 
 final class BookingSpecialDiscount
 {
     public const TYPE_PERCENT = 'percent';
+
     public const TYPE_FIXED = 'fixed';
+
     public const TARGET_TOTAL = 'total';
+
     public const TARGET_ROOM = 'room';
+
     public const TARGET_VENUE = 'venue';
 
     /**
@@ -31,8 +34,12 @@ final class BookingSpecialDiscount
             return ['allowed' => false, 'reason' => 'forbidden', 'message' => 'You are not allowed to apply special discounts.'];
         }
 
-        if (in_array((string) $booking->booking_status, [Booking::BOOKING_STATUS_CANCELLED, Booking::BOOKING_STATUS_COMPLETED], true)) {
-            return ['allowed' => false, 'reason' => 'finalized', 'message' => 'Discounts are not allowed on cancelled or completed bookings.'];
+        if (in_array((string) $booking->booking_status, [
+            Booking::BOOKING_STATUS_CANCELLED,
+            Booking::BOOKING_STATUS_COMPLETED,
+            Booking::BOOKING_STATUS_FLAGGED,
+        ], true)) {
+            return ['allowed' => false, 'reason' => 'finalized', 'message' => 'Discounts are not allowed on cancelled, completed, or flagged bookings.'];
         }
 
         $hasPayments = (float) $booking->total_paid > 0.009 || $booking->payments()->exists();
@@ -381,4 +388,3 @@ final class BookingSpecialDiscount
         };
     }
 }
-

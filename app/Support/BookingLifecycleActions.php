@@ -33,8 +33,28 @@ final class BookingLifecycleActions
      */
     public static function complete(Booking $booking): void
     {
+        if (BookingInspectionService::bookingNeedsInventoryInspection($booking)) {
+            throw new \InvalidArgumentException(
+                __('Use Checkout on the booking record to complete the room inventory inspection with photo evidence.')
+            );
+        }
+
+        self::completeWithoutInspectionRequirement($booking);
+    }
+
+    /**
+     * Mark an eligible occupied booking as completed (no inventory configured for assigned rooms).
+     *
+     * @throws \InvalidArgumentException
+     */
+    public static function completeWithoutInspectionRequirement(Booking $booking): void
+    {
         if ($booking->trashed()) {
             throw new \InvalidArgumentException(__('Cannot complete a deleted booking.'));
+        }
+
+        if (! $booking->exists) {
+            throw new \InvalidArgumentException(__('Cannot complete an unsaved booking.'));
         }
 
         if (! $booking->canAdminCheckout()) {
@@ -44,8 +64,13 @@ final class BookingLifecycleActions
         $booking->update(['booking_status' => Booking::BOOKING_STATUS_COMPLETED]);
         self::logManualLifecycleTrigger($booking, 'checkout_triggered');
         $actor = auth()->user();
+        $fresh = $booking->fresh(['roomChecklists.items']);
+        if (! $fresh instanceof Booking) {
+            throw new \InvalidArgumentException(__('Could not reload booking after checkout.'));
+        }
+
         BookingDamageSettlement::syncFromChecklist(
-            $booking->fresh(['roomChecklists.items']),
+            $fresh,
             $actor instanceof User ? $actor : null,
         );
     }
@@ -134,8 +159,12 @@ final class BookingLifecycleActions
             throw new \InvalidArgumentException(__('Cannot cancel a deleted booking.'));
         }
 
-        if (in_array($booking->booking_status, [Booking::BOOKING_STATUS_CANCELLED, Booking::BOOKING_STATUS_COMPLETED], true)) {
-            throw new \InvalidArgumentException(__('This booking is already cancelled or completed.'));
+        if (in_array($booking->booking_status, [
+            Booking::BOOKING_STATUS_CANCELLED,
+            Booking::BOOKING_STATUS_COMPLETED,
+            Booking::BOOKING_STATUS_FLAGGED,
+        ], true)) {
+            throw new \InvalidArgumentException(__('This booking is already cancelled, completed, or flagged.'));
         }
 
         $booking->update(['booking_status' => Booking::BOOKING_STATUS_CANCELLED]);

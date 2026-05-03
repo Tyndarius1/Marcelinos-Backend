@@ -460,7 +460,7 @@
                     </div>
                 </div>
 
-                <div class="space-y-5 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+                <div class="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
                     @php
                         $count = count($this->modalBookingRows);
                     @endphp
@@ -668,14 +668,14 @@
                                                         </button>
                                                     @endif
 
-                                                    @if (($row['payment_status'] ?? null) === Booking::PAYMENT_STATUS_PAID && (($row['can_check_in'] ?? false) === true))
+                                                    @if (($row['can_check_in'] ?? false) === true)
                                                         <button
                                                             type="button"
                                                             wire:click="checkInBooking({{ $row['id'] }})"
                                                             @click="open = false"
                                                             class="block w-full whitespace-nowrap px-3 py-1.5 text-left text-[13px] font-medium leading-5 text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-500/10"
                                                         >
-                                                            {{ __('Check in guest') }}
+                                                            {{ __('Check in') }}
                                                         </button>
                                                     @endif
 
@@ -689,7 +689,7 @@
                                                         </button>
                                                     @endif
 
-                                                    @if (! in_array(($row['booking_status'] ?? null), [Booking::BOOKING_STATUS_CANCELLED, Booking::BOOKING_STATUS_COMPLETED], true))
+                                                    @if (! in_array(($row['booking_status'] ?? null), [Booking::BOOKING_STATUS_CANCELLED, Booking::BOOKING_STATUS_COMPLETED, Booking::BOOKING_STATUS_FLAGGED], true))
                                                         <button
                                                             type="button"
                                                             @click="open = false; cancelOpen = true"
@@ -750,64 +750,232 @@
                                                     <div
                                                         x-show="completeOpen"
                                                         x-cloak
-                                                        class="fixed inset-0 z-[100] flex items-center justify-center p-4"
+                                                        class="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto p-3 sm:p-4"
                                                         style="display: none;"
                                                     >
-                                                        <div class="absolute inset-0 bg-black/50" @click="completeOpen = false"></div>
+                                                        <div class="absolute inset-0 bg-black" @click="completeOpen = false"></div>
+                                                        @php
+                                                            $checklistSummary = $row['checklist_summary'] ?? [
+                                                                'total_items' => 0,
+                                                                'answered_items' => 0,
+                                                                'incomplete_items' => 0,
+                                                                'broken_items' => 0,
+                                                                'missing_items' => 0,
+                                                                'should_warn_on_complete' => false,
+                                                            ];
+                                                            $inventoryItems = $row['inventory_items'] ?? [];
+                                                            $hasInventoryCheckout = count($inventoryItems) > 0;
+                                                            $inventoryByRoom = $hasInventoryCheckout
+                                                                ? collect($inventoryItems)->groupBy(fn (array $item): string => (string) ($item['room_name'] ?? __('Room')))
+                                                                : collect();
+                                                                $checkoutIssues = $hasInventoryCheckout
+                                                                    ? collect($inventoryItems)->filter(function (array $item): bool {
+                                                                        return in_array((string) ($item['current_status'] ?? 'good'), ['broken', 'missing'], true);
+                                                                    })->values()
+                                                                    : collect();
+                                                            $checkoutWarn = ($checklistSummary['should_warn_on_complete'] ?? false) === true;
+                                                            $checkoutPrimaryLabel = $checkoutWarn
+                                                                ? __('Complete anyway')
+                                                                : ($hasInventoryCheckout ? __('Proceed to Checkout') : __('Complete checkout'));
+                                                        @endphp
                                                         <div
-                                                            class="relative z-10 w-full max-w-xl rounded-xl border border-gray-200 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-gray-900"
+                                                            @class([
+                                                                'relative z-10 flex h-auto max-h-[min(calc(100vh-1.5rem),40rem)] w-[min(100%,22rem)] flex-col overflow-hidden rounded-2xl border shadow-2xl sm:max-h-[min(calc(100vh-2rem),42rem)] sm:w-[min(100%,26rem)]',
+                                                                'border-slate-700 bg-[#0b1220] text-white' => $hasInventoryCheckout,
+                                                                'border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-900 w-full max-w-md sm:max-w-lg' => ! $hasInventoryCheckout,
+                                                            ])
                                                             @click.stop
                                                         >
-                                                            @php
-                                                                $checklistSummary = $row['checklist_summary'] ?? [
-                                                                    'total_items' => 0,
-                                                                    'answered_items' => 0,
-                                                                    'incomplete_items' => 0,
-                                                                    'broken_items' => 0,
-                                                                    'missing_items' => 0,
-                                                                    'should_warn_on_complete' => false,
-                                                                ];
-                                                            @endphp
-                                                            <h3 class="text-base font-semibold text-gray-900 dark:text-white">
-                                                                {{ $row['complete_label'] ?? __('Checkout') }}
-                                                            </h3>
-                                                            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                                                {{ __('Review checklist progress before checkout completion.') }}
-                                                            </p>
-                                                            <div class="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700 dark:border-white/10 dark:bg-white/5 dark:text-gray-200">
-                                                                <div class="flex items-center justify-between">
-                                                                    <span>{{ __('Checklist progress') }}</span>
-                                                                    <span class="font-semibold tabular-nums">
-                                                                        {{ (int) ($checklistSummary['answered_items'] ?? 0) }}/{{ (int) ($checklistSummary['total_items'] ?? 0) }}
-                                                                    </span>
+                                                            @if ($hasInventoryCheckout)
+                                                                <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-7 sm:px-6 sm:pb-5 sm:pt-9">
+                                                                    <div class="text-center">
+                                                                        <h3 class="text-xl font-semibold tracking-tight text-white sm:text-2xl">
+                                                                            {{ $row['complete_label'] ?? __('Checkout') }}
+                                                                        </h3>
+                                                                        <p class="mx-auto mt-2 max-w-[18rem] text-sm leading-relaxed text-slate-300 sm:max-w-none">
+                                                                            {{ __('Mark each item as OK, Damaged, or Missing before completing checkout.') }}
+                                                                        </p>
+                                                                    </div>
+
+                                                                    <div class="mt-6 space-y-6 sm:mt-8 sm:space-y-8">
+                                                                        @foreach ($inventoryByRoom as $roomLabel => $roomItems)
+                                                                            <div class="space-y-3">
+                                                                                <h4 class="text-sm font-semibold text-white">
+                                                                                    {{ $roomLabel }}
+                                                                                </h4>
+                                                                                <div class="space-y-2">
+                                                                                    @foreach ($roomItems as $inventoryItem)
+                                                                                        @php
+                                                                                            $itemId = (int) ($inventoryItem['inventory_item_id'] ?? 0);
+                                                                                            $currentStatus = (string) ($inventoryItem['current_status'] ?? 'good');
+                                                                                            $statusPath = "checkoutChecklistRows.{$row['id']}.{$itemId}.status";
+                                                                                            $photosPath = "checkoutChecklistRows.{$row['id']}.{$itemId}.photos";
+                                                                                            $statusOptions = [
+                                                                                                'good' => __('OK'),
+                                                                                                'broken' => __('Damaged'),
+                                                                                                'missing' => __('Missing'),
+                                                                                            ];
+                                                                                        @endphp
+                                                                                        <div
+                                                                                            class="rounded-2xl border border-slate-600 bg-[#1e293b] px-3 py-3 sm:px-4"
+                                                                                            wire:key="checkout-item-{{ $row['id'] }}-{{ $itemId }}"
+                                                                                        >
+                                                                                            <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-3">
+                                                                                                <div class="min-w-0 w-full md:flex-1">
+                                                                                                    <div class="break-words text-sm font-semibold leading-snug text-white">
+                                                                                                        {{ $inventoryItem['item_name'] ?? __('Item') }}
+                                                                                                        @if (((int) ($inventoryItem['quantity'] ?? 1)) > 1)
+                                                                                                            <span class="font-normal text-slate-400">&times;{{ (int) ($inventoryItem['quantity'] ?? 1) }}</span>
+                                                                                                        @endif
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                                <div class="inline-flex w-full min-w-0 shrink-0 gap-1 overflow-hidden rounded-xl border border-slate-700 bg-[#0f172a] p-1 md:w-auto md:min-w-[min(100%,15rem)]">
+                                                                                                    @foreach ($statusOptions as $statusKey => $statusLabel)
+                                                                                                        @php
+                                                                                                            $isActive = $currentStatus === $statusKey;
+                                                                                                            $segmentLabel = ($statusKey === 'broken' && $isActive)
+                                                                                                                ? __('Damage Proof')
+                                                                                                                : $statusLabel;
+                                                                                                        @endphp
+                                                                                                        <button
+                                                                                                            type="button"
+                                                                                                            wire:click="$set('{{ $statusPath }}', '{{ $statusKey }}')"
+                                                                                                            aria-pressed="{{ $isActive ? 'true' : 'false' }}"
+                                                                                                            @class([
+                                                                                                                'min-h-9 min-w-0 flex-1 px-1.5 py-2 text-center text-[11px] font-semibold leading-tight text-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1220] sm:px-2 sm:text-xs',
+                                                                                                                'rounded-lg bg-[#3b4f7a] hover:bg-[#45598c]' => ! $isActive,
+                                                                                                                'rounded-lg bg-[#10b981] shadow-sm' => $isActive && $statusKey === 'good',
+                                                                                                                'rounded-lg bg-[#fb923c] shadow-sm' => $isActive && $statusKey === 'broken',
+                                                                                                                'rounded-lg bg-[#f87171] shadow-sm' => $isActive && $statusKey === 'missing',
+                                                                                                            ])
+                                                                                                        >
+                                                                                                            {{ $segmentLabel }}
+                                                                                                        </button>
+                                                                                                    @endforeach
+                                                                                                </div>
+                                                                                            </div>
+
+                                                                                            @if ($currentStatus === 'broken')
+                                                                                                <div class="mt-3 rounded-xl border border-slate-500 bg-[#0b1220] px-3 py-3 text-xs text-slate-200">
+                                                                                                    <label class="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                                                                                        {{ __('Upload photo') }}
+                                                                                                    </label>
+                                                                                                    <input
+                                                                                                        type="file"
+                                                                                                        wire:model="{{ $photosPath }}"
+                                                                                                        accept="image/*"
+                                                                                                        multiple
+                                                                                                        class="block w-full rounded-lg border border-slate-600 bg-[#1e293b] text-xs text-slate-100 file:mr-3 file:rounded-md file:border-0 file:bg-white file:px-3 file:py-2 file:text-xs file:font-semibold file:text-[#0b1220] hover:file:bg-slate-100"
+                                                                                                    >
+                                                                                                    <div class="mt-2 text-[11px] text-slate-400">
+                                                                                                        {{ __('Required when the item is marked damaged.') }}
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            @endif
+                                                                                        </div>
+                                                                                    @endforeach
+                                                                                </div>
+                                                                            </div>
+                                                                        @endforeach
+                                                                    </div>
+
+                                                                    @if ($checkoutWarn)
+                                                                        <p class="mt-6 rounded-xl border border-amber-800 bg-amber-950 px-3 py-2 text-xs leading-relaxed text-amber-100">
+                                                                            {{ __('Checklist has incomplete item(s). You can still complete this booking after confirmation.') }}
+                                                                        </p>
+                                                                    @endif
+
+                                                                    @if ($checkoutIssues->isNotEmpty())
+                                                                        <div class="mt-6 rounded-2xl border border-rose-900/70 bg-[#0f172a] px-4 py-4 sm:px-5">
+                                                                            <div class="flex items-center justify-between gap-3">
+                                                                                <h4 class="text-sm font-semibold text-white">
+                                                                                    {{ __('Checkout issues') }}
+                                                                                </h4>
+                                                                                <span class="rounded-full border border-rose-900/80 bg-rose-950 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-rose-200">
+                                                                                    {{ $checkoutIssues->count() }}
+                                                                                </span>
+                                                                            </div>
+                                                                            <div class="mt-3 space-y-2">
+                                                                                @foreach ($checkoutIssues as $issue)
+                                                                                    @php
+                                                                                        $issueStatus = (string) ($issue['current_status'] ?? 'good');
+                                                                                        $issueLabel = $issueStatus === 'broken' ? __('Damaged') : __('Missing');
+                                                                                    @endphp
+                                                                                    <div class="rounded-xl border border-white/10 bg-[#111c30] px-3 py-2.5">
+                                                                                        <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                                                                            <div class="min-w-0">
+                                                                                                <div class="truncate text-sm font-medium text-white">
+                                                                                                    {{ $issue['item_name'] ?? __('Item') }}
+                                                                                                </div>
+                                                                                                <div class="text-xs text-slate-400">
+                                                                                                    {{ $issue['room_name'] ?? __('Room') }}
+                                                                                                    @if (((int) ($issue['quantity'] ?? 1)) > 1)
+                                                                                                        · {{ __('Qty') }} {{ (int) ($issue['quantity'] ?? 1) }}
+                                                                                                    @endif
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <span @class([
+                                                                                                'inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide',
+                                                                                                'bg-rose-950 text-rose-200' => $issueStatus === 'broken',
+                                                                                                'bg-amber-950 text-amber-200' => $issueStatus === 'missing',
+                                                                                            ])>
+                                                                                                {{ $issueLabel }}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                @endforeach
+                                                                            </div>
+                                                                        </div>
+                                                                    @endif
                                                                 </div>
-                                                                <div class="mt-2 grid grid-cols-3 gap-2 text-[11px]">
-                                                                    <div>{{ __('Incomplete') }}: <span class="font-semibold tabular-nums">{{ (int) ($checklistSummary['incomplete_items'] ?? 0) }}</span></div>
-                                                                    <div>{{ __('Broken') }}: <span class="font-semibold tabular-nums">{{ (int) ($checklistSummary['broken_items'] ?? 0) }}</span></div>
-                                                                    <div>{{ __('Missing') }}: <span class="font-semibold tabular-nums">{{ (int) ($checklistSummary['missing_items'] ?? 0) }}</span></div>
+
+                                                                <div class="shrink-0 border-t border-slate-700 bg-[#0b1220] px-4 py-3.5 sm:px-6">
+                                                                    <div class="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                                                        <button
+                                                                            type="button"
+                                                                            class="text-center text-sm font-medium text-slate-300 underline-offset-4 hover:text-white hover:underline sm:text-left"
+                                                                            @click="completeOpen = false"
+                                                                        >
+                                                                            {{ __('Go back') }}
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            class="inline-flex w-full items-center justify-center rounded-xl bg-[#10b981] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0ea371] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#34d399] sm:w-auto sm:min-w-[10.5rem]"
+                                                                            @click="submitComplete({{ $checkoutWarn ? 'true' : 'false' }})"
+                                                                        >
+                                                                            {{ $checkoutPrimaryLabel }}
+                                                                        </button>
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                            @if (($checklistSummary['should_warn_on_complete'] ?? false) === true)
-                                                                <p class="mt-3 rounded-lg border border-amber-300/70 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-400/35 dark:bg-amber-500/10 dark:text-amber-100">
-                                                                    {{ __('Checklist has incomplete item(s). You can still complete this booking after confirmation.') }}
-                                                                </p>
+                                                            @else
+                                                                <div class="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+                                                                    <h3 class="text-base font-semibold text-gray-900 dark:text-white">
+                                                                        {{ $row['complete_label'] ?? __('Checkout') }}
+                                                                    </h3>
+                                                                    <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                                                        {{ __('Confirm to mark this stay as completed.') }}
+                                                                    </p>
+                                                                </div>
+
+                                                                <div class="shrink-0 border-t border-gray-200/80 bg-white px-4 py-4 dark:border-white/10 dark:bg-gray-900 sm:px-6">
+                                                                    <div class="flex justify-end gap-2">
+                                                                        <button
+                                                                            type="button"
+                                                                            class="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10"
+                                                                            @click="completeOpen = false"
+                                                                        >
+                                                                            {{ __('Go back') }}
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
+                                                                            @click="submitComplete(false)"
+                                                                        >
+                                                                            {{ __('Complete checkout') }}
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
                                                             @endif
-                                                            <div class="mt-4 flex justify-end gap-2">
-                                                                <button
-                                                                    type="button"
-                                                                    class="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5"
-                                                                    @click="completeOpen = false"
-                                                                >
-                                                                    {{ __('Go back') }}
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    class="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
-                                                                    @click="submitComplete({{ (($checklistSummary['should_warn_on_complete'] ?? false) === true) ? 'true' : 'false' }})"
-                                                                >
-                                                                    {{ (($checklistSummary['should_warn_on_complete'] ?? false) === true) ? __('Complete anyway') : ($row['complete_label'] ?? __('Checkout')) }}
-                                                                </button>
-                                                            </div>
                                                         </div>
                                                     </div>
                                                 </template>

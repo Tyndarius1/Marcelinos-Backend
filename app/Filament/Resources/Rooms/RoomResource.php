@@ -8,6 +8,7 @@ use App\Filament\Resources\Rooms\Pages\EditRoom;
 use App\Filament\Resources\Rooms\Pages\ListRooms;
 use App\Filament\Resources\Rooms\Pages\ViewRoom;
 use App\Filament\Resources\Rooms\RelationManagers\RoomBlockedDatesRelationManager;
+use App\Filament\Resources\Rooms\RelationManagers\RoomInventoryItemsRelationManager;
 use App\Filament\Resources\Rooms\Schemas\RoomForm;
 use App\Filament\Resources\Rooms\Tables\RoomsTable;
 use App\Models\Room;
@@ -50,6 +51,7 @@ class RoomResource extends Resource
     {
         return [
             RoomBlockedDatesRelationManager::class,
+            RoomInventoryItemsRelationManager::class,
         ];
     }
 
