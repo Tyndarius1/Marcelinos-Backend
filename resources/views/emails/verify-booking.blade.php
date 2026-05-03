@@ -17,7 +17,7 @@
             <td align="center">
                 <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="width:600px; max-width:600px; background-color:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #e5e7eb; box-shadow:0 12px 34px rgba(15, 23, 42, 0.08); font-family:'Poppins', Arial, Helvetica, sans-serif;">
                     <tr>
-                        <td style="padding:22px 32px; border-bottom:1px solid #dbeafe; background:linear-gradient(135deg, #f0fdf4 0%, #ecfeff 45%, #eff6ff 100%); font-family:'Poppins', Arial, Helvetica, sans-serif;">
+                        <td style="padding:22px 32px; border-bottom:1px solid font-family:'Poppins', Arial, Helvetica, sans-serif;">
                             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-family:'Poppins', Arial, Helvetica, sans-serif;">
                                 <tr>
                                     <td style="vertical-align:middle;">
@@ -27,13 +27,8 @@
                                         <img src="{{ file_exists($logoPath) ? $message->embed($logoPath) : (config('app.url') . '/brand-logo.png') }}" alt="Marcelino's" width="60" style="display:block; height:auto; border:0; outline:none; text-decoration:none;">
                                     </td>
                                     <td style="vertical-align:middle; text-align:right; color:#111827; font-family:'Poppins', Arial, Helvetica, sans-serif;">
-                                        <div style="margin:0 0 6px;">
-                                            <span style="display:inline-block; padding:4px 10px; border-radius:999px; border:1px solid #86efac; color:#166534; font-size:11px; line-height:16px; font-weight:700; letter-spacing:0.3px; text-transform:uppercase;">
-                                                Pending verification
-                                            </span>
-                                        </div>
                                         <div style="font-size:16px; line-height:22px; font-weight:700; font-family:'Poppins', Arial, Helvetica, sans-serif;">
-                                            Confirm your booking
+                                            Booking Confirmation
                                         </div>
                                         <div style="font-size:12.5px; line-height:18px; color:#6b7280; font-weight:500; font-family:'Poppins', Arial, Helvetica, sans-serif;">
                                             Reference {{ $booking->reference_number }}
