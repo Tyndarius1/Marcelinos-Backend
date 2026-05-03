@@ -71,6 +71,7 @@ final class BookingLifecycleActions
                         'charge' => (string) $item->charge,
                         'status' => (string) ($item->status ?: RoomChecklistItem::STATUS_GOOD),
                         'notes' => (string) ($item->notes ?? ''),
+                        'evidence_photo_path' => (string) ($item->evidence_photo_path ?? ''),
                     ];
                 });
             })
@@ -95,6 +96,7 @@ final class BookingLifecycleActions
             RoomChecklistItem::STATUS_GOOD,
             RoomChecklistItem::STATUS_BROKEN,
             RoomChecklistItem::STATUS_MISSING,
+            RoomChecklistItem::STATUS_NOT_APPLICABLE,
         ];
 
         DB::transaction(function () use ($booking, $rows, $validStatuses): void {
@@ -120,6 +122,7 @@ final class BookingLifecycleActions
                     ->update([
                         'status' => $status,
                         'notes' => filled($row['notes'] ?? null) ? trim((string) $row['notes']) : null,
+                        'evidence_photo_path' => filled($row['evidence_photo_path'] ?? null) ? trim((string) $row['evidence_photo_path']) : null,
                     ]);
             }
         });
@@ -178,21 +181,15 @@ final class BookingLifecycleActions
             return;
         }
 
-        $templateRows = RoomChecklistTemplate::query()
+        $activeTemplates = RoomChecklistTemplate::query()
             ->active()
             ->orderBy('sort_order')
             ->orderBy('id')
-            ->get(['label', 'default_charge', 'sort_order'])
-            ->map(fn (RoomChecklistTemplate $template): array => [
-                'label' => (string) $template->label,
-                'charge' => filled($template->default_charge) ? (string) $template->default_charge : null,
-                'sort_order' => (int) $template->sort_order,
-            ])
-            ->values()
-            ->all();
+            ->get(['label', 'default_charge', 'sort_order', 'applicable_room_types']);
 
-        if ($templateRows === []) {
-            $templateRows = collect(RoomChecklistDefaults::labels())
+        $fallbackRows = [];
+        if ($activeTemplates->isEmpty()) {
+            $fallbackRows = collect(RoomChecklistDefaults::labels())
                 ->values()
                 ->map(fn (string $label, int $index): array => [
                     'label' => $label,
@@ -202,8 +199,22 @@ final class BookingLifecycleActions
                 ->all();
         }
 
-        DB::transaction(function () use ($booking, $templateRows): void {
+        DB::transaction(function () use ($booking, $activeTemplates, $fallbackRows): void {
             foreach ($booking->rooms as $room) {
+                $templateRows = $activeTemplates
+                    ->filter(fn (RoomChecklistTemplate $template): bool => $template->appliesToRoomType((string) $room->type))
+                    ->values()
+                    ->map(fn (RoomChecklistTemplate $template): array => [
+                        'label' => (string) $template->label,
+                        'charge' => filled($template->default_charge) ? (string) $template->default_charge : null,
+                        'sort_order' => (int) $template->sort_order,
+                    ])
+                    ->all();
+
+                if ($templateRows === []) {
+                    $templateRows = $fallbackRows;
+                }
+
                 $checklist = RoomChecklist::query()->firstOrCreate(
                     [
                         'booking_id' => (int) $booking->id,

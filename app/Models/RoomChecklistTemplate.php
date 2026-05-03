@@ -15,11 +15,13 @@ class RoomChecklistTemplate extends Model
     protected $fillable = [
         'label',
         'default_charge',
+        'applicable_room_types',
         'is_active',
         'sort_order',
     ];
 
     protected $casts = [
+        'applicable_room_types' => 'array',
         'is_active' => 'boolean',
         'sort_order' => 'integer',
     ];
@@ -27,6 +29,24 @@ class RoomChecklistTemplate extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    public function appliesToRoomType(?string $roomType): bool
+    {
+        $allowed = $this->applicable_room_types;
+
+        if (! is_array($allowed) || $allowed === []) {
+            return true;
+        }
+
+        $needle = strtolower(trim((string) $roomType));
+        if ($needle === '') {
+            return false;
+        }
+
+        return collect($allowed)
+            ->map(fn ($value): string => strtolower(trim((string) $value)))
+            ->contains($needle);
     }
 }
 

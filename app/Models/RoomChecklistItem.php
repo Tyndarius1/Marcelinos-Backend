@@ -10,6 +10,7 @@ class RoomChecklistItem extends Model
     const STATUS_GOOD = 'good';
     const STATUS_BROKEN = 'broken';
     const STATUS_MISSING = 'missing';
+    const STATUS_NOT_APPLICABLE = 'not_applicable';
 
     protected $fillable = [
         'room_checklist_id',
@@ -17,6 +18,7 @@ class RoomChecklistItem extends Model
         'charge',
         'status',
         'notes',
+        'evidence_photo_path',
         'sort_order',
     ];
 

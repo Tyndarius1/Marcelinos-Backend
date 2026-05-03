@@ -10,6 +10,7 @@ use App\Filament\Exports\BookingExporter;
 use App\Mail\BookingCreated;
 use App\Mail\VerifyBookingEmail;
 use App\Models\Booking;
+use App\Models\Payment;
 use App\Models\Room;
 use App\Support\BookingAdminGuidance;
 use App\Support\BookingCheckInEligibility;
@@ -427,6 +428,18 @@ class BookingsTable
                     ->colors(Booking::damageSettlementStatusColors())
                     ->formatStateUsing(fn (?string $state): string => Booking::damageSettlementStatusOptions()[$state] ?? (string) $state)
                     ->sortable(),
+                BadgeColumn::make('damage_due')
+                    ->label('Damage due')
+                    ->getStateUsing(function (Booking $record): string {
+                        $amount = self::damageOutstandingForBooking($record);
+
+                        return $amount > 0
+                            ? '₱'.number_format($amount, 2)
+                            : '—';
+                    })
+                    ->color(fn (string $state): string => $state === '—' ? 'gray' : 'danger')
+                    ->visible(fn (Booking $record): bool => self::damageOutstandingForBooking($record) > 0)
+                    ->sortable(false),
 
                 TextColumn::make('next_step')
                     ->label('Next step')
@@ -924,5 +937,32 @@ class BookingsTable
             : null;
 
         return [$start, $end];
+    }
+
+    private static function damageOutstandingForBooking(Booking $booking): float
+    {
+        $booking->loadMissing(['roomChecklists.items', 'payments']);
+
+        $damageTotal = (float) $booking->roomChecklists
+            ->flatMap(fn ($checklist) => $checklist->items)
+            ->filter(fn ($item): bool => in_array((string) ($item->status ?? ''), [
+                'broken',
+                'missing',
+            ], true))
+            ->sum(function ($item): float {
+                $raw = (string) ($item->charge ?? '0');
+                $normalized = preg_replace('/[^0-9.\-]/', '', $raw);
+                if (! is_string($normalized) || $normalized === '' || $normalized === '-' || $normalized === '.') {
+                    return 0.0;
+                }
+
+                return max(0.0, (float) $normalized);
+            });
+
+        $damagePaid = (float) $booking->payments
+            ->where('payment_type', Payment::TYPE_DAMAGE)
+            ->sum('partial_amount');
+
+        return max(0.0, round($damageTotal - $damagePaid, 2));
     }
 }

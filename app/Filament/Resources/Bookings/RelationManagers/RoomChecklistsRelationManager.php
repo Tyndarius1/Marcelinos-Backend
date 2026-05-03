@@ -2,15 +2,25 @@
 
 namespace App\Filament\Resources\Bookings\RelationManagers;
 
+use App\Models\Booking;
+use App\Models\Payment;
 use App\Models\RoomChecklist;
 use App\Models\RoomChecklistItem;
+use App\Support\ActivityLogger;
+use App\Support\BookingLifecycleActions;
+use App\Support\BookingDamageSettlement;
+use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\BadgeColumn;
@@ -20,15 +30,36 @@ use Illuminate\Support\HtmlString;
 
 class RoomChecklistsRelationManager extends RelationManager
 {
+    public bool $managerOverrideChecklistEdit = false;
+
     protected static string $relationship = 'roomChecklists';
 
-    protected static ?string $title = 'Room condition checklist';
+    protected static ?string $title = 'Room inventory checklist';
 
     protected static ?string $recordTitleAttribute = 'room_id';
 
     public function form(Schema $schema): Schema
     {
+        /** @var Booking|null $booking */
+        $booking = $this->getOwnerRecord() instanceof Booking ? $this->getOwnerRecord() : null;
+
         return $schema->components([
+            Placeholder::make('booking_reference')
+                ->label('Booking reference')
+                ->content(fn (): string => (string) ($booking?->reference_number ?? '—')),
+
+            Placeholder::make('guest_name')
+                ->label('Guest')
+                ->content(fn (): string => (string) ($booking?->guest?->full_name ?? '—')),
+
+            Placeholder::make('guest_contact')
+                ->label('Guest contact')
+                ->content(fn (): string => (string) ($booking?->guest?->contact_num ?? '—')),
+
+            Placeholder::make('guest_email')
+                ->label('Guest email')
+                ->content(fn (): string => (string) ($booking?->guest?->email ?? '—')),
+
             TextInput::make('room.name')
                 ->label('Room')
                 ->disabled()
@@ -40,9 +71,9 @@ class RoomChecklistsRelationManager extends RelationManager
                 ->dehydrated(false),
 
             DateTimePicker::make('completed_at')
-                ->label('Checklist completed at')
+                ->label('Inspection completed at')
                 ->native(false)
-                ->helperText('Optional: set when inspection is finished.'),
+                ->helperText('Optional. Set this when room inspection is done.'),
 
             Placeholder::make('checklist_empty_state')
                 ->label('Setup reminder')
@@ -51,62 +82,103 @@ class RoomChecklistsRelationManager extends RelationManager
 
             Repeater::make('items')
                 ->relationship('items')
-                ->label('Checklist items')
+                ->label('Room items')
                 ->defaultItems(0)
                 ->reorderable(false)
-                ->helperText('Mark only damaged/missing items and add notes only when needed. "Good" is the default healthy state.')
+                ->addActionLabel('Add new room item')
+                ->deletable(false)
+                ->helperText('Choose Good, Broken, Missing, or Not in this room. Add new item if the room has newly installed equipment.')
                 ->schema([
                     TextInput::make('label')
-                        ->label('Property')
-                        ->disabled()
-                        ->dehydrated(false),
+                        ->label('Item')
+                        ->required()
+                        ->placeholder('Example: TV remote')
+                        ->disabled(fn (callable $get): bool => filled($get('id'))),
 
                     TextInput::make('charge')
                         ->label('Charge')
-                        ->disabled()
-                        ->dehydrated(false),
+                        ->placeholder('Optional')
+                        ->helperText('Optional replacement/penalty amount.')
+                        ->disabled(fn (callable $get): bool => filled($get('id'))),
 
-                    ToggleButtons::make('status')
-                        ->label('Condition')
+                    Select::make('status')
+                        ->label('Status')
+                        ->native(false)
                         ->options([
                             RoomChecklistItem::STATUS_GOOD => 'Good',
                             RoomChecklistItem::STATUS_BROKEN => 'Broken',
                             RoomChecklistItem::STATUS_MISSING => 'Missing',
-                        ])
-                        ->colors([
-                            RoomChecklistItem::STATUS_GOOD => 'success',
-                            RoomChecklistItem::STATUS_BROKEN => 'warning',
-                            RoomChecklistItem::STATUS_MISSING => 'danger',
-                        ])
-                        ->icons([
-                            RoomChecklistItem::STATUS_GOOD => 'heroicon-o-check-circle',
-                            RoomChecklistItem::STATUS_BROKEN => 'heroicon-o-wrench-screwdriver',
-                            RoomChecklistItem::STATUS_MISSING => 'heroicon-o-exclamation-triangle',
+                            RoomChecklistItem::STATUS_NOT_APPLICABLE => 'Not in this room',
                         ])
                         ->default(RoomChecklistItem::STATUS_GOOD)
-                        ->inline()
                         ->required(),
 
                     Textarea::make('notes')
-                        ->label('Damage notes')
+                        ->label('Issue notes')
                         ->rows(2)
-                        ->placeholder('Add details only when broken or missing (e.g., cracked screen, missing remote).')
+                        ->placeholder('Example: TV screen has crack on left side, remote missing.')
                         ->visible(fn (callable $get): bool => in_array((string) $get('status'), [
+                            RoomChecklistItem::STATUS_BROKEN,
+                            RoomChecklistItem::STATUS_MISSING,
+                        ], true))
+                        ->required(fn (callable $get): bool => in_array((string) $get('status'), [
+                            RoomChecklistItem::STATUS_BROKEN,
+                            RoomChecklistItem::STATUS_MISSING,
+                        ], true))
+                        ->columnSpanFull(),
+                    FileUpload::make('evidence_photo_path')
+                        ->label('Issue photo')
+                        ->disk('public')
+                        ->directory('checklists/evidence')
+                        ->image()
+                        ->imageEditor()
+                        ->visible(fn (callable $get): bool => in_array((string) $get('status'), [
+                            RoomChecklistItem::STATUS_BROKEN,
+                            RoomChecklistItem::STATUS_MISSING,
+                        ], true))
+                        ->required(fn (callable $get): bool => in_array((string) $get('status'), [
                             RoomChecklistItem::STATUS_BROKEN,
                             RoomChecklistItem::STATUS_MISSING,
                         ], true))
                         ->columnSpanFull(),
                 ])
-                ->columns(3)
+                ->columns(4)
                 ->itemLabel(fn (array $state): ?string => $state['label'] ?? null),
-        ]);
+        ])->columns(2);
     }
 
     public function table(Table $table): Table
     {
+        /** @var Booking|null $booking */
+        $booking = $this->getOwnerRecord() instanceof Booking ? $this->getOwnerRecord() : null;
+        if ($booking instanceof Booking) {
+            $booking->loadMissing(['guest', 'rooms']);
+            BookingLifecycleActions::ensureCompletionRoomChecklists($booking);
+        }
+
         return $table
             ->recordTitle(fn (RoomChecklist $record): string => $record->room?->name ?? 'Room checklist')
             ->columns([
+                TextColumn::make('booking.reference_number')
+                    ->label('Reference')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('booking.guest.contact_num')
+                    ->label('Guest contact')
+                    ->placeholder('—')
+                    ->url(fn (RoomChecklist $record): ?string => filled($record->booking?->guest?->contact_num)
+                        ? 'tel:'.preg_replace('/\s+/', '', (string) $record->booking->guest->contact_num)
+                        : null)
+                    ->toggleable(),
+
+                TextColumn::make('booking.guest.email')
+                    ->label('Guest email')
+                    ->placeholder('—')
+                    ->url(fn (RoomChecklist $record): ?string => filled($record->booking?->guest?->email)
+                        ? 'mailto:'.$record->booking->guest->email
+                        : null)
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 TextColumn::make('room.name')
                     ->label('Room')
                     ->searchable()
@@ -118,7 +190,7 @@ class RoomChecklistsRelationManager extends RelationManager
                     ->sortable(),
 
                 TextColumn::make('completed_at')
-                    ->label('Completed')
+                    ->label('Inspected')
                     ->dateTime()
                     ->sortable(),
 
@@ -137,52 +209,581 @@ class RoomChecklistsRelationManager extends RelationManager
                     ->color(fn (string $state): string => ((int) $state) > 0 ? 'danger' : 'success')
                     ->formatStateUsing(fn (string $state): string => ((int) $state) > 0 ? "{$state} issue(s)" : 'None'),
 
-                TextColumn::make('items_inline')
-                    ->label('Checklist details')
-                    ->html()
-                    ->wrap()
-                    ->getStateUsing(function (RoomChecklist $record): HtmlString {
-                        $items = $record->items()->get(['label', 'status', 'notes']);
-                        if ($items->isEmpty()) {
-                            return new HtmlString('<span class="text-gray-500">No checklist items configured.</span>');
+                TextColumn::make('inspection_overview')
+                    ->label('Inspection')
+                    ->getStateUsing(function (RoomChecklist $record): string {
+                        $items = $record->items()->get(['status']);
+                        $total = $items->count();
+                        $issues = $items->filter(fn (RoomChecklistItem $item): bool => in_array((string) $item->status, [
+                            RoomChecklistItem::STATUS_BROKEN,
+                            RoomChecklistItem::STATUS_MISSING,
+                        ], true))->count();
+
+                        if ($total === 0) {
+                            return 'No checklist items';
                         }
 
-                        $rows = $items->map(function (RoomChecklistItem $item): string {
-                            $status = (string) ($item->status ?: RoomChecklistItem::STATUS_GOOD);
-                            $statusLabel = match ($status) {
-                                RoomChecklistItem::STATUS_BROKEN => 'Broken',
-                                RoomChecklistItem::STATUS_MISSING => 'Missing',
-                                default => 'Good',
-                            };
-                            $statusClass = match ($status) {
-                                RoomChecklistItem::STATUS_BROKEN => 'text-amber-700 dark:text-amber-300',
-                                RoomChecklistItem::STATUS_MISSING => 'text-red-700 dark:text-red-300',
-                                default => 'text-emerald-700 dark:text-emerald-300',
-                            };
-                            $label = e((string) $item->label);
-                            $notes = trim((string) ($item->notes ?? ''));
-                            $notesHtml = $notes !== ''
-                                ? '<div class="text-[11px] text-gray-500 dark:text-gray-400">'.e($notes).'</div>'
-                                : '';
+                        return "{$total} items · {$issues} issue(s)";
+                    }),
 
-                            return '<div class="py-1">'
-                                .'<div class="flex items-center justify-between gap-2">'
-                                .'<span class="font-medium text-gray-800 dark:text-gray-100">'.$label.'</span>'
-                                .'<span class="text-xs font-semibold '.$statusClass.'">'.$statusLabel.'</span>'
-                                .'</div>'
-                                .$notesHtml
-                                .'</div>';
-                        })->implode('');
+                TextColumn::make('issue_preview')
+                    ->label('Issue details')
+                    ->wrap()
+                    ->getStateUsing(function (RoomChecklist $record): string {
+                        $issues = $record->items()
+                            ->whereIn('status', [
+                                RoomChecklistItem::STATUS_BROKEN,
+                                RoomChecklistItem::STATUS_MISSING,
+                            ])
+                            ->get(['label'])
+                            ->pluck('label')
+                            ->filter()
+                            ->values();
 
-                        return new HtmlString('<div class="space-y-1">'.$rows.'</div>');
+                        if ($issues->isEmpty()) {
+                            return 'No issues';
+                        }
+
+                        $preview = $issues->take(2)->implode(', ');
+                        $remaining = $issues->count() - min(2, $issues->count());
+
+                        return $remaining > 0 ? "{$preview} +{$remaining} more" : $preview;
+                    }),
+            ])
+            ->defaultSort('room.name')
+            ->emptyStateHeading('No room checklist yet')
+            ->emptyStateDescription('Assign room(s) to this booking first, then reopen this tab so inventory checklist is created automatically.')
+            ->headerActions([
+                Action::make('managerOverrideChecklistEdit')
+                    ->label('Manager override: enable edits')
+                    ->icon('heroicon-o-lock-open')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading('Enable manager override?')
+                    ->modalDescription('This booking is completed. Enable override to allow checklist edits for corrections.')
+                    ->form([
+                        Textarea::make('reason')
+                            ->label('Override reason')
+                            ->rows(3)
+                            ->placeholder('Why do you need to reopen this completed checklist?')
+                            ->required(),
+                    ])
+                    ->visible(fn (): bool => $this->isChecklistLocked() && ! $this->managerOverrideChecklistEdit && $this->canUseManagerOverride())
+                    ->action(function (array $data): void {
+                        $this->managerOverrideChecklistEdit = true;
+                        $booking = $this->getOwnerRecord();
+                        $actor = auth()->user();
+                        $reason = trim((string) ($data['reason'] ?? ''));
+
+                        if ($booking instanceof Booking && $actor !== null) {
+                            ActivityLogger::log(
+                                category: 'booking',
+                                event: 'checklist.override_enabled',
+                                description: sprintf(
+                                    '%s enabled manager override for checklist edits on booking %s.',
+                                    (string) $actor->name,
+                                    (string) $booking->reference_number,
+                                ),
+                                subject: $booking,
+                                meta: [
+                                    'reference_number' => (string) $booking->reference_number,
+                                    'reason' => $reason,
+                                    'enabled_by_user_id' => (int) $actor->id,
+                                    'enabled_by_user_name' => (string) $actor->name,
+                                ],
+                                userId: (int) $actor->id,
+                            );
+                        }
+
+                        Notification::make()
+                            ->title('Manager override enabled')
+                            ->body('Checklist editing is temporarily unlocked for this session.')
+                            ->warning()
+                            ->send();
+                    }),
+                Action::make('markDamagePaid')
+                    ->label(fn (): string => 'Record damage payment (₱'.number_format($this->damageOutstandingBalance(), 2).' due)')
+                    ->icon('heroicon-o-currency-dollar')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Record damage payment')
+                    ->modalDescription('Record full or partial payment for damage charges. Settlement completes automatically once fully paid.')
+                    ->visible(fn (): bool => $this->canRecordDamagePayment())
+                    ->form([
+                        Placeholder::make('damage_total')
+                            ->label('Total damage charge')
+                            ->content(fn (): string => '₱'.number_format($this->damageChargeTotal(), 2)),
+                        Placeholder::make('damage_paid_so_far')
+                            ->label('Already paid')
+                            ->content(fn (): string => '₱'.number_format($this->damagePaidSoFar(), 2)),
+                        Placeholder::make('damage_balance')
+                            ->label('Outstanding balance')
+                            ->content(fn (): string => '₱'.number_format($this->damageOutstandingBalance(), 2)),
+                        TextInput::make('amount')
+                            ->label('Payment amount')
+                            ->numeric()
+                            ->required()
+                            ->prefix('₱')
+                            ->minValue(1)
+                            ->maxValue(fn (): float => max(1, $this->damageOutstandingBalance()))
+                            ->default(fn (): float => $this->damageOutstandingBalance()),
+                        Textarea::make('notes')
+                            ->label('Payment notes')
+                            ->rows(3)
+                            ->placeholder('Optional OR/reference or staff note.'),
+                    ])
+                    ->action(function (array $data): void {
+                        $booking = $this->getOwnerRecord();
+                        $actor = auth()->user();
+                        if (! $booking instanceof Booking || $actor === null) {
+                            return;
+                        }
+
+                        $requestedAmount = (float) ($data['amount'] ?? 0);
+                        $outstanding = $this->damageOutstandingBalance();
+                        $amount = (int) round(min(max($requestedAmount, 0), $outstanding));
+                        if ($amount <= 0) {
+                            Notification::make()
+                                ->title('No damage amount found')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        $note = trim((string) ($data['notes'] ?? ''));
+
+                        $booking->payments()->create([
+                            'payment_type' => Payment::TYPE_DAMAGE,
+                            'total_amount' => (int) round($this->damageChargeTotal()),
+                            'partial_amount' => $amount,
+                            'is_fullypaid' => $amount >= (int) round($outstanding),
+                            'provider_status' => 'confirmed',
+                            'notes' => $note !== '' ? $note : null,
+                        ]);
+
+                        $remainingAfter = max(0.0, $outstanding - $amount);
+                        if ($remainingAfter <= 0.009) {
+                            BookingDamageSettlement::markSettled($booking, $note, $actor);
+                        } else {
+                            $booking->update([
+                                'has_damage_claim' => true,
+                                'damage_settlement_status' => Booking::DAMAGE_SETTLEMENT_STATUS_PENDING,
+                                'damage_settlement_notes' => $note !== '' ? $note : null,
+                                'damage_settlement_marked_by' => $actor->id,
+                                'damage_settlement_marked_at' => now(),
+                            ]);
+                        }
+
+                        ActivityLogger::log(
+                            category: 'booking',
+                            event: 'damage.payment_recorded',
+                            description: sprintf(
+                                '%s recorded damage payment for booking %s.',
+                                (string) $actor->name,
+                                (string) $booking->reference_number,
+                            ),
+                            subject: $booking,
+                            meta: [
+                                'reference_number' => (string) $booking->reference_number,
+                                'amount' => $amount,
+                                'notes' => $note !== '' ? $note : null,
+                                'recorded_by_user_id' => (int) $actor->id,
+                                'recorded_by_user_name' => (string) $actor->name,
+                            ],
+                            userId: (int) $actor->id,
+                        );
+
+                        Notification::make()
+                            ->title('Damage payment recorded')
+                            ->body($remainingAfter <= 0.009
+                                ? 'Damage fully paid, marked settled, and included in revenue.'
+                                : 'Partial damage payment recorded and included in revenue.')
+                            ->success()
+                            ->send();
+                    }),
+                Action::make('markAllItemsGood')
+                    ->label('Mark all good')
+                    ->icon('heroicon-o-check-badge')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('Mark all checklist items as good?')
+                    ->modalDescription('Use this only when all inspected room items are in good condition.')
+                    ->modalSubmitActionLabel('Yes, mark all good')
+                    ->visible(fn (): bool => $this->canMutateChecklist())
+                    ->action(function (): void {
+                        $booking = $this->getOwnerRecord();
+                        if (! $booking instanceof Booking) {
+                            return;
+                        }
+
+                        $rows = BookingLifecycleActions::checkoutChecklistFormItems($booking);
+                        $normalized = array_map(static function (array $row): array {
+                            $row['status'] = RoomChecklistItem::STATUS_GOOD;
+                            $row['notes'] = null;
+
+                            return $row;
+                        }, $rows);
+
+                        BookingLifecycleActions::saveCheckoutChecklistItems($booking, $normalized);
+                        $this->markChecklistsInspectedNow($booking);
+
+                        Notification::make()
+                            ->title('All items marked good')
+                            ->body('Checklist statuses were updated and inspection time was recorded.')
+                            ->success()
+                            ->send();
+                    }),
+                Action::make('quickInspectAll')
+                    ->label('Quick inspect all rooms')
+                    ->icon('heroicon-o-bolt')
+                    ->color('primary')
+                    ->modalHeading('Quick room inspection')
+                    ->modalDescription('Update all room inventory statuses in one screen.')
+                    ->modalSubmitActionLabel('Save all inspections')
+                    ->visible(fn (): bool => $this->canMutateChecklist())
+                    ->slideOver()
+                    ->fillForm(function (): array {
+                        $booking = $this->getOwnerRecord();
+                        if (! $booking instanceof Booking) {
+                            return ['rows' => []];
+                        }
+
+                        return [
+                            'rows' => BookingLifecycleActions::checkoutChecklistFormItems($booking),
+                        ];
+                    })
+                    ->form($this->quickInspectionForm())
+                    ->action(function (array $data): void {
+                        $booking = $this->getOwnerRecord();
+                        if (! $booking instanceof Booking) {
+                            return;
+                        }
+
+                        BookingLifecycleActions::saveCheckoutChecklistItems(
+                            $booking,
+                            is_array($data['rows'] ?? null) ? $data['rows'] : [],
+                        );
+                        $this->markChecklistsInspectedNow($booking);
+
+                        Notification::make()
+                            ->title('Room inspection saved')
+                            ->success()
+                            ->send();
+                    }),
+                Action::make('quickInspectIssuesOnly')
+                    ->label('Review issues only')
+                    ->icon('heroicon-o-funnel')
+                    ->color('warning')
+                    ->modalHeading('Review broken / missing items')
+                    ->modalDescription('Focus only on items currently marked as Broken or Missing.')
+                    ->modalSubmitActionLabel('Save issue updates')
+                    ->visible(fn (): bool => $this->canMutateChecklist())
+                    ->slideOver()
+                    ->fillForm(function (): array {
+                        $booking = $this->getOwnerRecord();
+                        if (! $booking instanceof Booking) {
+                            return ['rows' => []];
+                        }
+
+                        $rows = BookingLifecycleActions::checkoutChecklistFormItems($booking);
+                        $filtered = array_values(array_filter(
+                            $rows,
+                            fn (array $row): bool => in_array((string) ($row['status'] ?? ''), [
+                                RoomChecklistItem::STATUS_BROKEN,
+                                RoomChecklistItem::STATUS_MISSING,
+                            ], true),
+                        ));
+
+                        return ['rows' => $filtered];
+                    })
+                    ->form($this->quickInspectionForm())
+                    ->action(function (array $data): void {
+                        $booking = $this->getOwnerRecord();
+                        if (! $booking instanceof Booking) {
+                            return;
+                        }
+
+                        BookingLifecycleActions::saveCheckoutChecklistItems(
+                            $booking,
+                            is_array($data['rows'] ?? null) ? $data['rows'] : [],
+                        );
+                        $this->markChecklistsInspectedNow($booking);
+
+                        Notification::make()
+                            ->title('Room inspection saved')
+                            ->success()
+                            ->send();
                     }),
             ])
             ->recordActions([
                 EditAction::make()
-                    ->modalHeading('Room condition checklist')
-                    ->modalSubmitActionLabel('Save')
-                    ->label('Update'),
+                    ->modalHeading('Room inventory inspection')
+                    ->modalSubmitActionLabel('Save inspection')
+                    ->label('Inspect room')
+                    ->after(function (RoomChecklist $record): void {
+                        if ($record->completed_at === null) {
+                            $record->update(['completed_at' => now()]);
+                        }
+                    })
+                    ->visible(fn (): bool => $this->canMutateChecklist()),
             ]);
+    }
+
+    private function markChecklistsInspectedNow(Booking $booking): void
+    {
+        $booking->loadMissing('roomChecklists');
+
+        $checklistIds = $booking->roomChecklists
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->values()
+            ->all();
+
+        if ($checklistIds === []) {
+            return;
+        }
+
+        RoomChecklist::query()
+            ->whereIn('id', $checklistIds)
+            ->update(['completed_at' => now()]);
+    }
+
+    /**
+     * @return array<int, \Filament\Schemas\Components\Component>
+     */
+    private function quickInspectionForm(): array
+    {
+        return [
+            Placeholder::make('inspection_progress')
+                ->label('Inspection summary')
+                ->content(function (callable $get): HtmlString {
+                    $rows = is_array($get('rows')) ? $get('rows') : [];
+                    $total = count($rows);
+                    $counts = [
+                        RoomChecklistItem::STATUS_GOOD => 0,
+                        RoomChecklistItem::STATUS_BROKEN => 0,
+                        RoomChecklistItem::STATUS_MISSING => 0,
+                        RoomChecklistItem::STATUS_NOT_APPLICABLE => 0,
+                    ];
+
+                    foreach ($rows as $row) {
+                        $status = (string) ($row['status'] ?? RoomChecklistItem::STATUS_GOOD);
+                        if (array_key_exists($status, $counts)) {
+                            $counts[$status]++;
+                        }
+                    }
+
+                    if ($total === 0) {
+                        return new HtmlString('<span class="text-sm text-gray-500">No checklist items to show for this view.</span>');
+                    }
+
+                    $issues = $counts[RoomChecklistItem::STATUS_BROKEN] + $counts[RoomChecklistItem::STATUS_MISSING];
+                    $progressText = sprintf('Reviewed: %d/%d | Issues: %d', $total, $total, $issues);
+
+                    $cards = [
+                        [
+                            'label' => 'Good',
+                            'count' => $counts[RoomChecklistItem::STATUS_GOOD],
+                            'class' => 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/30',
+                        ],
+                        [
+                            'label' => 'Broken',
+                            'count' => $counts[RoomChecklistItem::STATUS_BROKEN],
+                            'class' => 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-400/30',
+                        ],
+                        [
+                            'label' => 'Missing',
+                            'count' => $counts[RoomChecklistItem::STATUS_MISSING],
+                            'class' => 'bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-400/30',
+                        ],
+                        [
+                            'label' => 'Not in room',
+                            'count' => $counts[RoomChecklistItem::STATUS_NOT_APPLICABLE],
+                            'class' => 'bg-slate-50 text-slate-700 ring-slate-200 dark:bg-slate-500/10 dark:text-slate-300 dark:ring-slate-400/30',
+                        ],
+                    ];
+
+                    $cardsHtml = collect($cards)->map(function (array $card): string {
+                        return '<div class="rounded-lg ring-1 p-3 '.$card['class'].'">'
+                            .'<div class="text-xs font-medium">'.$card['label'].'</div>'
+                            .'<div class="mt-1 text-xl font-bold tabular-nums">'.(int) $card['count'].'</div>'
+                            .'</div>';
+                    })->implode('');
+
+                    $html = '<div class="space-y-2">'
+                        .'<div class="text-sm font-medium text-gray-700 dark:text-gray-200">'.e($progressText).'</div>'
+                        .'<div class="grid grid-cols-2 md:grid-cols-4 gap-2">'.$cardsHtml.'</div>'
+                        .'</div>';
+
+                    return new HtmlString($html);
+                })
+                ->columnSpanFull(),
+            Repeater::make('rows')
+                ->label('Checklist items')
+                ->columns(3)
+                ->reorderable(false)
+                ->addable(false)
+                ->deletable(false)
+                ->schema([
+                    Hidden::make('id'),
+                    TextInput::make('room_name')
+                        ->label('Room')
+                        ->disabled()
+                        ->dehydrated(false),
+                    TextInput::make('label')
+                        ->label('Item')
+                        ->disabled()
+                        ->dehydrated(false),
+                    ToggleButtons::make('status')
+                        ->label('Status')
+                        ->options([
+                            RoomChecklistItem::STATUS_GOOD => 'Good',
+                            RoomChecklistItem::STATUS_BROKEN => 'Broken',
+                            RoomChecklistItem::STATUS_MISSING => 'Missing',
+                            RoomChecklistItem::STATUS_NOT_APPLICABLE => 'Not in this room',
+                        ])
+                        ->colors([
+                            RoomChecklistItem::STATUS_GOOD => 'success',
+                            RoomChecklistItem::STATUS_BROKEN => 'warning',
+                            RoomChecklistItem::STATUS_MISSING => 'danger',
+                            RoomChecklistItem::STATUS_NOT_APPLICABLE => 'gray',
+                        ])
+                        ->inline()
+                        ->required(),
+                    Textarea::make('notes')
+                        ->label('Issue notes')
+                        ->rows(2)
+                        ->placeholder('Required for broken or missing items.')
+                        ->visible(fn (callable $get): bool => in_array((string) $get('status'), [
+                            RoomChecklistItem::STATUS_BROKEN,
+                            RoomChecklistItem::STATUS_MISSING,
+                        ], true))
+                        ->required(fn (callable $get): bool => in_array((string) $get('status'), [
+                            RoomChecklistItem::STATUS_BROKEN,
+                            RoomChecklistItem::STATUS_MISSING,
+                        ], true))
+                        ->columnSpanFull(),
+                    FileUpload::make('evidence_photo_path')
+                        ->label('Issue photo')
+                        ->disk('public')
+                        ->directory('checklists/evidence')
+                        ->image()
+                        ->imageEditor()
+                        ->visible(fn (callable $get): bool => in_array((string) $get('status'), [
+                            RoomChecklistItem::STATUS_BROKEN,
+                            RoomChecklistItem::STATUS_MISSING,
+                        ], true))
+                        ->required(fn (callable $get): bool => in_array((string) $get('status'), [
+                            RoomChecklistItem::STATUS_BROKEN,
+                            RoomChecklistItem::STATUS_MISSING,
+                        ], true))
+                        ->columnSpanFull(),
+                ])
+                ->itemLabel(fn (array $state): ?string => isset($state['room_name'], $state['label'])
+                    ? "{$state['room_name']} - {$state['label']}"
+                    : null),
+        ];
+    }
+
+    private function canMutateChecklist(): bool
+    {
+        return ! $this->isChecklistLocked() || $this->managerOverrideChecklistEdit;
+    }
+
+    private function isChecklistLocked(): bool
+    {
+        $booking = $this->getOwnerRecord();
+
+        return $booking instanceof Booking
+            && (string) $booking->booking_status === Booking::BOOKING_STATUS_COMPLETED;
+    }
+
+    private function canUseManagerOverride(): bool
+    {
+        $role = (string) (auth()->user()?->role ?? '');
+
+        return $role === 'admin';
+    }
+
+    private function canRecordDamagePayment(): bool
+    {
+        $booking = $this->getOwnerRecord();
+        if (! $booking instanceof Booking || $booking->trashed()) {
+            return false;
+        }
+
+        if ((string) $booking->damage_settlement_status !== Booking::DAMAGE_SETTLEMENT_STATUS_PENDING) {
+            return false;
+        }
+
+        if (! $this->hasInspectedChecklist()) {
+            return false;
+        }
+
+        return $this->damageOutstandingBalance() > 0;
+    }
+
+    private function hasInspectedChecklist(): bool
+    {
+        $booking = $this->getOwnerRecord();
+        if (! $booking instanceof Booking) {
+            return false;
+        }
+
+        $booking->loadMissing('roomChecklists');
+
+        return $booking->roomChecklists->contains(
+            fn (RoomChecklist $checklist): bool => $checklist->completed_at !== null
+        );
+    }
+
+    private function damageChargeTotal(): float
+    {
+        $booking = $this->getOwnerRecord();
+        if (! $booking instanceof Booking) {
+            return 0.0;
+        }
+
+        $booking->loadMissing('roomChecklists.items');
+
+        return (float) $booking->roomChecklists
+            ->flatMap(fn (RoomChecklist $checklist) => $checklist->items)
+            ->filter(fn (RoomChecklistItem $item): bool => in_array((string) $item->status, [
+                RoomChecklistItem::STATUS_BROKEN,
+                RoomChecklistItem::STATUS_MISSING,
+            ], true))
+            ->sum(fn (RoomChecklistItem $item): float => $this->parseMoneyToFloat((string) ($item->charge ?? '0')));
+    }
+
+    private function damagePaidSoFar(): float
+    {
+        $booking = $this->getOwnerRecord();
+        if (! $booking instanceof Booking) {
+            return 0.0;
+        }
+
+        $booking->loadMissing('payments');
+
+        return (float) $booking->payments
+            ->where('payment_type', Payment::TYPE_DAMAGE)
+            ->sum('partial_amount');
+    }
+
+    private function damageOutstandingBalance(): float
+    {
+        return max(0.0, round($this->damageChargeTotal() - $this->damagePaidSoFar(), 2));
+    }
+
+    private function parseMoneyToFloat(string $value): float
+    {
+        $normalized = preg_replace('/[^0-9.\-]/', '', $value);
+        if (! is_string($normalized) || $normalized === '' || $normalized === '-' || $normalized === '.') {
+            return 0.0;
+        }
+
+        return max(0, (float) $normalized);
     }
 }
 

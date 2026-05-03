@@ -3,6 +3,7 @@
 namespace App\Filament\Exports;
 
 use App\Models\Booking;
+use App\Models\Payment;
 use App\Models\Room;
 use Carbon\Carbon;
 use Filament\Actions\Exports\ExportColumn;
@@ -109,10 +110,33 @@ class RevenueExporter extends Exporter
                 }),
 
             ExportColumn::make('total_price')
-                ->label('Revenue (₱)')
+                ->label('Booking Revenue (₱)')
                 ->formatStateUsing(function (mixed $state): string {
                     $num = is_numeric($state) ? (float) $state : 0.0;
                     return number_format($num, 2, '.', ',');
+                }),
+
+            ExportColumn::make('damage_revenue')
+                ->label('Damage Revenue (₱)')
+                ->state(function (Booking $record): string {
+                    $record->loadMissing('payments');
+                    $damage = (float) $record->payments
+                        ->where('payment_type', Payment::TYPE_DAMAGE)
+                        ->sum('partial_amount');
+
+                    return number_format($damage, 2, '.', ',');
+                }),
+
+            ExportColumn::make('total_revenue')
+                ->label('Total Revenue (₱)')
+                ->state(function (Booking $record): string {
+                    $record->loadMissing('payments');
+                    $damage = (float) $record->payments
+                        ->where('payment_type', Payment::TYPE_DAMAGE)
+                        ->sum('partial_amount');
+                    $base = (float) ($record->total_price ?? 0);
+
+                    return number_format($base + $damage, 2, '.', ',');
                 }),
 
             ExportColumn::make('booking_status')
@@ -161,6 +185,7 @@ class RevenueExporter extends Exporter
                 'guest:id,first_name,middle_name,last_name,email',
                 'rooms' => fn ($q) => $q->with(['bedSpecifications']),
                 'venues:id,name',
+                'payments:id,booking_id,payment_type,partial_amount',
             ]);
     }
 
