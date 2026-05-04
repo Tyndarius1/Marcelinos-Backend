@@ -51,7 +51,7 @@ final class BookingLifecycleActions
     }
 
     /**
-     * @return list<array{id: int, room_name: string, label: string, charge: string, status: string, notes: string}>
+     * @return list<array{id: int, room_name: string, label: string, charge: string, quantity: int, status: string, notes: string}>
      */
     public static function checkoutChecklistFormItems(Booking $booking): array
     {
@@ -69,6 +69,7 @@ final class BookingLifecycleActions
                         'room_name' => $roomName,
                         'label' => (string) $item->label,
                         'charge' => (string) $item->charge,
+                        'quantity' => max(1, (int) ($item->quantity ?? 1)),
                         'status' => (string) ($item->status ?: RoomChecklistItem::STATUS_GOOD),
                         'notes' => (string) ($item->notes ?? ''),
                         'evidence_photo_path' => (string) ($item->evidence_photo_path ?? ''),
@@ -121,6 +122,7 @@ final class BookingLifecycleActions
                     ->whereKey($itemId)
                     ->update([
                         'status' => $status,
+                        'quantity' => max(1, (int) ($row['quantity'] ?? 1)),
                         'notes' => filled($row['notes'] ?? null) ? trim((string) $row['notes']) : null,
                         'evidence_photo_path' => filled($row['evidence_photo_path'] ?? null) ? trim((string) $row['evidence_photo_path']) : null,
                     ]);
@@ -194,6 +196,7 @@ final class BookingLifecycleActions
                 ->map(fn (string $label, int $index): array => [
                     'label' => $label,
                     'charge' => null,
+                    'quantity' => 1,
                     'sort_order' => $index + 1,
                 ])
                 ->all();
@@ -207,6 +210,7 @@ final class BookingLifecycleActions
                     ->map(fn (RoomChecklistTemplate $template): array => [
                         'label' => (string) $template->label,
                         'charge' => filled($template->default_charge) ? (string) $template->default_charge : null,
+                        'quantity' => 1,
                         'sort_order' => (int) $template->sort_order,
                     ])
                     ->all();

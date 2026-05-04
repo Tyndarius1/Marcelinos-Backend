@@ -8,6 +8,7 @@ use App\Models\Booking;
 use App\Models\Room;
 use App\Models\RoomBlockedDate;
 use App\Models\RoomChecklistItem;
+use App\Models\User;
 use App\Models\Venue;
 use App\Models\VenueBlockedDate;
 use App\Support\BookingCheckInEligibility;
@@ -27,9 +28,12 @@ use JeffersonGoncalves\Filament\QrCodeField\Forms\Components\QrCodeInput;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
 
 class RoomCalendar extends Page
 {
+    use WithFileUploads;
+
     public const RESERVATION_ROOM = 'room';
 
     public const RESERVATION_VENUE = 'venue';
@@ -218,6 +222,11 @@ class RoomCalendar extends Page
 
     #[Url]
     public ?string $modalType = null;
+
+    /**
+     * @var array<int|string, array<int|string, TemporaryUploadedFile|null>>
+     */
+    public array $checkoutChecklistEvidenceUploads = [];
 
     public function mount(): void
     {
@@ -524,7 +533,9 @@ class RoomCalendar extends Page
                 $canCheckIn = BookingCheckInEligibility::assess($b)['allowed'];
                 $activeDateRange = $this->formatActiveDateRange($b);
                 $discountMeta = $this->specialDiscountMetaForBooking($b);
-                $checklistSummary = $this->checkoutChecklistSummaryForBooking($b);
+                $checkoutChecklist = BookingLifecycleActions::checkoutChecklistFormItems($b);
+                $checklistSummary = $this->checkoutChecklistSummaryFromRows($checkoutChecklist);
+                $actor = auth()->user();
 
                 return [
                     'id' => $b->id,
@@ -551,6 +562,9 @@ class RoomCalendar extends Page
                     'discount_badge_text' => $discountMeta['discount_badge_text'],
                     'discount_tooltip' => $discountMeta['discount_tooltip'],
                     'checklist_summary' => $checklistSummary,
+                    'checkout_checklist' => $checkoutChecklist,
+                    'can_manage_checklist' => $actor instanceof User
+                        && in_array((string) $actor->role, ['admin', 'staff'], true),
                 ];
             })
             ->values()
@@ -689,12 +703,29 @@ class RoomCalendar extends Page
      */
     protected function checkoutChecklistSummaryForBooking(Booking $booking): array
     {
-        $items = $booking->roomChecklists
-            ->flatMap(fn ($checklist) => $checklist->items)
-            ->values();
+        $rows = BookingLifecycleActions::checkoutChecklistFormItems($booking);
+
+        return $this->checkoutChecklistSummaryFromRows($rows);
+    }
+
+    /**
+     * @param  list<array{id: int, room_name: string, label: string, charge: string, status: string, notes: string}>  $rows
+     * @return array{
+     *   total_items: int,
+     *   answered_items: int,
+     *   incomplete_items: int,
+     *   broken_items: int,
+     *   missing_items: int,
+     *   has_damage_items: bool,
+     *   should_warn_on_complete: bool
+     * }
+     */
+    protected function checkoutChecklistSummaryFromRows(array $rows): array
+    {
+        $items = collect($rows);
 
         $totalItems = (int) $items->count();
-        $answeredItems = (int) $items->filter(fn ($item) => filled($item->status))->count();
+        $answeredItems = (int) $items->filter(fn (array $item) => filled($item['status'] ?? null))->count();
         $brokenItems = (int) $items->where('status', RoomChecklistItem::STATUS_BROKEN)->count();
         $missingItems = (int) $items->where('status', RoomChecklistItem::STATUS_MISSING)->count();
         $incompleteItems = max(0, $totalItems - $answeredItems);
@@ -891,8 +922,37 @@ class RoomCalendar extends Page
         }
 
         try {
-            if ($includeDamageChecklist) {
+            $actor = auth()->user();
+            $canManageChecklist = $actor instanceof User
+                && in_array((string) $actor->role, ['admin', 'staff'], true);
+
+            if ($includeDamageChecklist && $canManageChecklist) {
+                $damageChecklist = $this->mergeChecklistEvidenceUploads($booking->id, $damageChecklist);
+
+                $damagedWithoutProof = collect($damageChecklist)
+                    ->contains(function ($row): bool {
+                        if (! is_array($row)) {
+                            return false;
+                        }
+
+                        $status = (string) ($row['status'] ?? '');
+                        $proof = trim((string) ($row['evidence_photo_path'] ?? ''));
+
+                        return $status === RoomChecklistItem::STATUS_BROKEN && $proof === '';
+                    });
+
+                if ($damagedWithoutProof) {
+                    Notification::make()
+                        ->title('Proof required for damaged items.')
+                        ->body('Please provide photo proof/path for every item marked as Damaged before checkout.')
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
                 BookingLifecycleActions::saveCheckoutChecklistItems($booking, $damageChecklist);
+                unset($this->checkoutChecklistEvidenceUploads[$booking->id]);
             }
             BookingLifecycleActions::complete($booking);
         } catch (\InvalidArgumentException $e) {
@@ -909,6 +969,38 @@ class RoomCalendar extends Page
             ->title('Booking marked as completed.')
             ->success()
             ->send();
+    }
+
+    /**
+     * @param  list<array{id?: mixed, status?: mixed, evidence_photo_path?: mixed}>  $rows
+     * @return list<array{id?: mixed, status?: mixed, evidence_photo_path?: mixed}>
+     */
+    protected function mergeChecklistEvidenceUploads(int $bookingId, array $rows): array
+    {
+        $uploadsByItemId = $this->checkoutChecklistEvidenceUploads[$bookingId] ?? [];
+        if (! is_array($uploadsByItemId) || $uploadsByItemId === []) {
+            return $rows;
+        }
+
+        foreach ($rows as $index => $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $itemId = (int) ($row['id'] ?? 0);
+            if ($itemId <= 0) {
+                continue;
+            }
+
+            $upload = $uploadsByItemId[$itemId] ?? null;
+            if (! $upload instanceof TemporaryUploadedFile) {
+                continue;
+            }
+
+            $rows[$index]['evidence_photo_path'] = (string) $upload->store('checklists/evidence', 'public');
+        }
+
+        return $rows;
     }
 
     public function cancelBooking(int $bookingId): void

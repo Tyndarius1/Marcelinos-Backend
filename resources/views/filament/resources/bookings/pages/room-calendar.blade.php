@@ -1,6 +1,7 @@
 @php
     use App\Models\Booking;
     use App\Models\Room;
+    use App\Models\RoomChecklistItem;
     $legendItems = $this->calendarLegendItems;
     $spreadsheetId = trim((string) config('services.google_sheets.spreadsheet_id', ''));
     $spreadsheetUrl = $spreadsheetId !== '' ? "https://docs.google.com/spreadsheets/d/{$spreadsheetId}/preview" : null;
@@ -589,11 +590,14 @@
                                                     payId: {{ (int) $row['id'] }},
                                                     completeOpen: false,
                                                     completeId: {{ (int) $row['id'] }},
+                                                    canManageChecklist: {{ (($row['can_manage_checklist'] ?? false) === true) ? 'true' : 'false' }},
+                                                    checkoutChecklist: @js($row['checkout_checklist'] ?? []),
                                                     cancelOpen: false,
                                                     cancelId: {{ (int) $row['id'] }},
                                                     delOpen: false,
                                                     delVal: '',
                                                     delConfirm: false,
+                                                    completeBlockMessage: '',
                                                     delRef: @js($row['reference_number']),
                                                     delId: {{ (int) $row['id'] }},
                                                     submitPayBalance() {
@@ -605,8 +609,49 @@
                                                         this.cancelOpen = false;
                                                     },
                                                     submitComplete(confirmed = false) {
-                                                        $wire.completeBooking(this.completeId, confirmed);
+                                                        $wire.completeBooking(this.completeId, confirmed, true, this.checkoutChecklist);
                                                         this.completeOpen = false;
+                                                    },
+                                                    checklistTotal() {
+                                                        return Array.isArray(this.checkoutChecklist) ? this.checkoutChecklist.length : 0;
+                                                    },
+                                                    checklistCountByStatus(status) {
+                                                        if (! Array.isArray(this.checkoutChecklist)) {
+                                                            return 0;
+                                                        }
+                                                        return this.checkoutChecklist.filter((item) => (item?.status ?? '') === status).length;
+                                                    },
+                                                    checklistAnswered() {
+                                                        if (! Array.isArray(this.checkoutChecklist)) {
+                                                            return 0;
+                                                        }
+                                                        return this.checkoutChecklist.filter((item) => `${item?.status ?? ''}`.trim() !== '').length;
+                                                    },
+                                                    checklistIncomplete() {
+                                                        return Math.max(0, this.checklistTotal() - this.checklistAnswered());
+                                                    },
+                                                    hasDamagedWithoutProof() {
+                                                        if (! Array.isArray(this.checkoutChecklist)) {
+                                                            return false;
+                                                        }
+
+                                                        return this.checkoutChecklist.some((item) => {
+                                                            const status = `${item?.status ?? ''}`.trim();
+                                                            const savedProof = `${item?.evidence_photo_path ?? ''}`.trim();
+                                                            const hasNewUpload = item?.has_new_evidence_upload === true;
+
+                                                            return status === '{{ RoomChecklistItem::STATUS_BROKEN }}'
+                                                                && savedProof === ''
+                                                                && !hasNewUpload;
+                                                        });
+                                                    },
+                                                    refreshCompleteBlockMessage() {
+                                                        this.completeBlockMessage = this.hasDamagedWithoutProof()
+                                                            ? '{{ __('Please upload proof for all Damaged items before checkout.') }}'
+                                                            : '';
+                                                    },
+                                                    canSubmitComplete() {
+                                                        return !this.hasDamagedWithoutProof();
                                                     },
                                                     submitDelete() {
                                                         $wire.deleteBooking(this.delId, this.delVal);
@@ -755,7 +800,7 @@
                                                     >
                                                         <div class="absolute inset-0 bg-black/50" @click="completeOpen = false"></div>
                                                         <div
-                                                            class="relative z-10 w-full max-w-xl rounded-xl border border-gray-200 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-gray-900"
+                                                            class="relative z-10 flex h-[calc(100vh-2rem)] w-full max-w-xl flex-col overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-gray-900"
                                                             @click.stop
                                                         >
                                                             @php
@@ -772,26 +817,126 @@
                                                                 {{ $row['complete_label'] ?? __('Checkout') }}
                                                             </h3>
                                                             <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                                                {{ __('Review checklist progress before checkout completion.') }}
+                                                                {{ __('Review room checklist details before checkout completion.') }}
                                                             </p>
                                                             <div class="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700 dark:border-white/10 dark:bg-white/5 dark:text-gray-200">
-                                                                <div class="flex items-center justify-between">
-                                                                    <span>{{ __('Checklist progress') }}</span>
-                                                                    <span class="font-semibold tabular-nums">
-                                                                        {{ (int) ($checklistSummary['answered_items'] ?? 0) }}/{{ (int) ($checklistSummary['total_items'] ?? 0) }}
-                                                                    </span>
-                                                                </div>
-                                                                <div class="mt-2 grid grid-cols-3 gap-2 text-[11px]">
-                                                                    <div>{{ __('Incomplete') }}: <span class="font-semibold tabular-nums">{{ (int) ($checklistSummary['incomplete_items'] ?? 0) }}</span></div>
-                                                                    <div>{{ __('Broken') }}: <span class="font-semibold tabular-nums">{{ (int) ($checklistSummary['broken_items'] ?? 0) }}</span></div>
-                                                                    <div>{{ __('Missing') }}: <span class="font-semibold tabular-nums">{{ (int) ($checklistSummary['missing_items'] ?? 0) }}</span></div>
-                                                                </div>
+                                                               
+                                                            <div class="flex items-center justify-between w-full">
+    
+    <!-- Left group -->
+    <div class="flex gap-4">
+        <div>
+            {{ __('Damage') }}:
+            <span class="font-semibold tabular-nums"
+                x-text="checklistCountByStatus('{{ RoomChecklistItem::STATUS_BROKEN }}')">
+                {{ (int) ($checklistSummary['broken_items'] ?? 0) }}
+            </span>
+        </div>
+
+        <div>
+            {{ __('Missing') }}:
+            <span class="font-semibold tabular-nums"
+                x-text="checklistCountByStatus('{{ RoomChecklistItem::STATUS_MISSING }}')">
+                {{ (int) ($checklistSummary['missing_items'] ?? 0) }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Right group -->
+    <div>
+        <span class="font-semibold tabular-nums"
+            x-text="`${checklistAnswered()}/${checklistTotal()}`">
+            {{ (int) ($checklistSummary['answered_items'] ?? 0) }}/{{ (int) ($checklistSummary['total_items'] ?? 0) }}
+        </span>
+    </div>
+
+</div>
                                                             </div>
+                                                            @php
+                                                                $checkoutChecklistRows = $row['checkout_checklist'] ?? [];
+                                                            @endphp
+                                                            @if (count($checkoutChecklistRows) > 0)
+                                                                <div class="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2 dark:border-white/10 dark:bg-gray-950/40">
+                                                                    @foreach ($checkoutChecklistRows as $index => $checkItem)
+                                                                        <div class="rounded-lg border border-gray-200/80 bg-gray-50/70 px-2 py-2 dark:border-white/10 dark:bg-white/[0.03]">
+                                                                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                                                                <div class="min-w-0">
+                                                                                    <p class="text-xs font-semibold text-gray-900 dark:text-white">
+                                                                                        {{ $checkItem['label'] ?? __('Checklist item') }}
+                                                                                    </p>
+                                                                                    <p class="text-[11px] text-gray-600 dark:text-gray-400">
+                                                                                        {{ $checkItem['room_name'] ?? __('Room') }}
+                                                                                    </p>
+                                                                                </div>
+                                                                                <div class="inline-flex items-center gap-1 rounded-lg border border-gray-300/90 bg-white/90 p-1 dark:border-white/15 dark:bg-gray-900/80">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        class="rounded-md px-3 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
+                                                                                        :class="(checkoutChecklist[{{ $index }}]?.status ?? '') === '{{ RoomChecklistItem::STATUS_GOOD }}'
+                                                                                            ? 'bg-emerald-500 text-white shadow-sm'
+                                                                                            : 'bg-indigo-100 text-indigo-900 hover:bg-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-100 dark:hover:bg-indigo-900/60'"
+                                                                                        :disabled="!canManageChecklist"
+                                                                                        @click="checkoutChecklist[{{ $index }}].status = '{{ RoomChecklistItem::STATUS_GOOD }}'; refreshCompleteBlockMessage()"
+                                                                                    >
+                                                                                        {{ __('OK') }}
+                                                                                    </button>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        class="rounded-md px-3 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
+                                                                                        :class="(checkoutChecklist[{{ $index }}]?.status ?? '') === '{{ RoomChecklistItem::STATUS_BROKEN }}'
+                                                                                            ? 'bg-amber-500 text-white shadow-sm'
+                                                                                            : 'bg-indigo-100 text-indigo-900 hover:bg-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-100 dark:hover:bg-indigo-900/60'"
+                                                                                        :disabled="!canManageChecklist"
+                                                                                        @click="checkoutChecklist[{{ $index }}].status = '{{ RoomChecklistItem::STATUS_BROKEN }}'; refreshCompleteBlockMessage()"
+                                                                                    >
+                                                                                        {{ __('Damaged') }}
+                                                                                    </button>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        class="rounded-md px-3 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
+                                                                                        :class="(checkoutChecklist[{{ $index }}]?.status ?? '') === '{{ RoomChecklistItem::STATUS_MISSING }}'
+                                                                                            ? 'bg-rose-500 text-white shadow-sm'
+                                                                                            : 'bg-indigo-100 text-indigo-900 hover:bg-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-100 dark:hover:bg-indigo-900/60'"
+                                                                                        :disabled="!canManageChecklist"
+                                                                                        @click="checkoutChecklist[{{ $index }}].status = '{{ RoomChecklistItem::STATUS_MISSING }}'; refreshCompleteBlockMessage()"
+                                                                                    >
+                                                                                        {{ __('Missing') }}
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div
+                                                                                x-show="(checkoutChecklist[{{ $index }}]?.status ?? '') === '{{ RoomChecklistItem::STATUS_BROKEN }}'"
+                                                                                class="mt-2"
+                                                                            >
+                                                                                <label class="mb-1 block text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                                                                                    {{ __('Upload proof (required for damaged item)') }}
+                                                                                </label>
+                                                                                <input
+                                                                                    type="file"
+                                                                                    accept="image/*"
+                                                                                    class="w-full rounded-md border border-amber-300 bg-white px-2 py-1 text-xs text-gray-800 file:mr-2 file:rounded file:border-0 file:bg-amber-500 file:px-2 file:py-1 file:text-white hover:file:bg-amber-600 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-amber-400/40 dark:bg-gray-900 dark:text-gray-100"
+                                                                                    wire:model="checkoutChecklistEvidenceUploads.{{ (int) $row['id'] }}.{{ (int) ($checkItem['id'] ?? 0) }}"
+                                                                                    :disabled="!canManageChecklist"
+                                                                                    @change="checkoutChecklist[{{ $index }}].has_new_evidence_upload = (($event.target.files?.length ?? 0) > 0); refreshCompleteBlockMessage()"
+                                                                                />
+                                                                                <p class="mt-1 text-[10px] text-amber-700/90 dark:text-amber-300/90">
+                                                                                    {{ __('Accepted: image files only.') }}
+                                                                                </p>
+                                                                            </div>
+                                                                        </div>
+                                                                    @endforeach
+                                                                </div>
+                                                            @endif
                                                             @if (($checklistSummary['should_warn_on_complete'] ?? false) === true)
                                                                 <p class="mt-3 rounded-lg border border-amber-300/70 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-400/35 dark:bg-amber-500/10 dark:text-amber-100">
                                                                     {{ __('Checklist has incomplete item(s). You can still complete this booking after confirmation.') }}
                                                                 </p>
                                                             @endif
+                                                            <p
+                                                                x-show="completeBlockMessage !== ''"
+                                                                x-text="completeBlockMessage"
+                                                                class="mt-3 rounded-lg border border-rose-300/70 bg-rose-50 px-3 py-2 text-xs text-rose-900 dark:border-rose-400/35 dark:bg-rose-500/10 dark:text-rose-100"
+                                                            ></p>
                                                             <div class="mt-4 flex justify-end gap-2">
                                                                 <button
                                                                     type="button"
@@ -802,8 +947,9 @@
                                                                 </button>
                                                                 <button
                                                                     type="button"
-                                                                    class="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
-                                                                    @click="submitComplete({{ (($checklistSummary['should_warn_on_complete'] ?? false) === true) ? 'true' : 'false' }})"
+                                                                    class="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                                    :disabled="!canSubmitComplete()"
+                                                                    @click="if (!canSubmitComplete()) { refreshCompleteBlockMessage(); return; } submitComplete({{ (($checklistSummary['should_warn_on_complete'] ?? false) === true) ? 'true' : 'false' }})"
                                                                 >
                                                                     {{ (($checklistSummary['should_warn_on_complete'] ?? false) === true) ? __('Complete anyway') : ($row['complete_label'] ?? __('Checkout')) }}
                                                                 </button>
@@ -906,20 +1052,6 @@
                                         </div>
                                     </div>
                                     <div class="space-y-2 px-3 py-3 text-xs text-gray-600 dark:text-gray-400 sm:px-4">
-                                        @php
-                                            $inlineChecklistSummary = $row['checklist_summary'] ?? null;
-                                        @endphp
-                                        @if (is_array($inlineChecklistSummary))
-                                            <div class="rounded-lg border border-gray-200/80 bg-gray-50/80 px-2.5 py-2 text-[11px] text-gray-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-gray-200">
-                                                <div class="flex items-center justify-between">
-                                                    <span class="font-medium">{{ __('Checklist') }}</span>
-                                                    <span class="tabular-nums">{{ (int) ($inlineChecklistSummary['answered_items'] ?? 0) }}/{{ (int) ($inlineChecklistSummary['total_items'] ?? 0) }}</span>
-                                                </div>
-                                                <div class="mt-1 text-gray-600 dark:text-gray-400">
-                                                    {{ __('Incomplete: :count', ['count' => (int) ($inlineChecklistSummary['incomplete_items'] ?? 0)]) }}
-                                                </div>
-                                            </div>
-                                        @endif
                                         <div class="flex gap-2">
                                             <x-filament::icon
                                                 icon="heroicon-m-arrow-right-circle"

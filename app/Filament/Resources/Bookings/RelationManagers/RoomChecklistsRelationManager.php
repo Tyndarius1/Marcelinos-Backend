@@ -141,6 +141,12 @@ class RoomChecklistsRelationManager extends RelationManager
                                 ->placeholder('Amount')
                                 ->prefix('₱')
                                 ->disabled(fn (callable $get): bool => filled($get('id'))),
+                            TextInput::make('quantity')
+                                ->label('Quantity')
+                                ->numeric()
+                                ->minValue(1)
+                                ->default(1)
+                                ->disabled(fn (callable $get): bool => filled($get('id'))),
 
                             Group::make([
                                 Select::make('status')
@@ -657,6 +663,12 @@ class RoomChecklistsRelationManager extends RelationManager
                         ->label('Item')
                         ->disabled()
                         ->dehydrated(false),
+                    TextInput::make('quantity')
+                        ->label('Quantity')
+                        ->numeric()
+                        ->minValue(1)
+                        ->default(1)
+                        ->required(),
                     ToggleButtons::make('status')
                         ->label('Status')
                         ->options([
@@ -775,7 +787,11 @@ class RoomChecklistsRelationManager extends RelationManager
                 RoomChecklistItem::STATUS_BROKEN,
                 RoomChecklistItem::STATUS_MISSING,
             ], true))
-            ->sum(fn (RoomChecklistItem $item): float => $this->parseMoneyToFloat((string) ($item->charge ?? '0')));
+            ->sum(function (RoomChecklistItem $item): float {
+                $quantity = max(1, (int) ($item->quantity ?? 1));
+
+                return $this->parseMoneyToFloat((string) ($item->charge ?? '0')) * $quantity;
+            });
     }
 
     private function damagePaidSoFar(): float
