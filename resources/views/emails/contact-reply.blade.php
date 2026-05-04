@@ -7,19 +7,19 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body style="margin:0; padding:0; background-color:#ffffff; font-family:'Poppins', Arial, Helvetica, sans-serif; color:#1f2937;">
+<body style="margin:0; padding:0; background-color:#f3f4f6; font-family:'Poppins', Arial, Helvetica, sans-serif; color:#1f2937;">
     <div style="display:none; max-height:0; overflow:hidden; opacity:0;">
         Response to your inquiry from Marcelino's Resort Hotel
     </div>
 
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#ffffff; padding:24px 0; margin:0; font-family:'Poppins', Arial, Helvetica, sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f3f4f6; padding:24px 0; margin:0; font-family:'Poppins', Arial, Helvetica, sans-serif;">
         <tr>
             <td align="center">
-                <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="width:600px; max-width:600px; background-color:#ffffff; border-radius:12px; overflow:hidden; border:1px solid #e5e7eb; font-family:'Poppins', Arial, Helvetica, sans-serif;">
+                <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="width:600px; max-width:600px; background-color:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #e5e7eb; box-shadow:0 12px 34px rgba(15, 23, 42, 0.08); font-family:'Poppins', Arial, Helvetica, sans-serif;">
 
                     <!-- Header -->
                     <tr>
-                        <td style="padding:22px 32px; border-bottom:1px solid #e5e7eb; font-family:'Poppins', Arial, Helvetica, sans-serif;">
+                        <td style="padding:22px 32px; border-bottom:1px solid #dbeafe; background:linear-gradient(135deg, #f0fdf4 0%, #ecfeff 45%, #eff6ff 100%); font-family:'Poppins', Arial, Helvetica, sans-serif;">
                             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-family:'Poppins', Arial, Helvetica, sans-serif;">
                                 <tr>
                                     <td style="vertical-align:middle;">
@@ -142,7 +142,7 @@
 
                             <table role="presentation" cellspacing="0" cellpadding="0">
                                 <tr>
-                                    <td align="center" bgcolor="#749B66" style="border-radius:8px;">
+                                    <td align="center" bgcolor="#2563eb" style="border-radius:8px;">
                                         <a href="{{ $continueConversationUrl }}"
                                            style="display:inline-block; padding:12px 22px; font-size:14px; font-weight:600; line-height:20px; color:#ffffff; text-decoration:none; border-radius:8px; font-family:'Poppins', Arial, Helvetica, sans-serif;">
                                             Visit Our Website

@@ -65,6 +65,14 @@ class PaymentsRelationManager extends RelationManager
                     ->label('Amount Paid')
                     ->money('PHP')
                     ->sortable(),
+                TextColumn::make('payment_type')
+                    ->label('Type')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => match ((string) $state) {
+                        Payment::TYPE_DAMAGE => 'Damage',
+                        default => 'Booking',
+                    })
+                    ->color(fn (?string $state): string => (string) $state === Payment::TYPE_DAMAGE ? 'warning' : 'info'),
                 IconColumn::make('is_fullypaid')
                     ->boolean()
                     ->label('Fully Paid?'),
@@ -90,6 +98,7 @@ class PaymentsRelationManager extends RelationManager
                         $newTotalPaid = $totalPaidSoFar + $data['partial_amount'];
 
                         $data['is_fullypaid'] = $newTotalPaid >= $booking->total_price;
+                        $data['payment_type'] = Payment::TYPE_BOOKING;
 
                         return $data;
                     })

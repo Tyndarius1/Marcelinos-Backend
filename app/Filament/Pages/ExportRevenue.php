@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\Booking;
+use App\Models\Payment;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -228,11 +229,18 @@ class ExportRevenue extends Page
         }
 
         $query = $this->getRevenueQuery($from, $to);
-        $totalRevenue = (clone $query)->sum('total_price');
+        $bookingIds = (clone $query)->pluck('bookings.id')->all();
+        $baseRevenue = (clone $query)->sum('total_price');
+        $damageRevenue = $bookingIds === []
+            ? 0
+            : (int) Payment::query()
+                ->whereIn('booking_id', $bookingIds)
+                ->where('payment_type', Payment::TYPE_DAMAGE)
+                ->sum('partial_amount');
         $bookingCount = (clone $query)->count();
 
         return [
-            'total_revenue' => $totalRevenue,
+            'total_revenue' => $baseRevenue + $damageRevenue,
             'booking_count' => $bookingCount,
             'from' => $from,
             'to' => $to,
@@ -247,6 +255,7 @@ class ExportRevenue extends Page
                 'guest:id,first_name,middle_name,last_name,email',
                 'rooms:id,name',
                 'venues:id,name',
+                'payments:id,booking_id,payment_type,partial_amount',
             ])
             ->where(function (Builder $q): void {
                 $q->where('payment_status', Booking::PAYMENT_STATUS_PAID)
@@ -276,7 +285,9 @@ class ExportRevenue extends Page
             'Nights',
             'Rooms',
             'Venues',
-            'Revenue (₱)',
+            'Booking Revenue (₱)',
+            'Damage Revenue (₱)',
+            'Total Revenue (₱)',
             'Booking status',
             'Payment status',
             'Created At',
@@ -289,7 +300,13 @@ class ExportRevenue extends Page
 
             $query->chunk(100, function ($bookings) use ($stream): void {
                 foreach ($bookings as $booking) {
-                    $booking->loadMissing(['guest', 'rooms', 'venues']);
+                    $booking->loadMissing(['guest', 'rooms', 'venues', 'payments']);
+                    $damageRevenue = (float) $booking->payments
+                        ->where('payment_type', Payment::TYPE_DAMAGE)
+                        ->sum('partial_amount');
+                    $bookingRevenue = (float) ($booking->total_price ?? 0);
+                    $totalRevenue = $bookingRevenue + $damageRevenue;
+
                     fputcsv($stream, [
                         $booking->reference_number ?? '—',
                         trim((string) ($booking->guest?->full_name ?? '')) ?: '—',
@@ -299,7 +316,9 @@ class ExportRevenue extends Page
                         (string) (int) ($booking->no_of_days ?? 0),
                         $booking->rooms?->pluck('name')->filter()->implode(', ') ?: '—',
                         $booking->venues?->pluck('name')->filter()->implode(', ') ?: '—',
-                        number_format((float) ($booking->total_price ?? 0), 2, '.', ','),
+                        number_format($bookingRevenue, 2, '.', ','),
+                        number_format($damageRevenue, 2, '.', ','),
+                        number_format($totalRevenue, 2, '.', ','),
                         (string) (Booking::bookingStatusOptions()[$booking->booking_status ?? ''] ?? $booking->booking_status ?? '—'),
                         (string) (Booking::paymentStatusOptions()[$booking->payment_status ?? ''] ?? $booking->payment_status ?? '—'),
                         $booking->created_at?->format('d/m/y H:i') ?? '—',

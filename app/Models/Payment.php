@@ -11,12 +11,14 @@ class Payment extends Model
 
     protected $fillable = [
         'booking_id',
+        'payment_type',
         'total_amount',
         'partial_amount',
         'is_fullypaid',
         'provider',
         'provider_ref',
         'provider_status',
+        'notes',
     ];
 
     protected $casts = [
@@ -24,6 +26,9 @@ class Payment extends Model
         'partial_amount' => 'integer',
         'is_fullypaid' => 'boolean',
     ];
+
+    const TYPE_BOOKING = 'booking';
+    const TYPE_DAMAGE = 'damage';
 
     public function booking()
     {
