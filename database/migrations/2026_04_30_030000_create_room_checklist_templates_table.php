@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\RoomChecklistDefaults;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -42,12 +43,13 @@ return new class extends Migration
             'Overall room cleanliness',
         ];
 
+        $prices = RoomChecklistDefaults::prices();
         $now = now();
         $rows = [];
         foreach ($defaults as $index => $label) {
             $rows[] = [
                 'label' => $label,
-                'default_charge' => null,
+                'default_charge' => $prices[$label] ?? null,
                 'is_active' => true,
                 'sort_order' => $index + 1,
                 'created_at' => $now,
