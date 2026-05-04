@@ -332,7 +332,7 @@ class BookingCreateWizard
                                 ->default('manual')
                                 ->dehydrated(),
                             Hidden::make('is_manual_booking')
-                                ->default(true)
+                                ->default(false)
                                 ->dehydrated(),
                             Hidden::make('email_is_shared')
                                 ->default(false)
@@ -347,7 +347,7 @@ class BookingCreateWizard
                                 ->default(false)
                                 ->dehydrated(false),
                             Hidden::make('allow_manual_email_match')
-                                ->default(false)
+                                ->default(true)
                                 ->dehydrated(),
                             Toggle::make('edit_returning_guest')
                                 ->label('Edit guest details for this booking')
@@ -464,7 +464,9 @@ class BookingCreateWizard
                                         $set('existing_guest_found', false);
                                         $set('existing_guest_id', null);
                                         $set('email_has_multiple_matches', false);
-                                        $set('allow_manual_email_match', false);
+                                        // New guest + personal email: merge by email in Guest::store (same as public website).
+                                        // Shared/placeholder emails or returning+shared: never auto-merge by email alone.
+                                        $set('allow_manual_email_match', $isReturning ? false : ! $isShared);
 
                                         return;
                                     }

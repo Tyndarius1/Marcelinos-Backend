@@ -134,6 +134,10 @@ class Guest extends Model
         }
 
         $normalizedEmail = strtolower(trim((string) $validated['email']));
+        if ($normalizedEmail !== '') {
+            $validated['email'] = $normalizedEmail;
+        }
+
         $existingGuest = null;
 
         if (self::shouldAttemptEmailIdentityReuse($source, $normalizedEmail)) {
