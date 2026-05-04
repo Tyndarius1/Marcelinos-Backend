@@ -10,7 +10,7 @@ class ListRoomChecklistTemplates extends ListRecords
 {
     protected static string $resource = RoomChecklistTemplateResource::class;
 
-    protected static ?string $title = 'Room checklist templates';
+    protected static ?string $title = 'Checklist';
 
     protected function getHeaderActions(): array
     {

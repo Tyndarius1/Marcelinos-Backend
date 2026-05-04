@@ -7,8 +7,8 @@ use App\Models\Payment;
 use App\Models\RoomChecklist;
 use App\Models\RoomChecklistItem;
 use App\Support\ActivityLogger;
-use App\Support\BookingLifecycleActions;
 use App\Support\BookingDamageSettlement;
+use App\Support\BookingLifecycleActions;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DateTimePicker;
@@ -16,12 +16,16 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Components\Component;
+use Filament\Schemas\Components\Group;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -44,107 +48,141 @@ class RoomChecklistsRelationManager extends RelationManager
         $booking = $this->getOwnerRecord() instanceof Booking ? $this->getOwnerRecord() : null;
 
         return $schema->components([
-            Placeholder::make('booking_reference')
-                ->label('Booking reference')
-                ->content(fn (): string => (string) ($booking?->reference_number ?? '—')),
-
-            Placeholder::make('guest_name')
-                ->label('Guest')
-                ->content(fn (): string => (string) ($booking?->guest?->full_name ?? '—')),
-
-            Placeholder::make('guest_contact')
-                ->label('Guest contact')
-                ->content(fn (): string => (string) ($booking?->guest?->contact_num ?? '—')),
-
-            Placeholder::make('guest_email')
-                ->label('Guest email')
-                ->content(fn (): string => (string) ($booking?->guest?->email ?? '—')),
-
-            TextInput::make('room.name')
-                ->label('Room')
-                ->disabled()
-                ->dehydrated(false),
-
-            DateTimePicker::make('generated_at')
-                ->native(false)
-                ->disabled()
-                ->dehydrated(false),
-
-            DateTimePicker::make('completed_at')
-                ->label('Inspection completed at')
-                ->native(false)
-                ->helperText('Optional. Set this when room inspection is done.'),
-
-            Placeholder::make('checklist_empty_state')
-                ->label('Setup reminder')
-                ->content('No checklist items are available for this room. Staff can still complete checkout and add notes when needed.')
-                ->visible(fn (?RoomChecklist $record): bool => (int) ($record?->items()->count() ?? 0) === 0),
-
-            Repeater::make('items')
-                ->relationship('items')
-                ->label('Room items')
-                ->defaultItems(0)
-                ->reorderable(false)
-                ->addActionLabel('Add new room item')
-                ->deletable(false)
-                ->helperText('Choose Good, Broken, Missing, or Not in this room. Add new item if the room has newly installed equipment.')
+            Section::make('Booking & inspection')
+                ->description('Read-only booking details (left). Optional time when the physical inspection finished (right).')
+                ->icon('heroicon-o-identification')
+                ->compact()
+                ->columns(2)
                 ->schema([
-                    TextInput::make('label')
-                        ->label('Item')
-                        ->required()
-                        ->placeholder('Example: TV remote')
-                        ->disabled(fn (callable $get): bool => filled($get('id'))),
+                    Group::make([
+                        Placeholder::make('booking_reference')
+                            ->label('Booking reference')
+                            ->content(fn (): string => (string) ($booking?->reference_number ?? '—')),
 
-                    TextInput::make('charge')
-                        ->label('Charge')
-                        ->placeholder('Optional')
-                        ->helperText('Optional replacement/penalty amount.')
-                        ->disabled(fn (callable $get): bool => filled($get('id'))),
+                        Placeholder::make('guest_name')
+                            ->label('Guest')
+                            ->content(fn (): string => (string) ($booking?->guest?->full_name ?? '—')),
 
-                    Select::make('status')
-                        ->label('Status')
+                        Placeholder::make('inspection_room_name')
+                            ->label('Room')
+                            ->content(function (?RoomChecklist $record): string {
+                                if ($record === null) {
+                                    return '—';
+                                }
+                                $record->loadMissing('room');
+
+                                return (string) ($record->room?->name ?? '—');
+                            }),
+
+                        Placeholder::make('guest_contact')
+                            ->label('Guest contact')
+                            ->content(fn (): string => (string) ($booking?->guest?->contact_num ?? '—')),
+
+                        Placeholder::make('guest_email')
+                            ->label('Guest email')
+                            ->content(fn (): string => (string) ($booking?->guest?->email ?? '—')),
+
+                        Placeholder::make('inspection_generated_at')
+                            ->label('Generated at')
+                            ->content(function (?RoomChecklist $record): string {
+                                if ($record === null || $record->generated_at === null) {
+                                    return '—';
+                                }
+
+                                return $record->generated_at
+                                    ->timezone(config('app.timezone'))
+                                    ->format('M j, Y g:i:s A');
+                            }),
+                    ])
+                        ->columns(3)
+                        ->columnSpan(['default' => 2, 'lg' => 1]),
+
+                    DateTimePicker::make('completed_at')
+                        ->label('Inspection completed at')
                         ->native(false)
-                        ->options([
-                            RoomChecklistItem::STATUS_GOOD => 'Good',
-                            RoomChecklistItem::STATUS_BROKEN => 'Broken',
-                            RoomChecklistItem::STATUS_MISSING => 'Missing',
-                            RoomChecklistItem::STATUS_NOT_APPLICABLE => 'Not in this room',
-                        ])
-                        ->default(RoomChecklistItem::STATUS_GOOD)
-                        ->required(),
+                        ->hint('Optional')
+                        ->columnSpan(['default' => 2, 'lg' => 1]),
+                ]),
 
-                    Textarea::make('notes')
-                        ->label('Issue notes')
-                        ->rows(2)
-                        ->placeholder('Example: TV screen has crack on left side, remote missing.')
-                        ->visible(fn (callable $get): bool => in_array((string) $get('status'), [
-                            RoomChecklistItem::STATUS_BROKEN,
-                            RoomChecklistItem::STATUS_MISSING,
-                        ], true))
-                        ->required(fn (callable $get): bool => in_array((string) $get('status'), [
-                            RoomChecklistItem::STATUS_BROKEN,
-                            RoomChecklistItem::STATUS_MISSING,
-                        ], true))
-                        ->columnSpanFull(),
-                    FileUpload::make('evidence_photo_path')
-                        ->label('Issue photo')
-                        ->disk('public')
-                        ->directory('checklists/evidence')
-                        ->image()
-                        ->imageEditor()
-                        ->visible(fn (callable $get): bool => in_array((string) $get('status'), [
-                            RoomChecklistItem::STATUS_BROKEN,
-                            RoomChecklistItem::STATUS_MISSING,
-                        ], true))
-                        ->required(fn (callable $get): bool => in_array((string) $get('status'), [
-                            RoomChecklistItem::STATUS_BROKEN,
-                            RoomChecklistItem::STATUS_MISSING,
-                        ], true))
-                        ->columnSpanFull(),
-                ])
-                ->columns(4)
-                ->itemLabel(fn (array $state): ?string => $state['label'] ?? null),
-        ])->columns(2);
+            Section::make('Room checklist')
+                ->description('Compact table view — scrolls far less than stacked cards. Add a row only for newly installed equipment.')
+                ->icon('heroicon-o-clipboard-document-check')
+                ->schema([
+                    Placeholder::make('checklist_empty_state')
+                        ->label('Setup reminder')
+                        ->content('No checklist items are available for this room. Staff can still complete checkout and add notes when needed.')
+                        ->visible(fn (?RoomChecklist $record): bool => (int) ($record?->items()->count() ?? 0) === 0),
+
+                    Repeater::make('items')
+                        ->relationship('items')
+                        ->hiddenLabel()
+                        ->defaultItems(0)
+                        ->reorderable(false)
+                        ->addActionLabel('Add room item')
+                        ->deletable(false)
+                        ->compact()
+                        ->table([
+                            TableColumn::make('Item'),
+                            TableColumn::make('Charge')->width('7rem'),
+                            TableColumn::make('Status & issue details'),
+                        ])
+                        ->schema([
+                            TextInput::make('label')
+                                ->label('Item')
+                                ->required()
+                                ->placeholder('Example: TV remote')
+                                ->disabled(fn (callable $get): bool => filled($get('id'))),
+
+                            TextInput::make('charge')
+                                ->label('Charge')
+                                ->placeholder('Amount')
+                                ->prefix('₱')
+                                ->disabled(fn (callable $get): bool => filled($get('id'))),
+
+                            Group::make([
+                                Select::make('status')
+                                    ->label('Status')
+                                    ->native(false)
+                                    ->options([
+                                        RoomChecklistItem::STATUS_GOOD => 'Good',
+                                        RoomChecklistItem::STATUS_BROKEN => 'Broken',
+                                        RoomChecklistItem::STATUS_MISSING => 'Missing',
+                                        RoomChecklistItem::STATUS_NOT_APPLICABLE => 'Not in room',
+                                    ])
+                                    ->default(RoomChecklistItem::STATUS_GOOD)
+                                    ->required()
+                                    ->live(),
+                                Textarea::make('notes')
+                                    ->label('Issue notes')
+                                    ->rows(2)
+                                    ->placeholder('Example: Crack on left side, remote missing.')
+                                    ->visible(fn (callable $get): bool => in_array((string) $get('status'), [
+                                        RoomChecklistItem::STATUS_BROKEN,
+                                        RoomChecklistItem::STATUS_MISSING,
+                                    ], true))
+                                    ->required(fn (callable $get): bool => in_array((string) $get('status'), [
+                                        RoomChecklistItem::STATUS_BROKEN,
+                                        RoomChecklistItem::STATUS_MISSING,
+                                    ], true)),
+                                FileUpload::make('evidence_photo_path')
+                                    ->label('Issue photo')
+                                    ->disk('public')
+                                    ->directory('checklists/evidence')
+                                    ->image()
+                                    ->imageEditor()
+                                    ->visible(fn (callable $get): bool => in_array((string) $get('status'), [
+                                        RoomChecklistItem::STATUS_BROKEN,
+                                        RoomChecklistItem::STATUS_MISSING,
+                                    ], true))
+                                    ->required(fn (callable $get): bool => in_array((string) $get('status'), [
+                                        RoomChecklistItem::STATUS_BROKEN,
+                                        RoomChecklistItem::STATUS_MISSING,
+                                    ], true)),
+                            ])
+                                ->columns(1),
+                        ]),
+                ]),
+        ])->columns(1);
     }
 
     public function table(Table $table): Table
@@ -520,6 +558,7 @@ class RoomChecklistsRelationManager extends RelationManager
                 EditAction::make()
                     ->modalHeading('Room inventory inspection')
                     ->modalSubmitActionLabel('Save inspection')
+                    ->modalWidth('7xl')
                     ->label('Inspect room')
                     ->after(function (RoomChecklist $record): void {
                         if ($record->completed_at === null) {
@@ -551,7 +590,7 @@ class RoomChecklistsRelationManager extends RelationManager
     }
 
     /**
-     * @return array<int, \Filament\Schemas\Components\Component>
+     * @return array<int, Component>
      */
     private function quickInspectionForm(): array
     {
@@ -786,4 +825,3 @@ class RoomChecklistsRelationManager extends RelationManager
         return max(0, (float) $normalized);
     }
 }
-
