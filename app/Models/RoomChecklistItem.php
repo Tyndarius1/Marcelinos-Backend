@@ -16,10 +16,15 @@ class RoomChecklistItem extends Model
         'room_checklist_id',
         'label',
         'charge',
+        'quantity',
         'status',
         'notes',
         'evidence_photo_path',
         'sort_order',
+    ];
+
+    protected $casts = [
+        'quantity' => 'integer',
     ];
 
     public function roomChecklist(): BelongsTo
