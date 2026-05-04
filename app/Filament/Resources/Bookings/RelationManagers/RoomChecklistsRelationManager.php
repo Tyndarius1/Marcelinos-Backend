@@ -16,7 +16,6 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
-use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -105,7 +104,7 @@ class RoomChecklistsRelationManager extends RelationManager
                 ]),
 
             Section::make('Room checklist')
-                ->description('Compact table view — scrolls far less than stacked cards. Add a row only for newly installed equipment.')
+                ->description('Review each room item clearly. Add a row only for newly installed equipment.')
                 ->icon('heroicon-o-clipboard-document-check')
                 ->schema([
                     Placeholder::make('checklist_empty_state')
@@ -120,12 +119,16 @@ class RoomChecklistsRelationManager extends RelationManager
                         ->reorderable(false)
                         ->addActionLabel('Add room item')
                         ->deletable(false)
-                        ->compact()
-                        ->table([
-                            TableColumn::make('Item'),
-                            TableColumn::make('Charge')->width('7rem'),
-                            TableColumn::make('Status & issue details'),
-                        ])
+                        ->collapsible()
+                        ->collapsed(function (array $state): bool {
+                            $status = (string) ($state['status'] ?? RoomChecklistItem::STATUS_GOOD);
+
+                            return ! in_array($status, [
+                                RoomChecklistItem::STATUS_BROKEN,
+                                RoomChecklistItem::STATUS_MISSING,
+                            ], true);
+                        })
+                        ->helperText('Rows marked with [ISSUE] need attention (broken or missing).')
                         ->schema([
                             TextInput::make('label')
                                 ->label('Item')
@@ -180,7 +183,23 @@ class RoomChecklistsRelationManager extends RelationManager
                                     ], true)),
                             ])
                                 ->columns(1),
-                        ]),
+                        ])
+                        ->columns(3)
+                        ->itemLabel(function (array $state): ?string {
+                            $label = trim((string) ($state['label'] ?? ''));
+                            if ($label === '') {
+                                return null;
+                            }
+
+                            $status = (string) ($state['status'] ?? RoomChecklistItem::STATUS_GOOD);
+                            if (in_array($status, [RoomChecklistItem::STATUS_BROKEN, RoomChecklistItem::STATUS_MISSING], true)) {
+                                $statusText = $status === RoomChecklistItem::STATUS_BROKEN ? 'Broken' : 'Missing';
+
+                                return "[ISSUE] {$label} - {$statusText}";
+                            }
+
+                            return $label;
+                        }),
                 ]),
         ])->columns(1);
     }
@@ -469,43 +488,6 @@ class RoomChecklistsRelationManager extends RelationManager
                         Notification::make()
                             ->title('All items marked good')
                             ->body('Checklist statuses were updated and inspection time was recorded.')
-                            ->success()
-                            ->send();
-                    }),
-                Action::make('quickInspectAll')
-                    ->label('Quick inspect all rooms')
-                    ->icon('heroicon-o-bolt')
-                    ->color('primary')
-                    ->modalHeading('Quick room inspection')
-                    ->modalDescription('Update all room inventory statuses in one screen.')
-                    ->modalSubmitActionLabel('Save all inspections')
-                    ->visible(fn (): bool => $this->canMutateChecklist())
-                    ->slideOver()
-                    ->fillForm(function (): array {
-                        $booking = $this->getOwnerRecord();
-                        if (! $booking instanceof Booking) {
-                            return ['rows' => []];
-                        }
-
-                        return [
-                            'rows' => BookingLifecycleActions::checkoutChecklistFormItems($booking),
-                        ];
-                    })
-                    ->form($this->quickInspectionForm())
-                    ->action(function (array $data): void {
-                        $booking = $this->getOwnerRecord();
-                        if (! $booking instanceof Booking) {
-                            return;
-                        }
-
-                        BookingLifecycleActions::saveCheckoutChecklistItems(
-                            $booking,
-                            is_array($data['rows'] ?? null) ? $data['rows'] : [],
-                        );
-                        $this->markChecklistsInspectedNow($booking);
-
-                        Notification::make()
-                            ->title('Room inspection saved')
                             ->success()
                             ->send();
                     }),

@@ -49,6 +49,17 @@ Schedule::command('bookings:prune-pending-verification')
 
 /*
 |--------------------------------------------------------------------------
+| Session pruning (database session driver)
+|--------------------------------------------------------------------------
+| Avoids request-time deadlocks from session GC lottery by pruning on schedule.
+*/
+Schedule::command('session:prune')
+    ->hourly()
+    ->timezone($manila)
+    ->withoutOverlapping();
+
+/*
+|--------------------------------------------------------------------------
 | Hourly full Google Sheets mirror refresh
 |--------------------------------------------------------------------------
 | Rebuilds spreadsheet tabs from the DB to remove manual edits and guarantee

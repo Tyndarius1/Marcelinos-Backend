@@ -114,7 +114,9 @@ return [
     |
     */
 
-    'lottery' => [2, 100],
+    // Prevent request-time session garbage collection deadlocks on MySQL.
+    // Expired sessions are pruned by scheduler (`session:prune`) instead.
+    'lottery' => [0, 100],
 
     /*
     |--------------------------------------------------------------------------
