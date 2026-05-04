@@ -438,7 +438,8 @@ class BookingsTable
                             : '—';
                     })
                     ->color(fn (string $state): string => $state === '—' ? 'gray' : 'danger')
-                    ->visible(fn (Booking $record): bool => self::damageOutstandingForBooking($record) > 0)
+                    ->visible(fn (?Booking $record): bool => $record instanceof Booking
+                        && self::damageOutstandingForBooking($record) > 0)
                     ->sortable(false),
 
                 TextColumn::make('next_step')
