@@ -267,6 +267,7 @@ class RoomCalendar extends Page
     {
         unset(
             $this->calendarLegendItems,
+            $this->roomTypeCapacityByType,
             $this->calendarWeeks,
             $this->blockedDateSetForMonth,
             $this->activeBookingRows,
@@ -462,6 +463,27 @@ class RoomCalendar extends Page
         // Keep room type badges (Standard/Family/Deluxe) like previous calendar behavior.
         // For Room + Venue filter, badges still show room categories for mixed reservations.
         return Room::typeOptions();
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    #[Computed]
+    public function roomTypeCapacityByType(): array
+    {
+        $counts = Room::query()
+            ->where('status', '!=', Room::STATUS_MAINTENANCE)
+            ->selectRaw('type, COUNT(*) as total')
+            ->groupBy('type')
+            ->pluck('total', 'type')
+            ->mapWithKeys(fn ($total, $type) => [(string) $type => (int) $total])
+            ->all();
+
+        foreach (Room::typeOptions() as $type => $label) {
+            $counts[$type] ??= 0;
+        }
+
+        return $counts;
     }
 
     /**
