@@ -18,7 +18,7 @@
     $label = strtoupper($labels[$type] ?? (string) $type);
 
     $outer = $fullyBooked
-        ? 'rounded-lg bg-red-100 shadow-sm ring-1 ring-red-300/70 dark:bg-red-500/20 dark:ring-red-400/40'
+        ? 'rounded-lg border border-[#0e7490] bg-[#0891b2] shadow-sm ring-1 ring-[#67e8f9]'
         : match ($type) {
             Room::TYPE_STANDARD => 'rounded-lg bg-[#38523b] shadow-md shadow-black/30 ring-1 ring-white/10',
             Room::TYPE_FAMILY => 'rounded-lg bg-[#3c513d] shadow-md shadow-black/30 ring-1 ring-white/10',
@@ -27,7 +27,7 @@
         };
 
     $iconBox = $fullyBooked
-        ? 'rounded-md bg-red-200/70 ring-1 ring-red-400/40 dark:bg-red-500/25 dark:ring-red-300/35'
+        ? 'rounded-md bg-white/20 ring-1 ring-[#67e8f9]'
         : match ($type) {
             Room::TYPE_STANDARD => 'rounded-md bg-emerald-950/40 ring-1 ring-white/10',
             Room::TYPE_FAMILY => 'rounded-md bg-emerald-950/35 ring-1 ring-white/10',
@@ -64,7 +64,7 @@
             <svg
                 @class([
                     $compact ? 'h-3.5 w-3.5' : 'h-4 w-4',
-                    $fullyBooked ? 'text-red-700 dark:text-red-100' : 'text-white',
+                    $fullyBooked ? 'text-white' : 'text-white',
                 ])
                 viewBox="0 0 24 24"
                 fill="none"
@@ -84,7 +84,7 @@
             <x-filament::icon
                 icon="heroicon-o-users"
                 @class([
-                    $fullyBooked ? 'text-red-700 dark:text-red-100' : 'text-white',
+                    $fullyBooked ? 'text-white' : 'text-white',
                     $compact ? 'h-3.5 w-3.5' : 'h-4 w-4',
                 ])
             />
@@ -93,7 +93,7 @@
             <svg
                 @class([
                     $compact ? 'h-3.5 w-3.5' : 'h-4 w-4',
-                    $fullyBooked ? 'text-red-700 dark:text-red-100' : 'text-white',
+                    $fullyBooked ? 'text-white' : 'text-white',
                 ])
                 viewBox="0 0 24 24"
                 fill="none"
@@ -115,7 +115,7 @@
     <div
         @class([
             'relative z-[2] w-px shrink-0',
-            $fullyBooked ? 'bg-red-400/50 dark:bg-red-200/30' : 'bg-white/35',
+            $fullyBooked ? 'bg-white/40' : 'bg-white/35',
         ])
         aria-hidden="true"
     ></div>
@@ -130,7 +130,7 @@
         <span
             @class([
                 'room-type-badge-label truncate font-bold uppercase tracking-wide',
-                $fullyBooked ? 'text-red-700 dark:text-red-100' : 'text-white',
+                $fullyBooked ? 'text-white' : 'text-white',
                 $compact ? 'text-[8px] leading-tight sm:text-[9px]' : 'text-[10px] sm:text-xs',
                 $hideLabelOnMobile ? 'hidden sm:inline' : '',
             ])
@@ -142,7 +142,7 @@
                 @class([
                     'shrink-0 rounded-md px-1 font-bold tabular-nums ring-1',
                     $fullyBooked
-                        ? 'bg-red-200/80 text-red-700 ring-red-400/40 dark:bg-red-500/25 dark:text-red-100 dark:ring-red-300/35'
+                        ? 'bg-white/80 text-[#0e7490] ring-[#67e8f9]'
                         : 'bg-black/20 text-white ring-white/15',
                     $compact ? 'py-px text-[8px]' : 'py-0.5 text-[10px]',
                 ])

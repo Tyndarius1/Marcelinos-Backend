@@ -3,6 +3,7 @@
     use App\Models\Room;
     use App\Models\RoomChecklistItem;
     $legendItems = $this->calendarLegendItems;
+    $roomTypeCapacities = $this->roomTypeCapacityByType;
     $spreadsheetId = trim((string) config('services.google_sheets.spreadsheet_id', ''));
     $spreadsheetUrl = $spreadsheetId !== '' ? "https://docs.google.com/spreadsheets/d/{$spreadsheetId}/preview" : null;
     $reservationFilterLabels = [
@@ -309,7 +310,11 @@
                                             </div>
                                         @else
                                             @foreach ($legendItems as $type => $label)
-                                                @php $cnt = $cell['typeCounts'][$type] ?? 0; @endphp
+                                                @php
+                                                    $cnt = $cell['typeCounts'][$type] ?? 0;
+                                                    $capacity = $roomTypeCapacities[$type] ?? 0;
+                                                    $isFullyBooked = $capacity > 0 && $cnt >= $capacity;
+                                                @endphp
                                                 @if ($cnt === 0)
                                                     @continue
                                                 @endif
@@ -340,6 +345,7 @@
                                                             :type="$type"
                                                             :muted="$cnt === 0"
                                                             :count="$cnt"
+                                                            :fullyBooked="$isFullyBooked"
                                                             compact
                                                         />
                                                     @endif
