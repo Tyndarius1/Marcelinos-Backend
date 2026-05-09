@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\Booking;
 use App\Models\Payment;
+use App\Support\BookingRevenueCalculator;
 use App\Support\SettledDamageLossRevenue;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -183,7 +184,7 @@ class ExportRevenue extends Page
                     if ($count === 0) {
                         Notification::make()
                             ->title('No revenue data in the selected period.')
-                            ->body('Only paid and completed bookings with settled damage and loss charges are included.')
+                            ->body('Only paid, partial, and completed bookings with settled damage and loss charges are included.')
                             ->warning()
                             ->send();
                         return;
@@ -231,7 +232,7 @@ class ExportRevenue extends Page
 
         $query = $this->getRevenueQuery($from, $to);
         $bookings = $query->get();
-        $baseRevenue = (float) $bookings->sum(fn (Booking $booking): float => (float) ($booking->total_price ?? 0));
+        $baseRevenue = BookingRevenueCalculator::forBookings($bookings);
         $damageRevenue = SettledDamageLossRevenue::forBookings($bookings);
         $bookingCount = $bookings->count();
 
@@ -257,6 +258,7 @@ class ExportRevenue extends Page
             ])
             ->where(function (Builder $q): void {
                 $q->where('payment_status', Booking::PAYMENT_STATUS_PAID)
+                    ->orWhere('payment_status', Booking::PAYMENT_STATUS_PARTIAL)
                     ->orWhere('booking_status', Booking::BOOKING_STATUS_COMPLETED);
             })
             ->where(function (Builder $q) use ($from, $to): void {
@@ -300,7 +302,7 @@ class ExportRevenue extends Page
                 foreach ($bookings as $booking) {
                     $booking->loadMissing(['guest', 'rooms', 'venues', 'roomChecklists.items', 'roomChecklists.room']);
                     $damageRevenue = SettledDamageLossRevenue::forBooking($booking);
-                    $bookingRevenue = (float) ($booking->total_price ?? 0);
+                    $bookingRevenue = BookingRevenueCalculator::forBooking($booking);
                     $totalRevenue = $bookingRevenue + $damageRevenue;
 
                     fputcsv($stream, [

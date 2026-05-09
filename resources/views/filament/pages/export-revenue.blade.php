@@ -1,7 +1,7 @@
 <x-filament-panels::page>
     <div class="space-y-6">
         <p class="text-sm text-gray-600 dark:text-gray-400">
-            Choose a date range below. You’ll see the revenue summary for <strong>paid</strong> and <strong>completed</strong> bookings plus any <strong>settled damage and loss charges</strong> in that period, then use <strong>Export Revenue</strong> in the header to download a CSV (reference, guest, check-in/out, rooms, venues, revenue, status).
+            Choose a date range below. You'll see the revenue summary for <strong>paid</strong>, <strong>partial</strong>, and <strong>completed</strong> bookings plus any <strong>settled damage and loss charges</strong> in that period, then use <strong>Export Revenue</strong> in the header to download a CSV (reference, guest, check-in/out, rooms, venues, revenue, status).
         </p>
 
         <div class="flex flex-col gap-3">
@@ -84,7 +84,7 @@
                     {{ $summary['valid'] ? number_format($summary['booking_count']) : '0' }}
                 </p>
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    paid or completed in range
+                    paid, partial, or completed in range
                 </p>
             </x-filament::section>
         </div>
@@ -95,7 +95,7 @@
             </p>
         @elseif ($summary['valid'])
             <p class="text-sm text-gray-500 dark:text-gray-400">
-                No paid or completed bookings in this period. Try another range or export after you have revenue in the selected dates.
+                No paid, partial, or completed bookings in this period. Try another range or export after you have revenue in the selected dates.
             </p>
         @endif
     </div>

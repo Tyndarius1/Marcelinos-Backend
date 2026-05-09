@@ -7,6 +7,7 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 use App\Models\Booking;
 use App\Models\RoomChecklistItem;
 use App\Models\RoomChecklistTemplate;
+use App\Support\BookingRevenueCalculator;
 use Carbon\Carbon;
 
 class BookingStatsOverview extends StatsOverviewWidget
@@ -28,15 +29,26 @@ class BookingStatsOverview extends StatsOverviewWidget
         $currentRevenue = Booking::where('created_at', '>=', now()->subDays(30))
             ->where(function ($q): void {
                 $q->where('payment_status', Booking::PAYMENT_STATUS_PAID)
+                    ->orWhere('payment_status', Booking::PAYMENT_STATUS_PARTIAL)
                     ->orWhere('booking_status', Booking::BOOKING_STATUS_COMPLETED);
             })
-            ->sum('total_price');
+            ->with('payments')
+            ->get()
+            ->reduce(function ($carry, Booking $booking) {
+                return $carry + BookingRevenueCalculator::forBooking($booking);
+            }, 0.0);
+        
         $previousRevenue = Booking::whereBetween('created_at', [now()->subDays(60), now()->subDays(30)])
             ->where(function ($q): void {
                 $q->where('payment_status', Booking::PAYMENT_STATUS_PAID)
+                    ->orWhere('payment_status', Booking::PAYMENT_STATUS_PARTIAL)
                     ->orWhere('booking_status', Booking::BOOKING_STATUS_COMPLETED);
             })
-            ->sum('total_price');
+            ->with('payments')
+            ->get()
+            ->reduce(function ($carry, Booking $booking) {
+                return $carry + BookingRevenueCalculator::forBooking($booking);
+            }, 0.0);
         $revenueDelta = $currentRevenue - $previousRevenue;
         $damageAndLossCharges = RoomChecklistItem::query()
             ->whereIn('status', [
