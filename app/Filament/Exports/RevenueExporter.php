@@ -5,6 +5,7 @@ namespace App\Filament\Exports;
 use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\Room;
+use App\Support\SettledDamageLossRevenue;
 use Carbon\Carbon;
 use Filament\Actions\Exports\ExportColumn;
 use Filament\Actions\Exports\Exporter;
@@ -117,12 +118,9 @@ class RevenueExporter extends Exporter
                 }),
 
             ExportColumn::make('damage_revenue')
-                ->label('Damage Revenue (₱)')
+                ->label('Damage & Loss Charges (Settled) (₱)')
                 ->state(function (Booking $record): string {
-                    $record->loadMissing('payments');
-                    $damage = (float) $record->payments
-                        ->where('payment_type', Payment::TYPE_DAMAGE)
-                        ->sum('partial_amount');
+                    $damage = SettledDamageLossRevenue::forBooking($record);
 
                     return number_format($damage, 2, '.', ',');
                 }),
@@ -130,10 +128,7 @@ class RevenueExporter extends Exporter
             ExportColumn::make('total_revenue')
                 ->label('Total Revenue (₱)')
                 ->state(function (Booking $record): string {
-                    $record->loadMissing('payments');
-                    $damage = (float) $record->payments
-                        ->where('payment_type', Payment::TYPE_DAMAGE)
-                        ->sum('partial_amount');
+                    $damage = SettledDamageLossRevenue::forBooking($record);
                     $base = (float) ($record->total_price ?? 0);
 
                     return number_format($base + $damage, 2, '.', ',');
@@ -186,6 +181,8 @@ class RevenueExporter extends Exporter
                 'rooms' => fn ($q) => $q->with(['bedSpecifications']),
                 'venues:id,name',
                 'payments:id,booking_id,payment_type,partial_amount',
+                'roomChecklists.items',
+                'roomChecklists.room',
             ]);
     }
 

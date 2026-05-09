@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\Booking;
 use App\Models\Payment;
+use App\Support\SettledDamageLossRevenue;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -182,7 +183,7 @@ class ExportRevenue extends Page
                     if ($count === 0) {
                         Notification::make()
                             ->title('No revenue data in the selected period.')
-                            ->body('Only paid and completed bookings are included.')
+                            ->body('Only paid and completed bookings with settled damage and loss charges are included.')
                             ->warning()
                             ->send();
                         return;
@@ -229,15 +230,10 @@ class ExportRevenue extends Page
         }
 
         $query = $this->getRevenueQuery($from, $to);
-        $bookingIds = (clone $query)->pluck('bookings.id')->all();
-        $baseRevenue = (clone $query)->sum('total_price');
-        $damageRevenue = $bookingIds === []
-            ? 0
-            : (int) Payment::query()
-                ->whereIn('booking_id', $bookingIds)
-                ->where('payment_type', Payment::TYPE_DAMAGE)
-                ->sum('partial_amount');
-        $bookingCount = (clone $query)->count();
+        $bookings = $query->get();
+        $baseRevenue = (float) $bookings->sum(fn (Booking $booking): float => (float) ($booking->total_price ?? 0));
+        $damageRevenue = SettledDamageLossRevenue::forBookings($bookings);
+        $bookingCount = $bookings->count();
 
         return [
             'total_revenue' => $baseRevenue + $damageRevenue,
@@ -256,6 +252,8 @@ class ExportRevenue extends Page
                 'rooms:id,name',
                 'venues:id,name',
                 'payments:id,booking_id,payment_type,partial_amount',
+                'roomChecklists.items',
+                'roomChecklists.room',
             ])
             ->where(function (Builder $q): void {
                 $q->where('payment_status', Booking::PAYMENT_STATUS_PAID)
@@ -286,7 +284,7 @@ class ExportRevenue extends Page
             'Rooms',
             'Venues',
             'Booking Revenue (₱)',
-            'Damage Revenue (₱)',
+            'Damage & Loss Charges (Settled) (₱)',
             'Total Revenue (₱)',
             'Booking status',
             'Payment status',
@@ -300,10 +298,8 @@ class ExportRevenue extends Page
 
             $query->chunk(100, function ($bookings) use ($stream): void {
                 foreach ($bookings as $booking) {
-                    $booking->loadMissing(['guest', 'rooms', 'venues', 'payments']);
-                    $damageRevenue = (float) $booking->payments
-                        ->where('payment_type', Payment::TYPE_DAMAGE)
-                        ->sum('partial_amount');
+                    $booking->loadMissing(['guest', 'rooms', 'venues', 'roomChecklists.items', 'roomChecklists.room']);
+                    $damageRevenue = SettledDamageLossRevenue::forBooking($booking);
                     $bookingRevenue = (float) ($booking->total_price ?? 0);
                     $totalRevenue = $bookingRevenue + $damageRevenue;
 

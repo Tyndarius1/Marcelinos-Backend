@@ -1,7 +1,7 @@
 <x-filament-panels::page>
     <div class="space-y-6">
         <p class="text-sm text-gray-600 dark:text-gray-400">
-            Choose a date range below. You’ll see the revenue summary for <strong>paid</strong> and <strong>completed</strong> bookings in that period, then use <strong>Export Revenue</strong> in the header to download a CSV (reference, guest, check-in/out, rooms, venues, revenue, status).
+            Choose a date range below. You’ll see the revenue summary for <strong>paid</strong> and <strong>completed</strong> bookings plus any <strong>settled damage and loss charges</strong> in that period, then use <strong>Export Revenue</strong> in the header to download a CSV (reference, guest, check-in/out, rooms, venues, revenue, status).
         </p>
 
         <div class="flex flex-col gap-3">
@@ -91,7 +91,7 @@
 
         @if ($summary['valid'] && $summary['booking_count'] > 0)
             <p class="text-sm text-success-600 dark:text-success-400">
-                Ready to export {{ number_format($summary['booking_count']) }} {{ str('booking')->plural($summary['booking_count']) }}. Click <strong>Export Revenue</strong> above to download the CSV.
+                Ready to export {{ number_format($summary['booking_count']) }} {{ str('booking')->plural($summary['booking_count']) }} including settled damage and loss charges. Click <strong>Export Revenue</strong> above to download the CSV.
             </p>
         @elseif ($summary['valid'])
             <p class="text-sm text-gray-500 dark:text-gray-400">
