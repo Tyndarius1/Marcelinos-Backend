@@ -205,7 +205,7 @@ final class BookingLifecycleActions
         DB::transaction(function () use ($booking, $activeTemplates, $fallbackRows): void {
             foreach ($booking->rooms as $room) {
                 $templateRows = $activeTemplates
-                    ->filter(fn (RoomChecklistTemplate $template): bool => $template->appliesToRoomType((string) $room->type))
+                    ->filter(fn (RoomChecklistTemplate $template): bool => $template->appliesToRoom((int) $room->id))
                     ->values()
                     ->map(fn (RoomChecklistTemplate $template): array => [
                         'label' => (string) $template->label,

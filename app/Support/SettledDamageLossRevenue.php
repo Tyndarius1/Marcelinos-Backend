@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Booking;
+use App\Models\Room;
 use App\Models\RoomChecklist;
 use App\Models\RoomChecklistItem;
 use App\Models\RoomChecklistTemplate;
@@ -76,7 +77,11 @@ final class SettledDamageLossRevenue
         }
 
         $roomType = strtolower(trim((string) ($item->roomChecklist?->room?->type ?? '')));
+        $roomId = (int) ($item->roomChecklist?->room?->id ?? 0);
         $map = self::templateChargeMap();
+        if ($roomId > 0 && array_key_exists("{$label}::#{$roomId}", $map)) {
+            return $map["{$label}::#{$roomId}"];
+        }
 
         if ($roomType !== '' && array_key_exists("{$label}::{$roomType}", $map)) {
             return $map["{$label}::{$roomType}"];
@@ -98,24 +103,40 @@ final class SettledDamageLossRevenue
             ->where('is_active', true)
             ->get(['label', 'default_charge', 'applicable_room_types']);
 
+        $roomTypesById = Room::query()
+            ->select(['id', 'type'])
+            ->get()
+            ->mapWithKeys(fn (Room $room): array => [(int) $room->id => strtolower(trim((string) $room->type))])
+            ->all();
+
         self::$templateChargeMap = $templates
-            ->reduce(function (array $carry, RoomChecklistTemplate $template): array {
+            ->reduce(function (array $carry, RoomChecklistTemplate $template) use ($roomTypesById): array {
                 $label = strtolower(trim((string) $template->label));
                 if ($label === '') {
                     return $carry;
                 }
 
                 $amount = self::parseMoneyToFloat((string) ($template->default_charge ?? '0'));
-                $types = is_array($template->applicable_room_types) ? $template->applicable_room_types : [];
+                $allowed = is_array($template->applicable_room_types) ? $template->applicable_room_types : [];
 
-                if ($types === []) {
+                if ($allowed === []) {
                     $carry["{$label}::*"] = $amount;
 
                     return $carry;
                 }
 
-                foreach ($types as $type) {
-                    $normalized = strtolower(trim((string) $type));
+                foreach ($allowed as $value) {
+                    $roomId = (int) $value;
+                    if ($roomId > 0) {
+                        $carry["{$label}::#{$roomId}"] = $amount;
+                        $roomType = $roomTypesById[$roomId] ?? '';
+                        if ($roomType !== '') {
+                            $carry["{$label}::{$roomType}"] = $amount;
+                        }
+                        continue;
+                    }
+
+                    $normalized = strtolower(trim((string) $value));
                     if ($normalized === '') {
                         continue;
                     }

@@ -31,11 +31,48 @@ class RoomChecklistTemplate extends Model
         return $query->where('is_active', true);
     }
 
+    /**
+     * @return array<int>
+     */
+    public function applicableRoomIds(): array
+    {
+        $raw = $this->applicable_room_types;
+        if (! is_array($raw) || $raw === []) {
+            return [];
+        }
+
+        return collect($raw)
+            ->map(fn ($value): int => (int) $value)
+            ->filter(fn (int $value): bool => $value > 0)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    public function appliesToRoom(?int $roomId): bool
+    {
+        $allowed = $this->applicableRoomIds();
+
+        if ($allowed === []) {
+            return true;
+        }
+
+        return $roomId !== null && in_array((int) $roomId, $allowed, true);
+    }
+
     public function appliesToRoomType(?string $roomType): bool
     {
+        // Backward compatibility for legacy templates that stored room types.
         $allowed = $this->applicable_room_types;
 
         if (! is_array($allowed) || $allowed === []) {
+            return true;
+        }
+
+        $allowedLooksLikeRoomIds = collect($allowed)
+            ->contains(fn ($value): bool => is_numeric($value) && (int) $value > 0);
+
+        if ($allowedLooksLikeRoomIds) {
             return true;
         }
 

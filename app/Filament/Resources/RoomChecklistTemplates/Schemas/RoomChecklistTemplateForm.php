@@ -44,10 +44,12 @@ class RoomChecklistTemplateForm
                             ->inline(false),
 
                         CheckboxList::make('applicable_room_types')
-                            ->label('Applies to room types')
-                            ->helperText('Leave empty to apply this item to all room types.')
-                            ->options(Room::typeOptions())
-                            ->columns(3)
+                            ->label('Applies to rooms')
+                            ->helperText('Leave empty to apply this item to all rooms.')
+                            ->options(fn (): array => Room::query()->orderBy('name')->pluck('name', 'id')->all())
+                            ->columns(2)
+                            ->bulkToggleable()
+                            ->searchable()
                             ->columnSpanFull(),
                     ])
                     ->columns(2),

@@ -15,14 +15,14 @@ class CreateRoomChecklistTemplate extends CreateRecord
      */
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        $types = is_array($data['applicable_room_types'] ?? null)
+        $roomIds = is_array($data['applicable_room_types'] ?? null)
             ? array_values(array_filter(
-                array_map(fn ($value): string => strtolower(trim((string) $value)), $data['applicable_room_types']),
-                fn (string $value): bool => $value !== ''
+                array_map(fn ($value): int => (int) $value, $data['applicable_room_types']),
+                fn (int $value): bool => $value > 0
             ))
             : [];
 
-        $data['applicable_room_types'] = $types === [] ? null : array_values(array_unique($types));
+        $data['applicable_room_types'] = $roomIds === [] ? null : array_values(array_unique($roomIds));
 
         return $data;
     }

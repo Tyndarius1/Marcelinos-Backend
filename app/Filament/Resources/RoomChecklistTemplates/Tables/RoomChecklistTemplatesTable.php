@@ -30,31 +30,48 @@ class RoomChecklistTemplatesTable
                     ->weight('medium'),
 
                 TextColumn::make('applicable_room_types_display')
-                    ->label('Room types')
+                    ->label('Rooms')
                     ->getStateUsing(function (RoomChecklistTemplate $record): string {
                         $state = $record->applicable_room_types;
-                        $types = is_array($state)
-                            ? array_values(array_filter($state, fn ($value): bool => is_string($value) && trim((string) $value) !== ''))
+                        $values = is_array($state)
+                            ? array_values(array_filter($state, fn ($value): bool => (string) $value !== ''))
                             : [];
 
-                        if ($types === []) {
+                        if ($values === []) {
                             return 'All rooms';
                         }
 
+                        $roomIds = collect($values)
+                            ->map(fn ($value): int => (int) $value)
+                            ->filter(fn (int $id): bool => $id > 0)
+                            ->unique()
+                            ->values()
+                            ->all();
+
+                        if ($roomIds !== []) {
+                            $names = Room::query()
+                                ->whereIn('id', $roomIds)
+                                ->orderBy('name')
+                                ->pluck('name')
+                                ->filter(fn ($name): bool => is_string($name) && trim((string) $name) !== '')
+                                ->values();
+
+                            if ($names->isNotEmpty()) {
+                                return $names->implode(', ');
+                            }
+                        }
+
+                        // Backward compatibility: legacy rows may still contain room type keys.
                         $labels = Room::typeOptions();
-                        $normalized = collect($types)
-                            ->map(fn ($type): string => strtolower(trim((string) $type)))
+                        $legacy = collect($values)
+                            ->map(fn ($value): string => strtolower(trim((string) $value)))
                             ->filter(fn (string $type): bool => array_key_exists($type, $labels))
                             ->unique()
                             ->values();
 
-                        if ($normalized->isEmpty()) {
-                            return 'All rooms';
-                        }
-
-                        return $normalized
-                            ->map(fn (string $type): string => (string) $labels[$type])
-                            ->implode(', ');
+                        return $legacy->isEmpty()
+                            ? 'All rooms'
+                            : $legacy->map(fn (string $type): string => (string) $labels[$type])->implode(', ');
                     })
                     ->wrap(),
 
