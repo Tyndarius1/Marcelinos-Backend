@@ -123,29 +123,6 @@ class ListBookings extends ListRecords
                 ->badge(Booking::query()->where('booking_status', $stay)->count());
         }
 
-        $tabs['needs_inspection'] = Tab::make('Needs inspection')
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query
-                ->where('booking_status', Booking::BOOKING_STATUS_COMPLETED)
-                ->whereIn('damage_settlement_status', [
-                    Booking::DAMAGE_SETTLEMENT_STATUS_NONE,
-                    Booking::DAMAGE_SETTLEMENT_STATUS_PENDING,
-                ])
-                ->where(function (Builder $q): void {
-                    $q->doesntHave('roomChecklists')
-                        ->orWhereHas('roomChecklists', fn (Builder $rq): Builder => $rq->whereNull('completed_at'));
-                }))
-            ->badge(Booking::query()
-                ->where('booking_status', Booking::BOOKING_STATUS_COMPLETED)
-                ->whereIn('damage_settlement_status', [
-                    Booking::DAMAGE_SETTLEMENT_STATUS_NONE,
-                    Booking::DAMAGE_SETTLEMENT_STATUS_PENDING,
-                ])
-                ->where(function (Builder $q): void {
-                    $q->doesntHave('roomChecklists')
-                        ->orWhereHas('roomChecklists', fn (Builder $rq): Builder => $rq->whereNull('completed_at'));
-                })
-                ->count());
-
         $tabs['damage_unpaid'] = Tab::make('Damage unpaid')
             ->modifyQueryUsing(fn (Builder $query): Builder => $query
                 ->where('damage_settlement_status', Booking::DAMAGE_SETTLEMENT_STATUS_PENDING))
