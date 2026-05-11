@@ -137,9 +137,9 @@ class BookingsTable
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                TextColumn::make('rooms.name')
+                TextColumn::make('rooms')
                     ->label('Rooms')
-                    ->formatStateUsing(function ($record): string {
+                    ->getStateUsing(function (Booking $record): string {
                         $rooms = $record->rooms;
                         if ($rooms && $rooms->isNotEmpty()) {
                             $count = $rooms->count();
