@@ -326,12 +326,12 @@ class RoomCalendar extends Page
     protected function roomTypeIncrementsForCalendar(Booking $booking): array
     {
         if ($booking->rooms->isNotEmpty()) {
-            $increments = [];
-            foreach ($booking->rooms->pluck('type')->unique()->filter() as $type) {
-                $increments[$type] = ($increments[$type] ?? 0) + 1;
-            }
+            $counts = $booking->rooms
+                ->groupBy('type')
+                ->map(fn ($g) => $g->count())
+                ->filter(fn ($n, $type) => is_string($type) && trim((string) $type) !== '');
 
-            return $increments;
+            return array_map(fn ($n) => (int) $n, $counts->all());
         }
 
         $increments = [];
