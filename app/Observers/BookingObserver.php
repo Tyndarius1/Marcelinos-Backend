@@ -62,7 +62,7 @@ class BookingObserver
 
         if ($users->isNotEmpty()) {
             $booking->loadMissing('guest');
-            $bookedByName = trim((string) ($booking->guest?->full_name ?? '')) ?: 'a guest';
+            $bookedByName = ($booking->displayGuestName() !== '—' ? $booking->displayGuestName() : '') ?: 'a guest';
 
             $isSuspicious = $booking->no_of_days > 10;
 

@@ -377,7 +377,6 @@ class BookingCreateWizard
                                         $set('existing_guest_found', false);
                                         $set('existing_guest_id', null);
                                         $set('email_has_multiple_matches', false);
-                                        $set('allow_manual_email_match', false);
                                     }
                                 })
                                 ->columnSpanFull(),
@@ -464,7 +463,7 @@ class BookingCreateWizard
                                         $set('existing_guest_found', false);
                                         $set('existing_guest_id', null);
                                         $set('email_has_multiple_matches', false);
-                                        // New guest + personal email: merge by email in Guest::store (same as public website).
+                                        // New guest + personal email: reuse only when email and name match (see Guest::store).
                                         // Shared/placeholder emails or returning+shared: never auto-merge by email alone.
                                         $set('allow_manual_email_match', $isReturning ? false : ! $isShared);
 

@@ -31,7 +31,7 @@ class LatestBookings extends TableWidget
             
             Tables\Columns\TextColumn::make('guest.full_name')
                 ->label('Customer')
-                ->formatStateUsing(fn ($record) => $record->guest?->full_name ?? '—'),
+                ->formatStateUsing(fn ($record) => $record->displayGuestName()),
 
             Tables\Columns\TextColumn::make('created_at')
                 ->label('Date')

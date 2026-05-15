@@ -60,7 +60,7 @@ class RoomChecklistsRelationManager extends RelationManager
 
                         Placeholder::make('guest_name')
                             ->label('Guest')
-                            ->content(fn (): string => (string) ($booking?->guest?->full_name ?? '—')),
+                            ->content(fn (): string => (string) ($booking?->displayGuestName() ?? '—')),
 
                         Placeholder::make('inspection_room_name')
                             ->label('Room')

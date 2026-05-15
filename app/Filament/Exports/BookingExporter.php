@@ -27,7 +27,7 @@ class BookingExporter extends Exporter
                 ->state(function (Booking $record): string {
                     try {
                         $record->loadMissing('guest');
-                        $name = trim((string) ($record->guest?->full_name ?? ''));
+                        $name = $record->displayGuestName() !== '—' ? $record->displayGuestName() : '';
                         return $name !== '' ? $name : '—';
                     } catch (\Throwable) {
                         return '—';

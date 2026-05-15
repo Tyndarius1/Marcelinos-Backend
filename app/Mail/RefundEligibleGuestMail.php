@@ -25,8 +25,8 @@ class RefundEligibleGuestMail extends Mailable
         $booking = $this->booking;
         $booking->loadMissing('guest');
 
-        $guestDisplayName = trim((string) ($booking->guest?->full_name ?? ''));
-        if ($guestDisplayName === '') {
+        $guestDisplayName = $booking->displayGuestName();
+        if ($guestDisplayName === '—' || $guestDisplayName === '') {
             $guestDisplayName = 'Guest';
         }
 

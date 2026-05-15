@@ -41,7 +41,7 @@
                     <tr>
                         <td style="padding:28px 32px 8px; font-family:'Poppins', Arial, Helvetica, sans-serif;">
                             <p style="margin:0 0 12px; font-size:22px; line-height:30px; font-family:'Playfair Display', Georgia, 'Times New Roman', serif; font-weight:600; color:#111827;">
-                                Hello {{ $booking->guest?->full_name ?? 'Guest' }},
+                                Hello {{ $booking->displayGuestName() !== '—' ? $booking->displayGuestName() : 'Guest' }},
                             </p>
 
                             <p style="margin:0 0 16px; color:#4b5563; font-size:14.5px; line-height:24px; font-weight:400; font-family:'Poppins', Arial, Helvetica, sans-serif;">

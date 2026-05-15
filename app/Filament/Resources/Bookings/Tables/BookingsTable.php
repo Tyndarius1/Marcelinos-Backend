@@ -81,29 +81,34 @@ class BookingsTable
 
                 TextColumn::make('guest.first_name')
                     ->label('Guest')
-                    ->formatStateUsing(fn ($record) => $record->guest?->full_name ?? '—')
-                    ->description(fn ($record) => $record->guest?->email ?: 'No email')
+                    ->formatStateUsing(fn (Booking $record) => $record->displayGuestName())
+                    ->description(fn (Booking $record) => $record->displayGuestEmail() !== '—'
+                        ? $record->displayGuestEmail()
+                        : 'No email')
                     ->extraAttributes(['class' => 'cursor-pointer'])
                     ->action(
                         Action::make('viewGuest')
                             ->modalHeading('Guest information')
                             ->modalCancelActionLabel('Close')
                             ->modalSubmitAction(false)
-                            ->modalContent(function ($record): View {
-                                $guest = $record->guest;
-
+                            ->modalContent(function (Booking $record): View {
                                 return view('filament.bookings.guest-modal', [
-                                    'guest' => $guest,
+                                    'guest' => $record->guest,
+                                    'booking' => $record,
                                 ]);
                             })
                     )
                     ->searchable(query: function (Builder $query, string $search): Builder {
-                        return $query->whereHas('guest', function (Builder $guestQuery) use ($search): void {
-                            $guestQuery
-                                ->where('first_name', 'like', "%{$search}%")
-                                ->orWhere('middle_name', 'like', "%{$search}%")
-                                ->orWhere('last_name', 'like', "%{$search}%")
-                                ->orWhere('email', 'like', "%{$search}%");
+                        return $query->where(function (Builder $bookingQuery) use ($search): void {
+                            $bookingQuery
+                                ->where('guest_name_snapshot', 'like', "%{$search}%")
+                                ->orWhereHas('guest', function (Builder $guestQuery) use ($search): void {
+                                    $guestQuery
+                                        ->where('first_name', 'like', "%{$search}%")
+                                        ->orWhere('middle_name', 'like', "%{$search}%")
+                                        ->orWhere('last_name', 'like', "%{$search}%")
+                                        ->orWhere('email', 'like', "%{$search}%");
+                                });
                         });
                     })
                     ->sortable(),

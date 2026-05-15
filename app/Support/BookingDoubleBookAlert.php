@@ -52,7 +52,7 @@ final class BookingDoubleBookAlert
                 return [
                     'id' => (int) $b->id,
                     'reference_number' => (string) $b->reference_number,
-                    'guest_name' => trim((string) ($b->guest?->full_name ?? '')) ?: '—',
+                    'guest_name' => $b->displayGuestName(),
                     'check_in' => $b->check_in?->timezone(Booking::timezoneManila())->format('M j, Y g:i A') ?? '—',
                     'check_out' => $b->check_out?->timezone(Booking::timezoneManila())->format('M j, Y g:i A') ?? '—',
                     'booking_status' => (string) $b->booking_status,

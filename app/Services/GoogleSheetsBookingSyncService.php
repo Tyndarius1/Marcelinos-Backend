@@ -274,7 +274,7 @@ class GoogleSheetsBookingSyncService
      */
     private function buildBookingRow(Booking $booking): array
     {
-        $guestName = trim((string) ($booking->guest?->full_name ?? ''));
+        $guestName = $booking->displayGuestName() !== '—' ? $booking->displayGuestName() : '';
         $guestEmail = trim((string) ($booking->guest?->email ?? ''));
         $guestContact = trim((string) ($booking->guest?->contact_num ?? ''));
         $checkIn = $booking->check_in?->format('Y-m-d H:i:s') ?? '';

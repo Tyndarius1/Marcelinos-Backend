@@ -9,6 +9,7 @@ use App\Filament\Resources\Bookings\Concerns\InteractsWithBookingOperations;
 use App\Models\Booking;
 use App\Models\Guest;
 use App\Support\BookingFullBalancePayment;
+use App\Support\GuestIdentity;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\ViewAction;
 use Filament\Notifications\Notification;
@@ -46,7 +47,8 @@ class EditBooking extends EditRecord
             return null;
         }
 
-        $guestName = $this->record->guest?->full_name ?: 'Unknown guest';
+        $displayName = $this->record->displayGuestName();
+        $guestName = $displayName !== '—' ? $displayName : 'Unknown guest';
 
         return "{$this->record->reference_number} - {$guestName}";
     }
@@ -160,20 +162,22 @@ class EditBooking extends EditRecord
                     ]);
                 }
 
-                $record->guest->update([
-                    'first_name' => trim((string) ($incomingGuestData['guest_first_name'] ?? $record->guest->first_name)),
-                    'middle_name' => trim((string) ($incomingGuestData['guest_middle_name'] ?? $record->guest->middle_name)),
-                    'last_name' => trim((string) ($incomingGuestData['guest_last_name'] ?? $record->guest->last_name)),
-                    'email' => trim((string) ($incomingGuestData['guest_info_email'] ?? $record->guest->email)),
-                    'contact_num' => $contactNum,
-                    'gender' => (string) ($incomingGuestData['guest_gender'] ?? $record->guest->gender),
-                    'is_international' => $isInternational,
-                    'country' => $isInternational ? ($country !== '' ? $country : 'Philippines') : 'Philippines',
-                    'region' => $isInternational ? null : trim((string) ($incomingGuestData['guest_region'] ?? '')),
-                    'province' => $isInternational ? null : trim((string) ($incomingGuestData['guest_province'] ?? '')),
-                    'municipality' => $isInternational ? null : trim((string) ($incomingGuestData['guest_municipality'] ?? '')),
-                    'barangay' => $isInternational ? null : trim((string) ($incomingGuestData['guest_barangay'] ?? '')),
-                ]);
+                $addressParts = array_values(array_filter([
+                    $isInternational ? null : trim((string) ($incomingGuestData['guest_barangay'] ?? '')),
+                    $isInternational ? null : trim((string) ($incomingGuestData['guest_municipality'] ?? '')),
+                    $isInternational ? null : trim((string) ($incomingGuestData['guest_province'] ?? '')),
+                    $isInternational ? null : trim((string) ($incomingGuestData['guest_region'] ?? '')),
+                    $isInternational ? ($country !== '' ? $country : null) : 'Philippines',
+                ], fn ($value) => is_string($value) && trim($value) !== ''));
+
+                $data['guest_name_snapshot'] = GuestIdentity::fullNameFromParts(
+                    trim((string) ($incomingGuestData['guest_first_name'] ?? '')),
+                    trim((string) ($incomingGuestData['guest_middle_name'] ?? '')),
+                    trim((string) ($incomingGuestData['guest_last_name'] ?? '')),
+                );
+                $data['guest_email_snapshot'] = strtolower(trim((string) ($incomingGuestData['guest_info_email'] ?? $record->guest->email)));
+                $data['guest_contact_snapshot'] = $contactNum;
+                $data['guest_address_snapshot'] = $addressParts !== [] ? implode(', ', $addressParts) : null;
             }
         }
 

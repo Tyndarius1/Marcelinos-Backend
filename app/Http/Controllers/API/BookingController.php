@@ -1010,6 +1010,7 @@ class BookingController extends Controller
 
             $booking = DB::transaction(function () use (
                 $guest,
+                $request,
                 $validated,
                 $checkIn,
                 $checkOut,
@@ -1018,20 +1019,14 @@ class BookingController extends Controller
                 $venueEventType,
                 $expectedTotal
             ) {
-                $addressParts = array_values(array_filter([
-                    $guest->barangay,
-                    $guest->municipality,
-                    $guest->province,
-                    $guest->region,
-                    $guest->country,
-                ], fn ($value) => is_string($value) && trim($value) !== ''));
+                $snapshots = Guest::bookingSnapshotAttributesFromSource($request);
 
                 $booking = Booking::create([
                     'guest_id' => $guest->id,
-                    'guest_name_snapshot' => $guest->full_name,
-                    'guest_email_snapshot' => $guest->email,
-                    'guest_contact_snapshot' => $guest->contact_num,
-                    'guest_address_snapshot' => $addressParts !== [] ? implode(', ', $addressParts) : null,
+                    'guest_name_snapshot' => $snapshots['guest_name_snapshot'],
+                    'guest_email_snapshot' => $snapshots['guest_email_snapshot'],
+                    'guest_contact_snapshot' => $snapshots['guest_contact_snapshot'],
+                    'guest_address_snapshot' => $snapshots['guest_address_snapshot'],
                     'reference_number' => $validated['reference_number'] ?? null,
                     'check_in' => $checkIn,
                     'check_out' => $checkOut,

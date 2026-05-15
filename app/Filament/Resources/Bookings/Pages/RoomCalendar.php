@@ -562,7 +562,7 @@ class RoomCalendar extends Page
                 return [
                     'id' => $b->id,
                     'reference_number' => $b->reference_number,
-                    'guest_name' => $b->guest?->full_name ?? '—',
+                    'guest_name' => $b->displayGuestName(),
                     'check_in' => $b->check_in?->format('M j, Y g:i A') ?? '—',
                     'check_out' => $b->check_out?->format('M j, Y g:i A') ?? '—',
                     'rooms' => $b->rooms->pluck('name')->filter()->implode(', ') ?: '—',
@@ -616,7 +616,7 @@ class RoomCalendar extends Page
                 return [
                     'id' => $b->id,
                     'reference_number' => $b->reference_number,
-                    'guest_name' => $b->guest?->full_name ?? '—',
+                    'guest_name' => $b->displayGuestName(),
                     'check_in' => $b->check_in?->format('M j, Y g:i A') ?? '—',
                     'check_out' => $b->check_out?->format('M j, Y g:i A') ?? '—',
                     'rooms' => $b->rooms->pluck('name')->filter()->implode(', ') ?: '—',

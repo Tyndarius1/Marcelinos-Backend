@@ -113,6 +113,43 @@ class Booking extends Model
         'token_expires_at',
     ];
 
+    /** Name captured at booking time; falls back to linked guest profile. */
+    public function displayGuestName(): string
+    {
+        $snapshot = trim((string) ($this->guest_name_snapshot ?? ''));
+        if ($snapshot !== '') {
+            return $snapshot;
+        }
+
+        $fromGuest = trim((string) ($this->guest?->full_name ?? ''));
+
+        return $fromGuest !== '' ? $fromGuest : '—';
+    }
+
+    public function displayGuestEmail(): string
+    {
+        $snapshot = trim((string) ($this->guest_email_snapshot ?? ''));
+        if ($snapshot !== '') {
+            return $snapshot;
+        }
+
+        $fromGuest = trim((string) ($this->guest?->email ?? ''));
+
+        return $fromGuest !== '' ? $fromGuest : '—';
+    }
+
+    public function displayGuestContact(): string
+    {
+        $snapshot = trim((string) ($this->guest_contact_snapshot ?? ''));
+        if ($snapshot !== '') {
+            return $snapshot;
+        }
+
+        $fromGuest = trim((string) ($this->guest?->contact_num ?? ''));
+
+        return $fromGuest !== '' ? $fromGuest : '—';
+    }
+
     protected static function booted()
     {
         /**
@@ -806,9 +843,9 @@ class Booking extends Model
             return [
                 'id' => $b->id,
                 'reference_number' => $b->reference_number,
-                'guest_name' => $b->guest?->full_name ?? '—',
-                'email' => $b->guest?->email ?? '—',
-                'contact_num' => $b->guest?->contact_num ?? '—',
+                'guest_name' => $b->displayGuestName(),
+                'email' => $b->displayGuestEmail(),
+                'contact_num' => $b->displayGuestContact(),
                 'rooms' => $b->rooms->pluck('name')->join(', ') ?: '—',
                 'venues' => $b->venues->pluck('name')->join(', ') ?: '—',
                 'check_in' => $b->check_in?->format('M j, Y g:i A') ?? '—',
@@ -836,9 +873,9 @@ class Booking extends Model
             return [
                 'id' => $b->id,
                 'reference_number' => $b->reference_number,
-                'guest_name' => $b->guest?->full_name ?? '—',
-                'email' => $b->guest?->email ?? '—',
-                'contact_num' => $b->guest?->contact_num ?? '—',
+                'guest_name' => $b->displayGuestName(),
+                'email' => $b->displayGuestEmail(),
+                'contact_num' => $b->displayGuestContact(),
                 'rooms' => $b->rooms->pluck('name')->join(', ') ?: '—',
                 'venues' => $b->venues->pluck('name')->join(', ') ?: '—',
                 'check_in' => $b->check_in?->format('M j, Y g:i A') ?? '—',
@@ -866,9 +903,9 @@ class Booking extends Model
             return [
                 'id' => $b->id,
                 'reference_number' => $b->reference_number,
-                'guest_name' => $b->guest?->full_name ?? '—',
-                'email' => $b->guest?->email ?? '—',
-                'contact_num' => $b->guest?->contact_num ?? '—',
+                'guest_name' => $b->displayGuestName(),
+                'email' => $b->displayGuestEmail(),
+                'contact_num' => $b->displayGuestContact(),
                 'rooms' => $b->rooms->pluck('name')->join(', ') ?: '—',
                 'venues' => $b->venues->pluck('name')->join(', ') ?: '—',
                 'check_in' => $b->check_in?->format('M j, Y g:i A') ?? '—',

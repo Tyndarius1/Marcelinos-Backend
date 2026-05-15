@@ -33,7 +33,7 @@ class DoubleBookingSlackNotification extends Notification implements ShouldQueue
         $booking = $this->booking;
         $booking->loadMissing('guest');
 
-        $guestName = trim((string) ($booking->guest?->full_name ?? '')) ?: '—';
+        $guestName = $booking->displayGuestName();
         $checkIn = $booking->check_in?->timezone(Booking::timezoneManila())->format('M j, Y g:i A') ?? '—';
         $checkOut = $booking->check_out?->timezone(Booking::timezoneManila())->format('M j, Y g:i A') ?? '—';
 

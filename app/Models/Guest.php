@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\GuestIdentity;
 use App\Support\PsgcApi;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -140,18 +141,15 @@ class Guest extends Model
 
         $existingGuest = null;
 
-        if (self::shouldAttemptEmailIdentityReuse($source, $normalizedEmail)) {
-            $existingGuest = self::withTrashed()
-                ->whereRaw('LOWER(TRIM(email)) = ?', [$normalizedEmail])
-                ->first();
+        if (self::shouldAttemptGuestIdentityReuse($source, $normalizedEmail)) {
+            $existingGuest = self::findReusableGuestByEmailAndName($normalizedEmail, $validated);
         }
 
         if ($existingGuest instanceof self) {
             if ($existingGuest->trashed()) {
                 $existingGuest->restore();
             }
-            // Reused-by-email guests act as identity records.
-            // Do not mutate profile fields from new booking payloads.
+
             return $existingGuest->fresh();
         }
 
@@ -159,14 +157,44 @@ class Guest extends Model
     }
 
     /**
-     * Dynamic email identity matching policy:
-     * - Online/public bookings can auto-match by email.
-     * - Manual/walk-in sources do NOT auto-match by email by default.
-     * - Shared email patterns can disable matching without hardcoding a single address.
+     * @param  array<string, mixed>  $validated
+     */
+    public static function findReusableGuestByEmailAndName(string $normalizedEmail, array $validated): ?self
+    {
+        if ($normalizedEmail === '') {
+            return null;
+        }
+
+        $candidates = self::withTrashed()
+            ->whereRaw('LOWER(TRIM(email)) = ?', [$normalizedEmail])
+            ->get();
+
+        foreach ($candidates as $candidate) {
+            if (GuestIdentity::guestMatchesNameIdentity($candidate, $validated)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Build per-booking snapshot fields from a booking/guest payload (form or API).
      *
+     * @param  \Illuminate\Http\Request|array<string, mixed>  $source
+     * @return array{guest_name_snapshot: string, guest_email_snapshot: string, guest_contact_snapshot: string|null, guest_address_snapshot: string|null}
+     */
+    public static function bookingSnapshotAttributesFromSource($source): array
+    {
+        $payload = self::normalizeGuestPayload($source instanceof Request ? $source->all() : (array) $source);
+
+        return GuestIdentity::bookingSnapshotAttributes($payload);
+    }
+
+    /**
      * @param  array<string, mixed>  $source
      */
-    private static function shouldAttemptEmailIdentityReuse(array $source, string $normalizedEmail): bool
+    private static function shouldAttemptGuestIdentityReuse(array $source, string $normalizedEmail): bool
     {
         if ($normalizedEmail === '') {
             return false;

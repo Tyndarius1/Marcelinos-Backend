@@ -38,7 +38,7 @@ class BookingLifecycleSlackNotification extends Notification implements ShouldQu
         $booking = $this->booking;
         $eventIcon = $this->eventIcon();
         $header = $eventIcon.' '.$this->headerText();
-        $guestName = trim((string) ($booking->guest?->full_name ?? '')) ?: '—';
+        $guestName = $booking->displayGuestName();
         $checkIn = $this->formatBookingDateTimeManila($booking->check_in);
         $checkOut = $this->formatBookingDateTimeManila($booking->check_out);
         $total = number_format((float) $booking->total_price, 2).' PHP';

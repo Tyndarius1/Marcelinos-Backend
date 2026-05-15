@@ -26,14 +26,19 @@ class DamagesAndLossesTable
     {
         return $table
             ->columns([
-                TextColumn::make('roomChecklist.booking.guest.full_name')
+                TextColumn::make('roomChecklist.booking.guest_name_snapshot')
                     ->label('guest_name')
+                    ->formatStateUsing(fn ($state, $record) => $record->roomChecklist?->booking?->displayGuestName() ?? '—')
                     ->searchable(query: function ($query, string $search) {
-                        $query->whereHas('roomChecklist.booking.guest', function ($guestQuery) use ($search): void {
-                            $guestQuery
-                                ->where('first_name', 'like', "%{$search}%")
-                                ->orWhere('middle_name', 'like', "%{$search}%")
-                                ->orWhere('last_name', 'like', "%{$search}%");
+                        $query->whereHas('roomChecklist.booking', function ($bookingQuery) use ($search): void {
+                            $bookingQuery
+                                ->where('guest_name_snapshot', 'like', "%{$search}%")
+                                ->orWhereHas('guest', function ($guestQuery) use ($search): void {
+                                    $guestQuery
+                                        ->where('first_name', 'like', "%{$search}%")
+                                        ->orWhere('middle_name', 'like', "%{$search}%")
+                                        ->orWhere('last_name', 'like', "%{$search}%");
+                                });
                         });
                     }),
 
@@ -42,8 +47,9 @@ class DamagesAndLossesTable
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('roomChecklist.booking.guest.contact_num')
+                TextColumn::make('roomChecklist.booking.guest_contact_snapshot')
                     ->label('contact')
+                    ->formatStateUsing(fn ($state, $record) => $record->roomChecklist?->booking?->displayGuestContact() ?? '—')
                     ->searchable()
                     ->placeholder('—'),
 

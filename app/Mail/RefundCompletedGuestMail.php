@@ -42,8 +42,8 @@ class RefundCompletedGuestMail extends Mailable
             $balanceDue = max(0.0, round($totalPrice - $totalPaid, 2));
         }
 
-        $guestDisplayName = trim((string) ($booking->guest?->full_name ?? ''));
-        if ($guestDisplayName === '') {
+        $guestDisplayName = $booking->displayGuestName();
+        if ($guestDisplayName === '—' || $guestDisplayName === '') {
             $guestDisplayName = 'Guest';
         }
 

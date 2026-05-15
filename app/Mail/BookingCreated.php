@@ -32,8 +32,8 @@ class BookingCreated extends Mailable implements ShouldQueue
     {
         $this->booking->loadMissing('guest');
 
-        $guestDisplayName = trim((string) ($this->booking->guest?->full_name ?? ''));
-        if ($guestDisplayName === '') {
+        $guestDisplayName = $this->booking->displayGuestName();
+        if ($guestDisplayName === '—' || $guestDisplayName === '') {
             $guestDisplayName = 'Guest';
         }
 

@@ -48,7 +48,8 @@ class ViewBooking extends ViewRecord
             return null;
         }
 
-        $guestName = $this->record->guest?->full_name ?: 'Unknown guest';
+        $displayName = $this->record->displayGuestName();
+        $guestName = $displayName !== '—' ? $displayName : 'Unknown guest';
 
         return "{$this->record->reference_number} - {$guestName}";
     }

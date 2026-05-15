@@ -130,17 +130,36 @@ class CreateBooking extends CreateRecord
             }
 
             $data['guest_id'] = $existing->id;
-            $addressParts = array_values(array_filter([
-                $existing->barangay,
-                $existing->municipality,
-                $existing->province,
-                $existing->region,
-                $existing->country,
-            ], fn ($value) => is_string($value) && trim($value) !== ''));
-            $data['guest_name_snapshot'] = $existing->full_name;
-            $data['guest_email_snapshot'] = (string) ($data['email'] ?? $existing->email);
-            $data['guest_contact_snapshot'] = $existing->contact_num;
-            $data['guest_address_snapshot'] = $addressParts !== [] ? implode(', ', $addressParts) : null;
+            $snapshots = Guest::bookingSnapshotAttributesFromSource(array_merge(
+                $existing->only([
+                    'first_name',
+                    'middle_name',
+                    'last_name',
+                    'email',
+                    'contact_num',
+                    'barangay',
+                    'municipality',
+                    'province',
+                    'region',
+                    'country',
+                ]),
+                Arr::only($data, [
+                    'first_name',
+                    'middle_name',
+                    'last_name',
+                    'email',
+                    'contact_num',
+                    'barangay',
+                    'municipality',
+                    'province',
+                    'region',
+                    'country',
+                ]),
+            ));
+            $data['guest_name_snapshot'] = $snapshots['guest_name_snapshot'];
+            $data['guest_email_snapshot'] = $snapshots['guest_email_snapshot'];
+            $data['guest_contact_snapshot'] = $snapshots['guest_contact_snapshot'];
+            $data['guest_address_snapshot'] = $snapshots['guest_address_snapshot'];
 
             foreach ($guestKeys as $key) {
                 unset($data[$key]);
@@ -173,23 +192,17 @@ class CreateBooking extends CreateRecord
             $guestData['contact_num'] = '';
         }
 
+        if (! (bool) ($guestData['email_is_shared'] ?? false)) {
+            $guestData['allow_manual_email_match'] = true;
+        }
+
         $guest = Guest::store($guestData);
         $data['guest_id'] = $guest->id;
-        $addressParts = array_values(array_filter([
-            $guestData['barangay'] ?? null,
-            $guestData['municipality'] ?? null,
-            $guestData['province'] ?? null,
-            $guestData['region'] ?? null,
-            $guestData['country'] ?? null,
-        ], fn ($value) => is_string($value) && trim($value) !== ''));
-        $data['guest_name_snapshot'] = trim(implode(' ', array_filter([
-            $guestData['first_name'] ?? null,
-            $guestData['middle_name'] ?? null,
-            $guestData['last_name'] ?? null,
-        ], fn ($value) => is_string($value) && trim($value) !== '')));
-        $data['guest_email_snapshot'] = $guestData['email'] ?? null;
-        $data['guest_contact_snapshot'] = $guestData['contact_num'] ?? null;
-        $data['guest_address_snapshot'] = $addressParts !== [] ? implode(', ', $addressParts) : null;
+        $snapshots = Guest::bookingSnapshotAttributesFromSource($guestData);
+        $data['guest_name_snapshot'] = $snapshots['guest_name_snapshot'];
+        $data['guest_email_snapshot'] = $snapshots['guest_email_snapshot'];
+        $data['guest_contact_snapshot'] = $snapshots['guest_contact_snapshot'];
+        $data['guest_address_snapshot'] = $snapshots['guest_address_snapshot'];
 
         foreach ($guestKeys as $key) {
             unset($data[$key]);

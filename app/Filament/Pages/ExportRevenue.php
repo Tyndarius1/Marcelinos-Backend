@@ -307,7 +307,7 @@ class ExportRevenue extends Page
 
                     fputcsv($stream, [
                         $booking->reference_number ?? '—',
-                        trim((string) ($booking->guest?->full_name ?? '')) ?: '—',
+                        $booking->displayGuestName(),
                         (string) ($booking->guest?->email ?? '') ?: '—',
                         $booking->check_in?->format('d/m/y H:i') ?? '—',
                         $booking->check_out?->format('d/m/y H:i') ?? '—',

@@ -53,7 +53,7 @@
                                     </td>
                                 </tr>
                                 <tr><td style="padding:6px 0; color:#6b7280;">Booking reference</td><td style="padding:6px 0;"><strong>{{ $booking->reference_number }}</strong></td></tr>
-                                <tr><td style="padding:6px 0; color:#6b7280;">Guest</td><td style="padding:6px 0;"><strong>{{ $booking->guest?->full_name ?? 'N/A' }}</strong></td></tr>
+                                <tr><td style="padding:6px 0; color:#6b7280;">Guest</td><td style="padding:6px 0;"><strong>{{ $booking->displayGuestName() !== '—' ? $booking->displayGuestName() : 'N/A' }}</strong></td></tr>
                                 <tr><td style="padding:6px 0; color:#6b7280;">Guest email</td><td style="padding:6px 0;"><strong>{{ $booking->guest?->email ?? 'N/A' }}</strong></td></tr>
                                 <tr><td style="padding:6px 0; color:#6b7280;">Total price</td><td style="padding:6px 0;"><strong>PHP {{ number_format($totalPrice, 2) }}</strong></td></tr>
                                 <tr><td style="padding:6px 0; color:#6b7280;">Total paid</td><td style="padding:6px 0;"><strong>PHP {{ number_format($totalPaid, 2) }}</strong></td></tr>

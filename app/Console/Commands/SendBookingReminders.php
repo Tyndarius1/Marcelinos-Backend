@@ -143,7 +143,7 @@ class SendBookingReminders extends Command
 
     private function buildReminderSms(Booking $booking): string
     {
-        $name = trim((string) ($booking->guest?->full_name ?? 'Guest'));
+        $name = $booking->displayGuestName() !== '—' ? $booking->displayGuestName() : 'Guest';
         $checkIn = $booking->check_in?->timezone('Asia/Manila')->format('M j, Y g:i A') ?? 'tomorrow';
         $reference = trim((string) $booking->reference_number);
 
