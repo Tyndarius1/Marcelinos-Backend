@@ -435,7 +435,10 @@ class BookingsTable
                     ->sortable(),
                 BadgeColumn::make('damage_due')
                     ->label('Damage due')
-                    ->getStateUsing(function (Booking $record): string {
+                    ->getStateUsing(function (?Booking $record): string {
+                        if (! $record instanceof Booking) {
+                            return '—';
+                        }
                         $amount = self::damageOutstandingForBooking($record);
 
                         return $amount > 0
