@@ -192,10 +192,6 @@ class CreateBooking extends CreateRecord
             $guestData['contact_num'] = '';
         }
 
-        if (! (bool) ($guestData['email_is_shared'] ?? false)) {
-            $guestData['allow_manual_email_match'] = true;
-        }
-
         $guest = Guest::store($guestData);
         $data['guest_id'] = $guest->id;
         $snapshots = Guest::bookingSnapshotAttributesFromSource($guestData);

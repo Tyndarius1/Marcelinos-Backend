@@ -142,7 +142,7 @@ class Guest extends Model
         $existingGuest = null;
 
         if (self::shouldAttemptGuestIdentityReuse($source, $normalizedEmail)) {
-            $existingGuest = self::findReusableGuestByEmailAndName($normalizedEmail, $validated);
+            $existingGuest = self::findReusableGuestByIdentity($normalizedEmail, $validated);
         }
 
         if ($existingGuest instanceof self) {
@@ -159,7 +159,7 @@ class Guest extends Model
     /**
      * @param  array<string, mixed>  $validated
      */
-    public static function findReusableGuestByEmailAndName(string $normalizedEmail, array $validated): ?self
+    public static function findReusableGuestByIdentity(string $normalizedEmail, array $validated): ?self
     {
         if ($normalizedEmail === '') {
             return null;
@@ -170,7 +170,7 @@ class Guest extends Model
             ->get();
 
         foreach ($candidates as $candidate) {
-            if (GuestIdentity::guestMatchesNameIdentity($candidate, $validated)) {
+            if (GuestIdentity::guestMatchesFullIdentity($candidate, $validated)) {
                 return $candidate;
             }
         }

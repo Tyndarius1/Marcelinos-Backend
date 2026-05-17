@@ -11,9 +11,44 @@ class GuestEmailIdentityPolicyTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_online_source_reuses_guest_when_email_and_name_match(): void
+    public function test_online_source_reuses_guest_when_email_name_and_contact_match(): void
     {
         $existing = Guest::create([
+            'first_name' => 'Bryan',
+            'middle_name' => null,
+            'last_name' => 'Dacera',
+            'email' => 'shared@example.com',
+            'contact_num' => '09123456789',
+            'gender' => Guest::GENDER_MALE,
+            'is_international' => false,
+            'country' => 'Philippines',
+            'region' => null,
+            'province' => null,
+            'municipality' => null,
+            'barangay' => null,
+        ]);
+
+        $resolved = Guest::store([
+            'booking_source' => 'online',
+            'first_name' => 'Bryan',
+            'middle_name' => null,
+            'last_name' => 'Dacera',
+            'email' => 'shared@example.com',
+            'contact_num' => '09123456789',
+            'gender' => Guest::GENDER_MALE,
+            'is_international' => false,
+        ]);
+
+        $this->assertSame($existing->id, $resolved->id);
+        $this->assertSame(1, Guest::count());
+        $this->assertSame('Bryan', $resolved->first_name);
+        $this->assertSame('Dacera', $resolved->last_name);
+        $this->assertSame('09123456789', $resolved->contact_num);
+    }
+
+    public function test_online_source_creates_new_guest_when_email_and_name_match_but_contact_differs(): void
+    {
+        Guest::create([
             'first_name' => 'Bryan',
             'middle_name' => null,
             'last_name' => 'Dacera',
@@ -39,11 +74,8 @@ class GuestEmailIdentityPolicyTest extends TestCase
             'is_international' => false,
         ]);
 
-        $this->assertSame($existing->id, $resolved->id);
-        $this->assertSame(1, Guest::count());
-        $this->assertSame('Bryan', $resolved->first_name);
-        $this->assertSame('Dacera', $resolved->last_name);
-        $this->assertSame('09123456789', $resolved->contact_num);
+        $this->assertSame('09999999999', $resolved->contact_num);
+        $this->assertSame(2, Guest::count());
     }
 
     public function test_online_source_creates_new_guest_when_email_matches_but_name_differs(): void
@@ -175,7 +207,7 @@ class GuestEmailIdentityPolicyTest extends TestCase
         $this->assertSame(2, Guest::count());
     }
 
-    public function test_manual_source_reuses_only_when_email_and_name_match(): void
+    public function test_manual_source_reuses_only_when_email_name_and_contact_match(): void
     {
         $existing = Guest::create([
             'first_name' => 'Bryan',
@@ -199,7 +231,7 @@ class GuestEmailIdentityPolicyTest extends TestCase
             'middle_name' => null,
             'last_name' => 'Dacera',
             'email' => 'shared@example.com',
-            'contact_num' => '09999999999',
+            'contact_num' => '09123456789',
             'gender' => Guest::GENDER_MALE,
             'is_international' => false,
         ]);
@@ -263,14 +295,19 @@ class GuestEmailIdentityPolicyTest extends TestCase
 
     public function test_guest_identity_name_key(): void
     {
-        $this->assertTrue(GuestIdentity::guestMatchesNameIdentity(
-            new Guest(['first_name' => 'LK', 'middle_name' => null, 'last_name' => 'ROA']),
-            ['first_name' => 'lk', 'middle_name' => null, 'last_name' => 'roa'],
+        $this->assertTrue(GuestIdentity::guestMatchesFullIdentity(
+            new Guest(['first_name' => 'LK', 'middle_name' => null, 'last_name' => 'ROA', 'contact_num' => '09171234567']),
+            ['first_name' => 'lk', 'middle_name' => null, 'last_name' => 'roa', 'contact_num' => '0917-123-4567'],
         ));
 
-        $this->assertFalse(GuestIdentity::guestMatchesNameIdentity(
-            new Guest(['first_name' => 'LK', 'middle_name' => null, 'last_name' => 'ROA']),
-            ['first_name' => 'LKS', 'middle_name' => null, 'last_name' => 'ROA'],
+        $this->assertFalse(GuestIdentity::guestMatchesFullIdentity(
+            new Guest(['first_name' => 'LK', 'middle_name' => null, 'last_name' => 'ROA', 'contact_num' => '09171234567']),
+            ['first_name' => 'LKS', 'middle_name' => null, 'last_name' => 'ROA', 'contact_num' => '09171234567'],
+        ));
+
+        $this->assertFalse(GuestIdentity::guestMatchesFullIdentity(
+            new Guest(['first_name' => 'LK', 'middle_name' => null, 'last_name' => 'ROA', 'contact_num' => '09171234567']),
+            ['first_name' => 'lk', 'middle_name' => null, 'last_name' => 'roa', 'contact_num' => '09999999999'],
         ));
     }
 }

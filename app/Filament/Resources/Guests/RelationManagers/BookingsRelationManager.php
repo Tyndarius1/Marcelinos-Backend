@@ -4,6 +4,8 @@ namespace App\Filament\Resources\Guests\RelationManagers;
 
 use App\Filament\Resources\Bookings\BookingResource;
 use App\Models\Booking;
+use App\Models\Guest;
+use App\Support\GuestIdentity;
 use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
@@ -16,7 +18,7 @@ class BookingsRelationManager extends RelationManager
 {
     protected static string $relationship = 'bookings';
 
-    protected static ?string $title = 'Booking history';
+    protected static ?string $title = 'Booking history (same name, email & phone)';
 
     public function form(Schema $schema): Schema
     {
@@ -26,6 +28,12 @@ class BookingsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (Builder $query): void {
+                $guest = $this->getOwnerRecord();
+                if ($guest instanceof Guest) {
+                    GuestIdentity::applyMatchingSnapshotScope($query, $guest);
+                }
+            })
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('reference_number')

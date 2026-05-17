@@ -347,7 +347,7 @@ class BookingCreateWizard
                                 ->default(false)
                                 ->dehydrated(false),
                             Hidden::make('allow_manual_email_match')
-                                ->default(true)
+                                ->default(false)
                                 ->dehydrated(),
                             Toggle::make('edit_returning_guest')
                                 ->label('Edit guest details for this booking')
@@ -382,7 +382,7 @@ class BookingCreateWizard
                                 ->columnSpanFull(),
                             Text::make(fn (Get $get): string => $get('guest_status') === 'returning'
                                 ? 'Returning guest: enter the previous email. If we find a match, details will auto-fill and lock.'
-                                : 'New guest: fill out the details below.')
+                                : 'New guest: fill out all details below. Same email as another profile is allowed when name or phone differs.')
                                 ->color(fn (Get $get) => $get('guest_status') === 'returning' ? 'primary' : 'neutral')
                                 ->columnSpanFull(),
                             TextInput::make('first_name')
@@ -433,7 +433,7 @@ class BookingCreateWizard
                                     && ! (bool) $get('edit_returning_guest'))
                                 ->helperText(function (Get $get): string {
                                     if ($get('guest_status') !== 'returning') {
-                                        return 'For guests without email, you may use a placeholder email (e.g. resort email).';
+                                        return 'For guests without email, you may use a placeholder email (e.g. resort email). A new profile is created unless name and phone exactly match an existing guest with this email.';
                                     }
 
                                     if ((bool) $get('email_is_shared')) {
@@ -463,9 +463,8 @@ class BookingCreateWizard
                                         $set('existing_guest_found', false);
                                         $set('existing_guest_id', null);
                                         $set('email_has_multiple_matches', false);
-                                        // New guest + personal email: reuse only when email and name match (see Guest::store).
-                                        // Shared/placeholder emails or returning+shared: never auto-merge by email alone.
-                                        $set('allow_manual_email_match', $isReturning ? false : ! $isShared);
+                                        // New guest: never auto-merge; returning+shared: pick guest explicitly.
+                                        $set('allow_manual_email_match', false);
 
                                         return;
                                     }
