@@ -73,9 +73,21 @@ class PaymentsRelationManager extends RelationManager
                         default => 'Booking',
                     })
                     ->color(fn (?string $state): string => (string) $state === Payment::TYPE_DAMAGE ? 'warning' : 'info'),
-                IconColumn::make('is_fullypaid')
-                    ->boolean()
-                    ->label('Fully Paid?'),
+                TextColumn::make('is_fullypaid')
+                    ->label('Fully Paid?')
+                    ->getStateUsing(function (Payment $record): string {
+                        $record->loadMissing('booking');
+                        $booking = $record->booking;
+                        if (!$booking) {
+                            return $record->is_fullypaid ? '✓' : '✕';
+                        }
+                        // Check if ALL payments combined cover the CURRENT booking total
+                        $currentTotal = (float) $booking->total_price;
+                        $totalPaid = $booking->payments()->where('payment_type', 'booking')->sum('partial_amount');
+                        return $totalPaid >= $currentTotal ? '✓' : '✕';
+                    })
+                    ->color(fn (string $state): string => $state === '✓' ? 'success' : 'danger')
+                    ->alignment('center'),
                 TextColumn::make('created_at')
                     ->label('Date Paid')
                     ->dateTime()

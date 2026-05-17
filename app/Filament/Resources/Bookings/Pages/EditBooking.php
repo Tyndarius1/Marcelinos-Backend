@@ -8,6 +8,8 @@ use App\Filament\Resources\Bookings\BookingResource;
 use App\Filament\Resources\Bookings\Concerns\InteractsWithBookingOperations;
 use App\Models\Booking;
 use App\Models\Guest;
+use App\Filament\Resources\Bookings\Schemas\BookingForm;
+use App\Models\BookingAssignmentAudit;
 use App\Support\BookingFullBalancePayment;
 use App\Support\GuestIdentity;
 use Filament\Actions\RestoreAction;
@@ -15,7 +17,9 @@ use Filament\Actions\ViewAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class EditBooking extends EditRecord
@@ -25,6 +29,8 @@ class EditBooking extends EditRecord
     protected static string $resource = BookingResource::class;
 
     protected bool $shouldRecordFullPaymentAfterSave = false;
+    /** @var array<int> */
+    protected array $pendingAssignedRooms = [];
 
     public function form(Schema $schema): Schema
     {
@@ -96,16 +102,49 @@ class EditBooking extends EditRecord
                 Booking::BOOKING_STATUS_COMPLETED,
             ], true);
 
-            // Allow status/payment updates on frontend-created bookings that do not
-            // yet have physical room assignment. Enforce assignment once operation
-            // moves to occupied/completed.
-            if (! $recordIsCancelled && ($requiresAssignedRooms || $rooms !== [])) {
-                Booking::validateAssignedRoomsFulfillRoomLines($record, $rooms);
-            }
+            // Allow flexible room assignment - staff can assign any available rooms
+            // without strict type/bed spec matching. Room availability is still validated.
+            // Note: Room lines remain for billing history, but don't constrain physical assignment.
 
             $incomingPaymentStatus = (string) ($data['payment_status'] ?? $record->payment_status);
             $wasAlreadyPaid = (string) $record->payment_status === Booking::PAYMENT_STATUS_PAID;
             $hasOutstandingBalance = (float) $record->balance > 0.009;
+
+            // Ensure selected rooms are available for the date range
+            if ($rooms !== []) {
+                if (BookingForm::hasRoomConflicts($rooms, $data['check_in'] ?? null, $data['check_out'] ?? null, $record)) {
+                    throw ValidationException::withMessages([
+                        'rooms' => ['One or more selected rooms are not available for the chosen dates.'],
+                    ]);
+                }
+
+                // Create an audit record if assigned rooms changed from previous assignment
+                $record->loadMissing('rooms');
+                $existing = $record->rooms->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+                $incoming = array_values(array_map('intval', array_filter($rooms)));
+                sort($existing);
+                sort($incoming);
+                if ($existing !== $incoming) {
+                    BookingAssignmentAudit::create([
+                        'booking_id' => $record->id,
+                        'user_id' => Auth::id(),
+                        'previous_rooms' => $existing === [] ? null : $existing,
+                        'new_rooms' => $incoming === [] ? null : $incoming,
+                        'reason' => 'Assigned rooms changed via admin edit',
+                    ]);
+                }
+                // Hold pending rooms for atomic sync in afterSave
+                $this->pendingAssignedRooms = $incoming;
+
+                // Recompute totals server-side to keep consistency with UI
+                $derived = BookingForm::syncDerivedState(array_merge($data, ['rooms' => $incoming]), $record);
+                if (array_key_exists('total_price', $derived)) {
+                    $data['total_price'] = $derived['total_price'];
+                }
+                if (array_key_exists('no_of_days', $derived)) {
+                    $data['no_of_days'] = $derived['no_of_days'];
+                }
+            }
 
             $canAutoRecordFullPayment = ! in_array($nextBookingStatus, [
                 Booking::BOOKING_STATUS_CANCELLED,
@@ -186,6 +225,44 @@ class EditBooking extends EditRecord
 
     protected function afterSave(): void
     {
+        // If there are pending assigned rooms, perform an atomic sync with locks.
+        if (! empty($this->pendingAssignedRooms) && $this->record instanceof Booking) {
+            try {
+                DB::transaction(function () {
+                    $booking = $this->record;
+                    $roomIds = $this->pendingAssignedRooms;
+
+                    // Lock the room rows to prevent concurrent assignment races
+                    \App\Models\Room::whereIn('id', $roomIds)->lockForUpdate()->get();
+
+                    // Re-check availability using authoritative DB state
+                    if (BookingForm::hasRoomConflicts($roomIds, $booking->check_in, $booking->check_out, $booking)) {
+                        throw ValidationException::withMessages([
+                            'rooms' => ['One or more selected rooms are not available for the chosen dates.'],
+                        ]);
+                    }
+
+                    // Sync assigned rooms atomically
+                    $booking->rooms()->sync($roomIds);
+
+                    // Recompute totals and payment status
+                    $booking->refresh();
+                    $nextStatus = Booking::paymentStatusFromAmounts((float) $booking->total_price, (float) $booking->total_paid);
+                    if ($nextStatus !== $booking->payment_status) {
+                        $booking->update(['payment_status' => $nextStatus]);
+                    }
+                });
+            } catch (ValidationException $e) {
+                Notification::make()
+                    ->title('Rooms not assigned')
+                    ->body(implode('\n', Arr::flatten(array_values($e->errors()))))
+                    ->danger()
+                    ->send();
+
+                return;
+            }
+        }
+
         if (! $this->shouldRecordFullPaymentAfterSave || ! $this->record instanceof Booking) {
             return;
         }

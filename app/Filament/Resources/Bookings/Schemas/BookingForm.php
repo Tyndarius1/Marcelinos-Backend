@@ -224,31 +224,58 @@ class BookingForm
                         ->relationship(
                             'rooms',
                             'name',
-                            modifyQueryUsing: function ($query, ?string $search, ?Booking $record = null): void {
-                                $booking = $record ?? (request()->route('record') instanceof Booking ? request()->route('record') : null);
+                            modifyQueryUsing: function ($query, ?string $search, ?Booking $record, Get $get): void {
                                 $roomTableKey = $query->getModel()->getQualifiedKeyName();
                                 $roomStatusCol = $query->getModel()->qualifyColumn('status');
-                                if ($booking instanceof Booking) {
-                                    $eligible = Room::idsEligibleForBookingAssignment($booking);
-                                    if ($eligible !== null) {
-                                        if ($eligible === []) {
-                                            $query->whereRaw('0 = 1');
-                                        } else {
-                                            $query->whereIn($roomTableKey, $eligible);
-                                        }
-                                        $query->with(['bedSpecifications']);
-                                        $typeCol = $query->getModel()->qualifyColumn('type');
-                                        $nameCol = $query->getModel()->qualifyColumn('name');
-                                        $query->orderBy($typeCol)->orderBy($nameCol);
 
-                                        return;
+                                $checkIn = $get('check_in');
+                                $checkOut = $get('check_out');
+
+                                if (! $checkIn || ! $checkOut) {
+                                    // If editing an existing booking, keep current assigned rooms visible
+                                    if ($record instanceof Booking) {
+                                        $record->loadMissing('rooms');
+                                        $current = $record->rooms->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+                                        if ($current !== []) {
+                                            $query->whereIn($roomTableKey, $current)->with(['bedSpecifications']);
+                                            return;
+                                        }
                                     }
+
+                                    // Otherwise show non-maintenance rooms as fallback
+                                    $query->where($roomStatusCol, '!=', Room::STATUS_MAINTENANCE)->with(['bedSpecifications']);
+                                    $typeCol = $query->getModel()->qualifyColumn('type');
+                                    $nameCol = $query->getModel()->qualifyColumn('name');
+                                    $query->orderBy($typeCol)->orderBy($nameCol);
+                                    return;
                                 }
-                                $query->where($roomStatusCol, '!=', Room::STATUS_MAINTENANCE)
-                                    ->with(['bedSpecifications']);
+
+                                try {
+                                    $start = Carbon::parse((string) $checkIn);
+                                    $end = Carbon::parse((string) $checkOut);
+                                } catch (\Exception $e) {
+                                    $query->where($roomStatusCol, '!=', Room::STATUS_MAINTENANCE)->with(['bedSpecifications']);
+                                    $typeCol = $query->getModel()->qualifyColumn('type');
+                                    $nameCol = $query->getModel()->qualifyColumn('name');
+                                    $query->orderBy($typeCol)->orderBy($nameCol);
+                                    return;
+                                }
+
+                                if ($end->lessThanOrEqualTo($start)) {
+                                    $query->where($roomStatusCol, '!=', Room::STATUS_MAINTENANCE)->with(['bedSpecifications']);
+                                    $typeCol = $query->getModel()->qualifyColumn('type');
+                                    $nameCol = $query->getModel()->qualifyColumn('name');
+                                    $query->orderBy($typeCol)->orderBy($nameCol);
+                                    return;
+                                }
+
+                                // Filter rooms available between the selected dates
                                 $typeCol = $query->getModel()->qualifyColumn('type');
                                 $nameCol = $query->getModel()->qualifyColumn('name');
-                                $query->orderBy($typeCol)->orderBy($nameCol);
+                                $query->availableBetween($start, $end, $record?->id ?? null)
+                                    ->with(['bedSpecifications'])
+                                    ->orderBy($typeCol)
+                                    ->orderBy($nameCol);
                             },
                         )
                         ->multiple()
@@ -263,19 +290,7 @@ class BookingForm
                             return self::assignedRoomOptionHtml($record, $booking);
                         })
                         ->live()
-                        ->maxItems(function (?Booking $record): ?int {
-                            if (! $record instanceof Booking) {
-                                return null;
-                            }
-                            $record->loadMissing('roomLines');
-                            if ($record->roomLines->isEmpty()) {
-                                return null;
-                            }
-                            $total = (int) $record->roomLines->sum('quantity');
-
-                            return $total > 0 ? $total : null;
-                        })
-                        ->helperText('Color-coded by room type and bed specification. Totals update as selections change.')
+                        ->helperText('Color-coded by room type and bed specification. Change room types freely. Totals update as selections change.')
                         ->rules([
                             fn (Get $get, ?Booking $record) => function (string $attribute, $value, $fail) use ($get, $record): void {
                                 $roomIds = array_filter((array) ($get('rooms') ?? []));
@@ -295,35 +310,9 @@ class BookingForm
                                     $fail('One or more selected rooms are not available for the chosen dates.');
                                 }
                             },
-                            fn (Get $get, ?Booking $record) => function (string $attribute, $value, $fail) use ($record): void {
-                                if (! $record instanceof Booking) {
-                                    return;
-                                }
-
-                                if ($record->booking_status === Booking::BOOKING_STATUS_CANCELLED) {
-                                    return;
-                                }
-
-                                try {
-                                    Booking::validateAssignedRoomsFulfillRoomLines($record, is_array($value) ? $value : []);
-                                } catch (ValidationException $e) {
-                                    $msg = $e->errors()['rooms'][0] ?? $e->getMessage();
-                                    $fail($msg);
-                                }
-                            },
                         ])
                         ->afterStateUpdated(function (Get $get, Set $set): void {
-                            $routeRecord = request()->route('record');
-                            $booking = $routeRecord instanceof Booking ? $routeRecord : null;
-                            $rooms = $get('rooms');
-                            $roomIds = is_array($rooms) ? $rooms : [];
-                            if ($booking instanceof Booking) {
-                                $clamped = self::clampAssignedRoomsToRoomLines($booking, $roomIds);
-                                $before = self::normalizeRoomIdList($roomIds);
-                                if ($clamped !== $before) {
-                                    $set('rooms', $clamped);
-                                }
-                            }
+                            // Allow any room selection without clamping to room lines
                             self::updatePricing($get, $set);
                         })
                         ->columnSpanFull(),
@@ -963,40 +952,8 @@ class BookingForm
      */
     private static function clampAssignedRoomsToRoomLines(Booking $booking, array $roomIds): array
     {
-        $booking->loadMissing('roomLines');
-        if ($booking->roomLines->isEmpty()) {
-            return self::normalizeRoomIdList($roomIds);
-        }
-
-        $needs = [];
-        foreach ($booking->roomLines as $line) {
-            $k = $line->room_type."\0".$line->inventory_group_key;
-            $needs[$k] = ($needs[$k] ?? 0) + (int) $line->quantity;
-        }
-
-        $roomIds = self::normalizeRoomIdList($roomIds);
-        if ($roomIds === []) {
-            return [];
-        }
-
-        $rooms = Room::query()
-            ->whereIn('id', $roomIds)
-            ->with(['bedSpecifications'])
-            ->get()
-            ->keyBy('id');
-
-        $result = [];
-        foreach ($roomIds as $id) {
-            $room = $rooms->get($id);
-            if (! $room) {
-                continue;
-            }
-            $k = $room->type."\0".RoomInventoryGroupKey::forRoom($room);
-            if (($needs[$k] ?? 0) > 0) {
-                $result[] = $id;
-                $needs[$k]--;
-            }
-        }
+        // No longer clamps to room lines - allows full flexibility in room selection
+        return self::normalizeRoomIdList($roomIds);
 
         return $result;
     }
