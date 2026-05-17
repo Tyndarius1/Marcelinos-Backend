@@ -153,7 +153,9 @@ class Venue extends Model implements HasMedia
         );
         $end = Carbon::parse($checkOut);
 
-        return $query->where('status', '!=', self::STATUS_MAINTENANCE)
+        return $query
+            ->where('status', '!=', self::STATUS_MAINTENANCE)
+            ->where('status', '!=', self::STATUS_BOOKED)
             ->whereDoesntHave('bookings', function ($q) use ($effClientStart, $end, $excludeBookingId) {
                 $q->whereIn('bookings.booking_status', Booking::availabilityBlockingStatuses());
                 VenueWeddingPreparation::constrainToBookingsThatCollideWithVenueCandidateRange(

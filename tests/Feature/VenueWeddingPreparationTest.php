@@ -80,6 +80,54 @@ class VenueWeddingPreparationTest extends TestCase
         $this->assertContains($v1->id, $ids);
     }
 
+    public function test_null_venue_event_type_still_blocks_overlapping_venue(): void
+    {
+        $guest = $this->createGuest();
+        $v1 = $this->createVenue('Null event type A');
+
+        $b = Booking::withoutEvents(fn () => Booking::query()->create([
+            'guest_id' => $guest->id,
+            'reference_number' => 'TEST-NE-'.strtoupper(Str::random(8)),
+            'receipt_token' => (string) Str::uuid(),
+            'check_in' => '2026-07-10 12:00:00',
+            'check_out' => '2026-07-11 10:00:00',
+            'no_of_days' => 1,
+            'total_price' => 5000,
+            'booking_status' => Booking::BOOKING_STATUS_RESERVED,
+            'payment_status' => Booking::PAYMENT_STATUS_PAID,
+            'venue_event_type' => null,
+        ]));
+        $b->venues()->attach($v1->id);
+
+        $checkIn = Carbon::parse('2026-07-10 00:00:00');
+        $checkOut = Carbon::parse('2026-07-10 23:59:59');
+
+        $ids = Venue::query()->whereKey($v1->id)
+            ->availableBetween(
+                $checkIn,
+                $checkOut,
+                null,
+                BookingPricing::VENUE_EVENT_WEDDING,
+                true,
+            )
+            ->pluck('id')
+            ->all();
+
+        $this->assertNotContains($v1->id, $ids);
+
+        $q = http_build_query([
+            'check_in' => '2026-07-10T00:00:00.000Z',
+            'check_out' => '2026-07-10T23:59:59.000Z',
+            'venue_event_type' => 'wedding',
+        ]);
+
+        $res = $this->getJson('/api/venues?'.$q, $this->apiHeaders());
+        $res->assertStatus(200);
+        $row = collect($res->json('data'))->firstWhere('id', $v1->id);
+        $this->assertIsArray($row);
+        $this->assertFalse($row['available']);
+    }
+
     public function test_get_venues_marks_wedding_prep_conflict(): void
     {
         $guest = $this->createGuest();

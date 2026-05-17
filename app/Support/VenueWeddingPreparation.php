@@ -75,8 +75,11 @@ final class VenueWeddingPreparation
         $bookingQuery->where(function ($w) use ($expr, $checkOut, $eff): void {
             $w->where(function ($n) use ($checkOut, $eff): void {
                 $n->where(function ($x): void {
-                    $x->where('bookings.venue_event_type', '!=', BookingPricing::VENUE_EVENT_WEDDING)
-                        ->orWhereDoesntHave('venues');
+                    // SQL `NULL != 'wedding'` is unknown — treat null/missing type as non-wedding overlap.
+                    $x->where(function ($typeQ): void {
+                        $typeQ->whereNull('bookings.venue_event_type')
+                            ->orWhere('bookings.venue_event_type', '!=', BookingPricing::VENUE_EVENT_WEDDING);
+                    })->orWhereDoesntHave('venues');
                 })
                     ->where('bookings.check_in', '<', $checkOut)
                     ->where('bookings.check_out', '>', $eff);
